@@ -1,0 +1,6 @@
+[user]
+	name = "Gustavo Ocanto"
+	email = <EMAIL>
+	signingkey = <KEY>
+[commit]
+	gpgsign = true

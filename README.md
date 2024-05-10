@@ -1,2 +1,3 @@
-# dot-files
-Personal .files
+### About
+
+Gus' personal dot (.) files.
