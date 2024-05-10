@@ -1,3 +1,5 @@
+export GPG_TTY="$( tty )"
+
 #COMPOSER
 export PATH=$PATH:~/.composer/vendor/bin
 
@@ -32,7 +34,8 @@ alias gl="git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %
 alias nah="git reset --hard && git clean -df"
 alias wip="git add . && git commit -m 'wip'"
 alias gclean="git fetch -p"
-
+alias gdiff="git diff"
+alias gforce="git push --force-with-lease"
 
 #GO
 export GOPATH=$HOME/go
