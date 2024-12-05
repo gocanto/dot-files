@@ -36,6 +36,8 @@ alias wip="git add . && git commit -m 'wip'"
 alias gclean="git fetch -p"
 alias gdiff="git diff"
 alias gforce="git push --force-with-lease"
+alias gempty="git commit --allow-empty -m 'Empty - Commit'"
+
 
 #GO
 export GOPATH=$HOME/go
