@@ -1,0 +1,10 @@
+font-family  = ""
+font-family  = "Space Mono"
+font-size    = 15
+font-thicken = true
+font-feature = -liga
+
+window-height = 30
+window-width  = 110
+
+theme = "catppuccin-frappe"
