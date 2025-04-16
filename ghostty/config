@@ -1,10 +1,36 @@
-font-family  = ""
-font-family  = "Space Mono"
-font-size    = 15
-font-thicken = true
-font-feature = -liga
+# font-family sets the specific font you want to use in the terminal.
+# Popular choices include "Iosevka Term", "JetBrains Mono", or "Fira Code".
+font-family  = "JetBrains Mon"
 
+# font-size defines the height of the font in points.
+# Common range for devs: 12-16 depending on your display.
+font-size    = 16
+
+# font-thicken slightly thickens each glyph, improving legibility on
+# high-resolution or very bright screens.
+font-thicken = true
+
+# font-feature toggles advanced font features (like ligatures).
+# +liga enables programming ligatures; -liga disables them.
+# If the font doesn't provide a certain feature, toggling it has no effect.
+font-feature = +liga
+
+# window-height and window-width specify the initial number of rows
+# and columns in the terminal window when launched.
 window-height = 30
 window-width  = 110
 
+# adjust-cell-height scales the total cell height (line spacing) by
+# a percentage of the default font height.
+# Example: "50%" means add 50% extra height around the text, distributed
+# evenly above/below.
+adjust-cell-height = "60%"
+
+# theme controls color schemes for text, background, cursors, etc.
+# Some known themes: catppuccin-{latte, frappe, macchiato, mocha},
+# dracula, solarized-{light, dark}, nord, etc.
 theme = "catppuccin-frappe"
+
+# background-opacity makes the background partially see-through.
+# 1.00 is fully opaque, and lower values (e.g., 0.80) increase transparency.
+background-opacity = "0.90"
