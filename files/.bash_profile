@@ -6,6 +6,8 @@ export PATH=$PATH:~/.composer/vendor/bin
 #MISCELLANEOUS
 alias weather="curl http://wttr.in"
 alias code="cd ~/Sites"
+alias asfiles="defaults write com.apple.Finder AppleShowAllFiles TRUE; killall Finder"
+alias ahfiles="defaults write com.apple.Finder AppleShowAllFiles FALSE; killall Finder"
 
 #LARAVEL
 alias l-aa="php artisan"
