@@ -2,6 +2,7 @@
 export ZSH="$HOME/.oh-my-zsh"
 export PATH="/opt/homebrew/opt/openssl/bin:$PATH"
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/bin"
+export PATH="/opt/homebrew/sbin:$PATH" # dnsmasq
 
 ZSH_THEME="agnoster"
 
