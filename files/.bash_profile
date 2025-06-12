@@ -42,6 +42,13 @@ alias gempty="git commit --allow-empty -m 'Empty - Commit'"
 # --- GO: add these lines if GO was installed outside Homebrew.
 # export GOPATH=$HOME/go
 # export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
-# export PATH=$PATH:$(go env GOPATH)/bin
 # export GOROOT="$(brew --prefix go)/libexec"
 # export PATH="$GOROOT/bin:$PATH"
+
+export PATH=$PATH:$(go env GOPATH)/bin
+
+
+
+
+
+
