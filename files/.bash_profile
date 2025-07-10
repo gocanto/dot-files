@@ -38,7 +38,7 @@ alias nah="git reset --hard && git clean -df"
 alias wip="git add . && git commit -m 'wip'"
 alias gclean="git fetch -p"
 alias gempty="git commit --allow-empty -m 'Empty - Commit'"
-alias ginit="git config --global pull.rebase true" #reconcile git diverged
+alias gfresh="git config --global pull.rebase true" #reconcile git diverged
 
 # --- GO: add these lines if GO was installed outside Homebrew.
 # export GOPATH=$HOME/go
