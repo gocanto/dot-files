@@ -10,6 +10,14 @@ alias api="cd ~/Sites/praesenx/api"
 alias web="cd ~/Sites/praesenx/web"
 alias ppath="echo $PATH | tr ':' '\n'"
 alias zrestart="exec zsh --login"
+alias dk-clear="docker container prune -f && \
+        docker image prune -f && \
+        docker volume prune -f && \
+        docker network prune -f && \
+        docker system prune -a --volumes -f && \
+        docker ps -aq | xargs --no-run-if-empty docker stop && \
+        docker ps -aq | xargs --no-run-if-empty docker rm && \
+        docker ps"
 
 #LARAVEL
 alias aa="php artisan"
