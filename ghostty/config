@@ -29,7 +29,8 @@ adjust-cell-height = "60%"
 # theme controls color schemes for text, background, cursors, etc.
 # Some known themes: catppuccin-{latte, frappe, macchiato, mocha},
 # dracula, solarized-{light, dark}, nord, etc.
-theme = "catppuccin-frappe"
+theme = dark:Catppuccin Frappe,light:Catppuccin Latte
+background = "#000000"
 
 # background-opacity makes the background partially see-through.
 # 1.00 is fully opaque, and lower values (e.g., 0.80) increase transparency.
