@@ -6,8 +6,8 @@ export PATH=$PATH:~/.composer/vendor/bin
 #MISCELLANEOUS
 alias weather="curl http://wttr.in"
 alias code="cd ~/Sites"
-alias api="cd ~/Sites/praesenx/api"
-alias web="cd ~/Sites/praesenx/web"
+alias api="cd ~/Sites/oullin/api"
+alias web="cd ~/Sites/oullin/web"
 alias ppath="echo $PATH | tr ':' '\n'"
 alias zrestart="exec zsh --login"
 alias dk-clear="docker container prune -f && \
