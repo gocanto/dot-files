@@ -1,0 +1,10 @@
+[user]
+	signingkey = 29B2F10879262069
+	name = Gustavo Ocanto
+	email = gustavoocanto@gmail.com
+[commit]
+	gpgsign = true
+[gpg]
+	program = /opt/homebrew/bin/gpg
+[coderabbit]
+# redacted machine-specific or secret-like setting
