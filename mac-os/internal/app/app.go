@@ -17,20 +17,11 @@ import (
 	"time"
 )
 
-const (
-	defaultArchiveRoot = ".local/state/macos-settings-archives"
-)
-
 type commandRunner interface {
 	Run(name string, args ...string) ([]byte, error)
 }
 
 type realRunner struct{}
-
-func (realRunner) Run(name string, args ...string) ([]byte, error) {
-	cmd := exec.Command(name, args...)
-	return cmd.CombinedOutput()
-}
 
 type app struct {
 	home   string
@@ -47,18 +38,49 @@ type options struct {
 	archiveRoot string
 }
 
+type macSetting struct {
+	domain string
+	key    string
+	args   []string
+}
+
+type devTool struct {
+	name        string
+	versionArgs []string
+}
+
+type captureItem struct {
+	source string
+	target string
+}
+
+const (
+	defaultArchiveRoot = ".local/state/macos-settings-archives"
+)
+
+func (realRunner) Run(name string, args ...string) ([]byte, error) {
+	cmd := exec.Command(name, args...)
+
+	return cmd.CombinedOutput()
+}
+
 func Run(args []string) int {
 	home, err := os.UserHomeDir()
+
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "cannot find home directory: %v\n", err)
+
 		return 1
 	}
 
 	repo, err := os.Getwd()
+
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "cannot find working directory: %v\n", err)
+
 		return 1
 	}
+
 	repo = findRepoRoot(repo)
 
 	a := app{
@@ -72,6 +94,7 @@ func Run(args []string) int {
 
 	if len(args) == 0 {
 		a.usage()
+
 		return 0
 	}
 
@@ -90,10 +113,12 @@ func Run(args []string) int {
 		return a.macos(args[1:])
 	case "help", "-h", "--help":
 		a.usage()
+
 		return 0
 	default:
 		fmt.Fprintf(a.stderr, "unknown command %q\n\n", args[0])
 		a.usage()
+
 		return 2
 	}
 }
@@ -124,6 +149,7 @@ func (a app) bootstrap(args []string) int {
 	opts := options{}
 	fs.BoolVar(&opts.dryRun, "dry-run", false, "show commands without changing the machine")
 	fs.BoolVar(&opts.yes, "yes", false, "run all phases without prompting")
+
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -144,6 +170,7 @@ func (a app) bootstrap(args []string) int {
 	for _, phase := range phases {
 		if err := a.confirmAndRun(phase.name, opts, func() error { return phase.run(opts) }); err != nil {
 			fmt.Fprintf(a.stderr, "%s failed: %v\n", phase.name, err)
+
 			return 1
 		}
 	}
@@ -157,14 +184,17 @@ func (a app) adopt(args []string) int {
 	opts := options{}
 	fs.BoolVar(&opts.dryRun, "dry-run", false, "show files without importing them")
 	fs.BoolVar(&opts.yes, "yes", false, "import without prompting")
+
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
 	if err := a.confirmAndRun("adopt safe dotfiles", opts, func() error { return a.adoptDotfiles(opts) }); err != nil {
 		fmt.Fprintf(a.stderr, "adopt failed: %v\n", err)
+
 		return 1
 	}
+
 	return 0
 }
 
@@ -175,12 +205,14 @@ func (a app) capture(args []string) int {
 	fs.BoolVar(&opts.dryRun, "dry-run", false, "show capture plan without writing files")
 	fs.BoolVar(&opts.yes, "yes", false, "capture without prompting")
 	fs.StringVar(&opts.archiveRoot, "archive-root", "", "directory where timestamped archives are stored")
+
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
 	if err := a.confirmAndRun("private archive capture", opts, func() error { return a.captureArchive(opts) }); err != nil {
 		fmt.Fprintf(a.stderr, "capture failed: %v\n", err)
+
 		return 1
 	}
 
@@ -190,13 +222,17 @@ func (a app) capture(args []string) int {
 func (a app) doctor(args []string) int {
 	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	fs.SetOutput(a.stderr)
+
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
+
 	if err := a.runDoctor(options{}); err != nil {
 		fmt.Fprintf(a.stderr, "doctor failed: %v\n", err)
+
 		return 1
 	}
+
 	return 0
 }
 
@@ -204,21 +240,27 @@ func (a app) brewfile(args []string) int {
 	fs := flag.NewFlagSet("brewfile", flag.ContinueOnError)
 	fs.SetOutput(a.stderr)
 	writePath := fs.String("write", "", "write Brewfile to this path")
+
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
 	content := brewfileContent()
+
 	if *writePath == "" {
 		fmt.Fprint(a.stdout, content)
+
 		return 0
 	}
 
 	if err := os.WriteFile(*writePath, []byte(content), 0o644); err != nil {
 		fmt.Fprintf(a.stderr, "write Brewfile: %v\n", err)
+
 		return 1
 	}
+
 	fmt.Fprintf(a.stdout, "wrote %s\n", *writePath)
+
 	return 0
 }
 
@@ -228,32 +270,41 @@ func (a app) macos(args []string) int {
 	opts := options{}
 	fs.BoolVar(&opts.dryRun, "dry-run", false, "show defaults without applying")
 	fs.BoolVar(&opts.yes, "yes", false, "apply without prompting")
+
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
 	if err := a.confirmAndRun("macOS defaults", opts, func() error { return a.applyMacOSDefaults(opts) }); err != nil {
 		fmt.Fprintf(a.stderr, "macOS defaults failed: %v\n", err)
+
 		return 1
 	}
+
 	return 0
 }
 
 func (a app) confirmAndRun(name string, opts options, fn func() error) error {
 	fmt.Fprintf(a.stdout, "\n==> %s\n", name)
+
 	if opts.dryRun {
 		fmt.Fprintln(a.stdout, "dry-run mode: no changes will be applied")
 	}
+
 	if !opts.yes && !opts.dryRun {
 		ok, err := a.confirm("Run this phase?")
+
 		if err != nil {
 			return err
 		}
+
 		if !ok {
 			fmt.Fprintln(a.stdout, "skipped")
+
 			return nil
 		}
 	}
+
 	return fn()
 }
 
@@ -261,10 +312,13 @@ func (a app) confirm(prompt string) (bool, error) {
 	fmt.Fprintf(a.stdout, "%s [y/N] ", prompt)
 	reader := bufio.NewReader(a.stdin)
 	line, err := reader.ReadString('\n')
+
 	if err != nil && !errors.Is(err, io.EOF) {
 		return false, err
 	}
+
 	answer := strings.ToLower(strings.TrimSpace(line))
+
 	return answer == "y" || answer == "yes", nil
 }
 
@@ -281,12 +335,16 @@ func (a app) ensurePrerequisites(opts options) error {
 	for _, step := range steps {
 		if opts.dryRun {
 			fmt.Fprintf(a.stdout, "would run: %s\n", shellQuote(step))
+
 			continue
 		}
+
 		out, err := a.runner.Run(step[0], step[1:]...)
+
 		if err != nil {
 			return fmt.Errorf("%s: %w\n%s", shellQuote(step), err, strings.TrimSpace(string(out)))
 		}
+
 		fmt.Fprintf(a.stdout, "%s ok\n", step[0])
 	}
 
@@ -295,28 +353,34 @@ func (a app) ensurePrerequisites(opts options) error {
 
 func (a app) applyHomebrewBundle(opts options) error {
 	brewfile := filepath.Join(a.repo, "Brewfile")
+
 	if _, err := os.Stat(brewfile); err != nil {
 		return fmt.Errorf("missing Brewfile at %s", brewfile)
 	}
 
 	cmd := []string{"brew", "bundle", "--file", brewfile}
+
 	if opts.dryRun {
 		fmt.Fprintf(a.stdout, "would run: %s\n", shellQuote(cmd))
+
 		return nil
 	}
 
 	out, err := a.runner.Run(cmd[0], cmd[1:]...)
 	fmt.Fprint(a.stdout, string(out))
+
 	return err
 }
 
 func (a app) applyStow(opts options) error {
 	stowDir := filepath.Join(a.repo, "stow")
+
 	if _, err := os.Stat(stowDir); err != nil {
 		return fmt.Errorf("missing stow directory at %s", stowDir)
 	}
 
 	entries, err := os.ReadDir(stowDir)
+
 	if err != nil {
 		return err
 	}
@@ -325,14 +389,19 @@ func (a app) applyStow(opts options) error {
 		if !entry.IsDir() {
 			continue
 		}
+
 		cmd := []string{"stow", "--dir", stowDir, "--target", a.home, "--verbose", entry.Name()}
+
 		if opts.dryRun {
 			cmd = append(cmd, "--no")
 			fmt.Fprintf(a.stdout, "would run: %s\n", shellQuote(cmd))
+
 			continue
 		}
+
 		out, err := a.runner.Run(cmd[0], cmd[1:]...)
 		fmt.Fprint(a.stdout, string(out))
+
 		if err != nil {
 			return err
 		}
@@ -345,42 +414,59 @@ func (a app) adoptDotfiles(opts options) error {
 	for _, item := range adoptPlan(a.home, a.repo) {
 		source := item.source
 		target := item.target
+
 		if opts.dryRun {
 			fmt.Fprintf(a.stdout, "would import: %s -> %s\n", source, target)
+
 			continue
 		}
+
 		if shouldSkipSensitive(source) {
 			fmt.Fprintf(a.stdout, "skipped sensitive path: %s\n", source)
+
 			continue
 		}
+
 		data, err := os.ReadFile(source)
+
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				fmt.Fprintf(a.stdout, "missing, skipped: %s\n", source)
+
 				continue
 			}
+
 			return err
 		}
+
 		data = sanitizeDotfile(source, a.home, data)
+
 		if err := writeFile(target, data, 0o600); err != nil {
 			return err
 		}
+
 		fmt.Fprintf(a.stdout, "imported: %s\n", target)
 	}
+
 	return nil
 }
 
 func (a app) applyMacOSDefaults(opts options) error {
 	for _, setting := range macOSDefaults() {
 		cmd := append([]string{"defaults", "write", setting.domain, setting.key}, setting.args...)
+
 		if opts.dryRun {
 			fmt.Fprintf(a.stdout, "would run: %s\n", shellQuote(cmd))
+
 			continue
 		}
+
 		out, err := a.runner.Run(cmd[0], cmd[1:]...)
+
 		if len(out) > 0 {
 			fmt.Fprint(a.stdout, string(out))
 		}
+
 		if err != nil {
 			return fmt.Errorf("%s: %w", shellQuote(cmd), err)
 		}
@@ -391,11 +477,14 @@ func (a app) applyMacOSDefaults(opts options) error {
 		{"killall", "Dock"},
 		{"killall", "SystemUIServer"},
 	}
+
 	for _, cmd := range restarts {
 		if opts.dryRun {
 			fmt.Fprintf(a.stdout, "would run: %s\n", shellQuote(cmd))
+
 			continue
 		}
+
 		_, _ = a.runner.Run(cmd[0], cmd[1:]...)
 	}
 
@@ -404,9 +493,11 @@ func (a app) applyMacOSDefaults(opts options) error {
 
 func (a app) captureArchive(opts options) error {
 	root := opts.archiveRoot
+
 	if root == "" {
 		root = filepath.Join(a.home, defaultArchiveRoot)
 	}
+
 	if strings.HasPrefix(root, "~/") {
 		root = filepath.Join(a.home, strings.TrimPrefix(root, "~/"))
 	}
@@ -419,9 +510,11 @@ func (a app) captureArchive(opts options) error {
 		for _, item := range capturePlan() {
 			fmt.Fprintf(a.stdout, "would capture: %s -> %s\n", item.source, item.target)
 		}
+
 		for _, domain := range defaultsDomains {
 			fmt.Fprintf(a.stdout, "would export defaults domain: %s\n", domain)
 		}
+
 		return nil
 	}
 
@@ -432,38 +525,49 @@ func (a app) captureArchive(opts options) error {
 	if err := a.writeManifest(dest); err != nil {
 		return err
 	}
+
 	if err := a.writeCommandOutput(dest, "system/sw_vers.txt", "sw_vers"); err != nil {
 		return err
 	}
+
 	if err := a.writeCommandOutput(dest, "system/uname.txt", "uname", "-a"); err != nil {
 		return err
 	}
+
 	if err := a.writeCommandOutput(dest, "brew/leaves.txt", "brew", "leaves"); err != nil {
 		return err
 	}
+
 	if err := a.writeCommandOutput(dest, "brew/casks.txt", "brew", "list", "--cask"); err != nil {
 		return err
 	}
+
 	if err := a.writeCommandOutput(dest, "brew/bundle-dump.txt", "brew", "bundle", "dump", "--file=-"); err != nil {
 		fmt.Fprintf(a.stderr, "warning: brew bundle dump failed: %v\n", err)
 	}
+
 	if err := a.writeCommandOutput(dest, "apps/applications.txt", "find", "/Applications", "-maxdepth", "2", "-name", "*.app", "-print"); err != nil {
 		fmt.Fprintf(a.stderr, "warning: application inventory failed: %v\n", err)
 	}
+
 	if err := a.writeCommandOutput(dest, "launch/agents-daemons.txt", "sh", "-c", `find "$HOME/Library/LaunchAgents" /Library/LaunchAgents /Library/LaunchDaemons -maxdepth 1 -type f -name '*.plist' -print 2>/dev/null | sort`); err != nil {
 		fmt.Fprintf(a.stderr, "warning: launch inventory failed: %v\n", err)
 	}
+
 	if err := a.writeToolVersions(dest); err != nil {
 		return err
 	}
+
 	if err := a.copySafeFiles(dest); err != nil {
 		return err
 	}
+
 	if err := a.exportDefaults(dest); err != nil {
 		return err
 	}
 
 	fmt.Fprintf(a.stdout, "captured archive at %s\n", dest)
+
 	return nil
 }
 
@@ -482,86 +586,115 @@ Skipped or redacted:
 - Browser/app caches, sessions, Claude/Codex file history, machine IDs.
 - Docker VM data, database data directories, sockets, and generated state.
 `
+
 	return writeFile(filepath.Join(dest, "MANIFEST.md"), []byte(content), 0o600)
 }
 
 func (a app) writeCommandOutput(root, rel, name string, args ...string) error {
 	out, err := a.runner.Run(name, args...)
+
 	if err != nil {
 		return fmt.Errorf("%s: %w\n%s", shellQuote(append([]string{name}, args...)), err, strings.TrimSpace(string(out)))
 	}
+
 	return writeFile(filepath.Join(root, rel), out, 0o600)
 }
 
 func (a app) writeToolVersions(root string) error {
 	var b strings.Builder
+
 	for _, tool := range devTools {
 		path, _ := exec.LookPath(tool.name)
 		fmt.Fprintf(&b, "## %s\n", tool.name)
+
 		if path == "" {
 			fmt.Fprintln(&b, "missing")
 			fmt.Fprintln(&b)
+
 			continue
 		}
+
 		fmt.Fprintf(&b, "path: %s\n", path)
 		out, err := a.runner.Run(tool.name, tool.versionArgs...)
+
 		if err != nil {
 			fmt.Fprintf(&b, "version error: %v\n%s\n\n", err, strings.TrimSpace(string(out)))
+
 			continue
 		}
+
 		fmt.Fprintf(&b, "%s\n", strings.TrimSpace(string(out)))
 		fmt.Fprintln(&b)
 	}
+
 	return writeFile(filepath.Join(root, "dev-tools/versions.md"), []byte(b.String()), 0o600)
 }
 
 func (a app) copySafeFiles(root string) error {
 	for _, item := range capturePlan() {
 		source := item.source
+
 		if strings.HasPrefix(source, "~/") {
 			source = filepath.Join(a.home, strings.TrimPrefix(source, "~/"))
 		}
+
 		info, err := os.Stat(source)
+
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				continue
 			}
+
 			return err
 		}
+
 		target := filepath.Join(root, item.target)
+
 		if info.IsDir() {
 			if err := copyDirSafe(source, target); err != nil {
 				return err
 			}
+
 			continue
 		}
+
 		if shouldSkipSensitive(source) {
 			continue
 		}
+
 		data, err := os.ReadFile(source)
+
 		if err != nil {
 			return err
 		}
+
 		data = sanitizeDotfile(source, a.home, data)
+
 		if err := writeFile(target, data, 0o600); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
 func (a app) exportDefaults(root string) error {
 	for _, domain := range defaultsDomains {
 		out, err := a.runner.Run("defaults", "export", domain, "-")
+
 		if err != nil {
 			fmt.Fprintf(a.stderr, "warning: defaults export %s failed: %v\n", domain, err)
+
 			continue
 		}
+
 		name := strings.ReplaceAll(domain, "/", "_") + ".plist"
+
 		if err := writeFile(filepath.Join(root, "defaults", name), out, 0o600); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -573,37 +706,41 @@ func (a app) runDoctor(options) error {
 	}
 
 	required := []string{"brew", "git", "stow"}
+
 	for _, name := range required {
 		path, err := exec.LookPath(name)
+
 		if err != nil {
 			fmt.Fprintf(a.stdout, "missing: %s\n", name)
+
 			continue
 		}
+
 		fmt.Fprintf(a.stdout, "found: %s -> %s\n", name, path)
 	}
 
 	fmt.Fprintln(a.stdout, "\nDeveloper tools:")
+
 	for _, tool := range devTools {
 		path, err := exec.LookPath(tool.name)
+
 		if err != nil {
 			fmt.Fprintf(a.stdout, "  %-14s missing\n", tool.name)
+
 			continue
 		}
+
 		out, err := a.runner.Run(tool.name, tool.versionArgs...)
 		version := strings.TrimSpace(firstLine(out))
+
 		if err != nil {
 			version = "version check failed"
 		}
+
 		fmt.Fprintf(a.stdout, "  %-14s %s (%s)\n", tool.name, version, path)
 	}
 
 	return nil
-}
-
-type macSetting struct {
-	domain string
-	key    string
-	args   []string
 }
 
 func macOSDefaults() []macSetting {
@@ -629,11 +766,6 @@ func macOSDefaults() []macSetting {
 	}
 }
 
-type devTool struct {
-	name        string
-	versionArgs []string
-}
-
 var devTools = []devTool{
 	{"git", []string{"--version"}},
 	{"gh", []string{"--version"}},
@@ -652,11 +784,6 @@ var devTools = []devTool{
 	{"codex", []string{"--version"}},
 	{"opencode", []string{"--version"}},
 	{"agent-browser", []string{"--version"}},
-}
-
-type captureItem struct {
-	source string
-	target string
 }
 
 func adoptPlan(home, repo string) []captureItem {
@@ -745,15 +872,20 @@ func brewfileContent() string {
 	}
 
 	var b strings.Builder
+
 	fmt.Fprintln(&b, `tap "homebrew/bundle"`)
 	fmt.Fprintln(&b)
+
 	for _, name := range formulae {
 		fmt.Fprintf(&b, "brew %s\n", strconv.Quote(name))
 	}
+
 	fmt.Fprintln(&b)
+
 	for _, name := range casks {
 		fmt.Fprintf(&b, "cask %s\n", strconv.Quote(name))
 	}
+
 	return b.String()
 }
 
@@ -761,14 +893,17 @@ func writeFile(path string, content []byte, perm fs.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
+
 	return os.WriteFile(path, content, perm)
 }
 
 func copyFile(source, target string) error {
 	data, err := os.ReadFile(source)
+
 	if err != nil {
 		return err
 	}
+
 	return writeFile(target, data, 0o600)
 }
 
@@ -777,23 +912,31 @@ func copyDirSafe(source, target string) error {
 		if err != nil {
 			return err
 		}
+
 		rel, err := filepath.Rel(source, path)
+
 		if err != nil {
 			return err
 		}
+
 		if rel == "." {
 			return nil
 		}
+
 		if shouldSkipSensitive(path) {
 			if d.IsDir() {
 				return filepath.SkipDir
 			}
+
 			return nil
 		}
+
 		dst := filepath.Join(target, rel)
+
 		if d.IsDir() {
 			return os.MkdirAll(dst, 0o700)
 		}
+
 		return copyFile(path, dst)
 	})
 }
@@ -801,9 +944,11 @@ func copyDirSafe(source, target string) error {
 func shouldSkipSensitive(path string) bool {
 	lower := strings.ToLower(filepath.ToSlash(path))
 	base := strings.ToLower(filepath.Base(path))
+
 	if strings.Contains(lower, "/.ssh/id_") && !strings.HasSuffix(lower, ".pub") {
 		return true
 	}
+
 	patterns := []string{
 		".zsh_history",
 		".bash_history",
@@ -826,23 +971,29 @@ func shouldSkipSensitive(path string) bool {
 		"docker.raw",
 		"database",
 	}
+
 	for _, pattern := range patterns {
 		if strings.Contains(lower, pattern) || strings.Contains(base, pattern) {
 			return true
 		}
 	}
+
 	return false
 }
 
 func sanitizeDotfile(path, home string, data []byte) []byte {
 	content := string(data)
+
 	if home != "" {
 		content = strings.ReplaceAll(content, home, "$HOME")
 	}
+
 	lines := strings.Split(content, "\n")
 	kept := make([]string, 0, len(lines))
+
 	for _, line := range lines {
 		lower := strings.ToLower(line)
+
 		if strings.Contains(lower, "machineid") ||
 			strings.Contains(lower, "machine_id") ||
 			strings.Contains(lower, "installation_id") ||
@@ -853,35 +1004,47 @@ func sanitizeDotfile(path, home string, data []byte) []byte {
 			strings.Contains(lower, "secret=") ||
 			strings.Contains(lower, "token=") {
 			kept = append(kept, "# redacted machine-specific or secret-like setting")
+
 			continue
 		}
+
 		kept = append(kept, line)
 	}
+
 	out := strings.Join(kept, "\n")
+
 	if !strings.HasSuffix(out, "\n") {
 		out += "\n"
 	}
+
 	return []byte(out)
 }
 
 func shellQuote(parts []string) string {
 	quoted := make([]string, 0, len(parts))
+
 	for _, part := range parts {
 		if part == "" {
 			quoted = append(quoted, "''")
+
 			continue
 		}
+
 		if strings.ContainsAny(part, " \t\n\"'\\$`!*?[]{}()&;|<>") {
 			quoted = append(quoted, "'"+strings.ReplaceAll(part, "'", `'\''`)+"'")
+
 			continue
 		}
+
 		quoted = append(quoted, part)
 	}
+
 	return strings.Join(quoted, " ")
 }
 
 func firstLine(b []byte) string {
 	line, _, _ := bytes.Cut(b, []byte("\n"))
+
 	return string(line)
 }
 
@@ -891,6 +1054,7 @@ func findRepoRoot(start string) string {
 	}
 
 	exe, err := os.Executable()
+
 	if err == nil {
 		if root, ok := walkForRepoRoot(filepath.Dir(exe)); ok {
 			return root
@@ -902,6 +1066,7 @@ func findRepoRoot(start string) string {
 
 func walkForRepoRoot(start string) (string, bool) {
 	dir, err := filepath.Abs(start)
+
 	if err != nil {
 		return start, false
 	}
@@ -910,10 +1075,13 @@ func walkForRepoRoot(start string) (string, bool) {
 		if hasRepoMarkers(dir) {
 			return dir, true
 		}
+
 		parent := filepath.Dir(dir)
+
 		if parent == dir {
 			return start, false
 		}
+
 		dir = parent
 	}
 }
@@ -922,11 +1090,14 @@ func hasRepoMarkers(dir string) bool {
 	if _, err := os.Stat(filepath.Join(dir, "Brewfile")); err != nil {
 		return false
 	}
+
 	if info, err := os.Stat(filepath.Join(dir, "stow")); err != nil || !info.IsDir() {
 		return false
 	}
+
 	if _, err := os.Stat(filepath.Join(dir, "go.mod")); err != nil {
 		return false
 	}
+
 	return true
 }

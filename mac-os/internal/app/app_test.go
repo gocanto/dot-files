@@ -28,6 +28,7 @@ func TestShouldSkipSensitive(t *testing.T) {
 
 func TestBrewfileIncludesDevToolsAndStow(t *testing.T) {
 	content := brewfileContent()
+
 	for _, want := range []string{
 		`brew "stow"`,
 		`brew "agent-browser"`,
@@ -49,12 +50,14 @@ func TestBrewfileIncludesDevToolsAndStow(t *testing.T) {
 func TestShellQuote(t *testing.T) {
 	got := shellQuote([]string{"defaults", "write", "com.apple.finder", "FXPreferredViewStyle", "-string", "Nlsv"})
 	want := "defaults write com.apple.finder FXPreferredViewStyle -string Nlsv"
+
 	if got != want {
 		t.Fatalf("shellQuote = %q, want %q", got, want)
 	}
 
 	got = shellQuote([]string{"brew", "bundle", "--file", "/Users/gus/Sites/mac os/Brewfile"})
 	want = "brew bundle --file '/Users/gus/Sites/mac os/Brewfile'"
+
 	if got != want {
 		t.Fatalf("shellQuote with space = %q, want %q", got, want)
 	}
@@ -63,9 +66,11 @@ func TestShellQuote(t *testing.T) {
 func TestSanitizeDotfileRedactsMachineSpecificSettings(t *testing.T) {
 	input := []byte("[coderabbit]\n\tmachineId = cli/example\n[core]\n\teditor = vim\n")
 	got := string(sanitizeDotfile("/Users/gus/.gitconfig", "/Users/gus", input))
+
 	if strings.Contains(got, "cli/example") {
 		t.Fatalf("sanitizeDotfile leaked machine id: %s", got)
 	}
+
 	if !strings.Contains(got, "editor = vim") {
 		t.Fatalf("sanitizeDotfile removed safe config: %s", got)
 	}
@@ -74,9 +79,11 @@ func TestSanitizeDotfileRedactsMachineSpecificSettings(t *testing.T) {
 func TestSanitizeDotfileRewritesHomePath(t *testing.T) {
 	input := []byte(`export PATH="/Users/gus/bin:$PATH"`)
 	got := string(sanitizeDotfile("/Users/gus/.zshrc", "/Users/gus", input))
+
 	if strings.Contains(got, "/Users/gus") {
 		t.Fatalf("sanitizeDotfile leaked absolute home path: %s", got)
 	}
+
 	if !strings.Contains(got, "$HOME/bin") {
 		t.Fatalf("sanitizeDotfile did not rewrite home path: %s", got)
 	}
@@ -84,16 +91,21 @@ func TestSanitizeDotfileRewritesHomePath(t *testing.T) {
 
 func TestFindRepoRootWalksUp(t *testing.T) {
 	dir := t.TempDir()
+
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := os.WriteFile(filepath.Join(dir, "Brewfile"), []byte("tap \"homebrew/bundle\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := os.Mkdir(filepath.Join(dir, "stow"), 0o700); err != nil {
 		t.Fatal(err)
 	}
+
 	nested := filepath.Join(dir, "cmd", "mac-os")
+
 	if err := os.MkdirAll(nested, 0o700); err != nil {
 		t.Fatal(err)
 	}
