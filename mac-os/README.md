@@ -9,6 +9,19 @@ This repo separates two jobs:
 
 ## Usage
 
+For a new Mac, start from the repository root:
+
+```sh
+./setup.sh --apps
+```
+
+The setup script requires macOS, network access, administrator/sudo access, and
+completion of any Apple Command Line Tools installer or license prompts. It
+installs or enables Xcode Command Line Tools, installs Homebrew and Go when
+missing, then runs the Go bootstrap flow.
+
+After bootstrap, or when developing this tool, run commands directly:
+
 ```sh
 go run ./mac-os/cmd/mac-os doctor
 go run ./mac-os/cmd/mac-os bootstrap --apps --dry-run
@@ -52,6 +65,8 @@ Encrypted archives are written beside the timestamped capture directory as:
 All mutating commands support `--dry-run`. Prompted commands support `--yes`.
 App-aware commands accept `--config PATH`; by default they load `apps.yaml`
 through Viper.
+All `mac-os` commands validate sudo access at startup, including read-only
+commands, because machine setup assumes administrator access.
 
 ## App restore policy
 
@@ -116,9 +131,10 @@ go run ./cmd/mac-os capture --encrypt \
   --archive-root "/Volumes/Migration/macbook"
 ```
 
-On a new Mac, install Homebrew and 1Password first, sign in with `op`, install
-`age`, then retrieve the identity from 1Password and decrypt the latest archive.
-Keep the identity file outside the repo.
+On a new Mac, run `./setup.sh --apps` first. After Homebrew, 1Password, `op`,
+and `age` are installed, sign in with `op`, retrieve the identity from
+1Password, and decrypt the latest archive. Keep the identity file outside the
+repo.
 
 ## Developer tools
 
@@ -127,7 +143,7 @@ The Brewfile includes common CLI/dev tools, databases, AI tools, and app casks:
 - Git/GitHub: `git`, `gh`.
 - Shell/dev utilities: `jq`, `fd`, `fzf`, `glow`, `gnupg`, `vim`, `yazi`, `sevenzip`, `stow`.
 - Private archive encryption: `age`.
-- Runtimes/databases: `node@24`, `mysql`, `libpq`, `nginx`.
+- Runtimes/databases: `go`, `node@24`, `mysql`, `libpq`, `nginx`.
 - AI/dev CLIs: `agent-browser`, `codex`, `claude-code`, `opencode`.
 - Apps: Docker, VS Code, Ghostty, iTerm2, Raycast, Stats, 1Password, Bruno, Claude, Ice.
 

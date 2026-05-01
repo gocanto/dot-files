@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,10 +11,18 @@ import (
 
 type stubRunner struct {
 	outputs map[string][]byte
+	errors  map[string]error
+	calls   *[]string
 }
 
 func (r stubRunner) Run(name string, args ...string) ([]byte, error) {
-	return r.outputs[shellQuote(append([]string{name}, args...))], nil
+	key := shellQuote(append([]string{name}, args...))
+
+	if r.calls != nil {
+		*r.calls = append(*r.calls, key)
+	}
+
+	return r.outputs[key], r.errors[key]
 }
 
 func TestShouldSkipSensitive(t *testing.T) {
@@ -49,6 +58,7 @@ func TestBrewfileIncludesDevToolsAndStow(t *testing.T) {
 		`brew "mas"`,
 		`brew "opencode"`,
 		`brew "node@24"`,
+		`brew "go"`,
 		`brew "mysql"`,
 		`brew "libpq"`,
 		`cask "docker"`,
@@ -57,6 +67,93 @@ func TestBrewfileIncludesDevToolsAndStow(t *testing.T) {
 		if !strings.Contains(content, want) {
 			t.Fatalf("Brewfile missing %s\n%s", want, content)
 		}
+	}
+}
+
+func TestRequireSudoValidatesWithSudoV(t *testing.T) {
+	var calls []string
+	a := app{runner: stubRunner{calls: &calls}}
+
+	if err := a.requireSudo(); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(calls) != 1 || calls[0] != "sudo -v" {
+		t.Fatalf("calls = %v, want sudo -v", calls)
+	}
+}
+
+func TestRequireSudoReportsAuthFailure(t *testing.T) {
+	a := app{
+		runner: stubRunner{
+			outputs: map[string][]byte{"sudo -v": []byte("not in sudoers\n")},
+			errors:  map[string]error{"sudo -v": errors.New("exit status 1")},
+		},
+	}
+
+	err := a.requireSudo()
+
+	if err == nil {
+		t.Fatal("expected sudo failure")
+	}
+
+	if !strings.Contains(err.Error(), "sudo -v") || !strings.Contains(err.Error(), "not in sudoers") {
+		t.Fatalf("error = %v, want sudo command and output", err)
+	}
+}
+
+func TestEnsurePrerequisitesOnlyRequiresCommandLineTools(t *testing.T) {
+	var calls []string
+
+	var stdout bytes.Buffer
+	a := app{
+		goos:   "darwin",
+		stdout: &stdout,
+		runner: stubRunner{calls: &calls},
+	}
+
+	if err := a.ensurePrerequisites(options{}); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, call := range calls {
+		if strings.HasPrefix(call, "brew ") {
+			t.Fatalf("ensurePrerequisites called Homebrew: %v", calls)
+		}
+	}
+}
+
+func TestEnsurePrerequisitesReportsMissingCommandLineTools(t *testing.T) {
+	a := app{
+		goos: "darwin",
+		runner: stubRunner{
+			outputs: map[string][]byte{"xcode-select -p": []byte("unable to get active developer directory\n")},
+			errors:  map[string]error{"xcode-select -p": errors.New("exit status 2")},
+		},
+	}
+
+	err := a.ensurePrerequisites(options{})
+
+	if err == nil {
+		t.Fatal("expected missing CLT error")
+	}
+
+	if !strings.Contains(err.Error(), "xcode-select --install") {
+		t.Fatalf("error = %v, want setup guidance", err)
+	}
+}
+
+func TestEnsurePrerequisitesRejectsNonDarwin(t *testing.T) {
+	a := app{goos: "linux"}
+
+	err := a.ensurePrerequisites(options{})
+
+	if err == nil {
+		t.Fatal("expected unsupported OS error")
+	}
+
+	if !strings.Contains(err.Error(), "only supports darwin") {
+		t.Fatalf("error = %v, want darwin guidance", err)
 	}
 }
 

@@ -5,6 +5,8 @@ Personal setup and migration tooling for rebuilding a MacBook.
 This started as dotfiles, but the repo now treats dotfiles as one part of a
 larger restore flow:
 
+- bootstrap a fresh Mac from admin access, installing/enabling Xcode Command
+  Line Tools, Homebrew, and Go as needed;
 - install command-line tools and apps with Homebrew;
 - install App Store apps with `mas` and report manual app installs from a
   tracked Viper-loaded app policy;

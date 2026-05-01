@@ -1,5 +1,10 @@
 #!/bin/sh
 
+sudo -v || {
+	echo "administrator access is required" >&2
+	exit 1
+}
+
 echo "Generating a new SSH key for GitHub..."
 
 # Generating a new SSH key

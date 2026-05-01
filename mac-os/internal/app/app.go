@@ -29,6 +29,7 @@ type realRunner struct{}
 type app struct {
 	home   string
 	repo   string
+	goos   string
 	stdout io.Writer
 	stderr io.Writer
 	stdin  io.Reader
@@ -116,6 +117,7 @@ func Run(args []string) int {
 	a := app{
 		home:   home,
 		repo:   repo,
+		goos:   runtime.GOOS,
 		stdout: os.Stdout,
 		stderr: os.Stderr,
 		stdin:  os.Stdin,
@@ -126,6 +128,12 @@ func Run(args []string) int {
 		a.usage()
 
 		return 0
+	}
+
+	if err := a.requireSudo(); err != nil {
+		fmt.Fprintf(a.stderr, "sudo access required: %v\n", err)
+
+		return 1
 	}
 
 	switch args[0] {
@@ -402,30 +410,51 @@ func (a app) confirm(prompt string) (bool, error) {
 	return answer == "y" || answer == "yes", nil
 }
 
+func (a app) requireSudo() error {
+	out, err := a.runner.Run("sudo", "-v")
+
+	if err != nil {
+		message := strings.TrimSpace(string(out))
+
+		if message != "" {
+			return fmt.Errorf("run sudo -v: %w\n%s", err, message)
+		}
+
+		return fmt.Errorf("run sudo -v: %w", err)
+	}
+
+	return nil
+}
+
 func (a app) ensurePrerequisites(opts options) error {
-	if runtime.GOOS != "darwin" {
-		return fmt.Errorf("mac-os only supports darwin, current OS is %s", runtime.GOOS)
+	if a.goos != "darwin" {
+		return fmt.Errorf("mac-os only supports darwin, current OS is %s", a.goos)
 	}
 
-	steps := [][]string{
-		{"xcode-select", "-p"},
-		{"brew", "--version"},
+	cmd := []string{"xcode-select", "-p"}
+
+	if opts.dryRun {
+		fmt.Fprintf(a.stdout, "would run: %s\n", shellQuote(cmd))
+		fmt.Fprintln(a.stdout, "would check Xcode Command Line Tools license status")
+
+		return nil
 	}
 
-	for _, step := range steps {
-		if opts.dryRun {
-			fmt.Fprintf(a.stdout, "would run: %s\n", shellQuote(step))
+	out, err := a.runner.Run(cmd[0], cmd[1:]...)
 
-			continue
+	if err != nil {
+		return fmt.Errorf("Xcode Command Line Tools are missing or unusable; run `xcode-select --install`, complete Apple's installer, then rerun setup\n%s", strings.TrimSpace(string(out)))
+	}
+
+	fmt.Fprintf(a.stdout, "%s ok\n", cmd[0])
+
+	if out, err := a.runner.Run("xcodebuild", "-license", "check"); err != nil {
+		message := strings.TrimSpace(string(out))
+		lower := strings.ToLower(message)
+
+		if strings.Contains(lower, "license") || strings.Contains(lower, "agree") {
+			return fmt.Errorf("Xcode Command Line Tools license needs attention; run `sudo xcodebuild -license` and accept Apple's prompts\n%s", message)
 		}
-
-		out, err := a.runner.Run(step[0], step[1:]...)
-
-		if err != nil {
-			return fmt.Errorf("%s: %w\n%s", shellQuote(step), err, strings.TrimSpace(string(out)))
-		}
-
-		fmt.Fprintf(a.stdout, "%s ok\n", step[0])
 	}
 
 	return nil
@@ -1401,6 +1430,7 @@ func brewfileContent() string {
 		"gh",
 		"git",
 		"glow",
+		"go",
 		"gnupg",
 		"jq",
 		"libavif",
