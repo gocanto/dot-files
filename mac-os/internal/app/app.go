@@ -16,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 type commandRunner interface {
@@ -37,7 +39,10 @@ type options struct {
 	dryRun      bool
 	yes         bool
 	encrypt     bool
+	apps        bool
 	archiveRoot string
+	archivePath string
+	configPath  string
 	opVault     string
 	opItem      string
 }
@@ -56,6 +61,25 @@ type devTool struct {
 type captureItem struct {
 	source string
 	target string
+}
+
+type appConfig struct {
+	Apps []managedApp `mapstructure:"apps"`
+}
+
+type managedApp struct {
+	Name              string          `mapstructure:"name"`
+	BundleID          string          `mapstructure:"bundle_id"`
+	InstallMethod     string          `mapstructure:"install_method"`
+	Package           string          `mapstructure:"package"`
+	ConfigMode        string          `mapstructure:"config_mode"`
+	ConfigPaths       []appConfigPath `mapstructure:"config_paths"`
+	OnePasswordFields []string        `mapstructure:"onepassword_fields"`
+}
+
+type appConfigPath struct {
+	Source string `mapstructure:"source"`
+	Target string `mapstructure:"target"`
 }
 
 const (
@@ -111,6 +135,8 @@ func Run(args []string) int {
 		return a.adopt(args[1:])
 	case "capture":
 		return a.capture(args[1:])
+	case "restore":
+		return a.restore(args[1:])
 	case "doctor":
 		return a.doctor(args[1:])
 	case "brewfile":
@@ -134,8 +160,9 @@ func (a app) usage() {
 
 Usage:
   mac-os adopt [--dry-run] [--yes]
-  mac-os bootstrap [--dry-run] [--yes]
-  mac-os capture [--archive-root PATH] [--encrypt] [--op-vault VAULT] [--op-item ITEM] [--dry-run] [--yes]
+  mac-os bootstrap [--archive PATH] [--apps] [--config PATH] [--dry-run] [--yes]
+  mac-os capture [--apps] [--config PATH] [--archive-root PATH] [--encrypt] [--op-vault VAULT] [--op-item ITEM] [--dry-run] [--yes]
+  mac-os restore --archive PATH [--apps] [--config PATH] [--dry-run] [--yes]
   mac-os doctor
   mac-os brewfile [--write PATH]
   mac-os macos [--dry-run] [--yes]
@@ -144,6 +171,7 @@ Commands:
   adopt      Import safe current dotfiles into the repo's Stow layout.
   bootstrap  Run prompted phases for tools, dotfiles, macOS defaults, capture, and doctor.
   capture    Save a private settings inventory outside the repo by default.
+  restore    Restore allowlisted app configuration from a private archive.
   doctor     Print installed tool versions and missing prerequisites.
   brewfile   Print or write the curated Brewfile for this setup.
   macos      Apply curated macOS defaults only.`)
@@ -155,6 +183,9 @@ func (a app) bootstrap(args []string) int {
 	opts := options{}
 	fs.BoolVar(&opts.dryRun, "dry-run", false, "show commands without changing the machine")
 	fs.BoolVar(&opts.yes, "yes", false, "run all phases without prompting")
+	fs.BoolVar(&opts.apps, "apps", false, "include app install/config phases from apps.yaml")
+	fs.StringVar(&opts.archivePath, "archive", "", "restore app configuration from this archive during bootstrap")
+	fs.StringVar(&opts.configPath, "config", "", "app restore config path")
 
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -166,8 +197,11 @@ func (a app) bootstrap(args []string) int {
 	}{
 		{"prerequisites", a.ensurePrerequisites},
 		{"homebrew bundle", a.applyHomebrewBundle},
+		{"app store apps", a.applyAppStoreApps},
+		{"manual app report", a.reportManualApps},
 		{"adopt safe dotfiles", a.adoptDotfiles},
 		{"stow links", a.applyStow},
+		{"app config restore", a.restoreAppConfigs},
 		{"macOS defaults", a.applyMacOSDefaults},
 		{"private archive capture", a.captureArchive},
 		{"doctor", a.runDoctor},
@@ -211,7 +245,9 @@ func (a app) capture(args []string) int {
 	fs.BoolVar(&opts.dryRun, "dry-run", false, "show capture plan without writing files")
 	fs.BoolVar(&opts.yes, "yes", false, "capture without prompting")
 	fs.BoolVar(&opts.encrypt, "encrypt", false, "package and encrypt the archive with Age using 1Password metadata")
+	fs.BoolVar(&opts.apps, "apps", false, "include allowlisted app configuration from apps.yaml")
 	fs.StringVar(&opts.archiveRoot, "archive-root", "", "directory where timestamped archives are stored")
+	fs.StringVar(&opts.configPath, "config", "", "app restore config path")
 	fs.StringVar(&opts.opVault, "op-vault", defaultOPVault, "1Password vault containing archive metadata")
 	fs.StringVar(&opts.opItem, "op-item", defaultOPItem, "1Password item containing archive metadata")
 
@@ -221,6 +257,41 @@ func (a app) capture(args []string) int {
 
 	if err := a.confirmAndRun("private archive capture", opts, func() error { return a.captureArchive(opts) }); err != nil {
 		fmt.Fprintf(a.stderr, "capture failed: %v\n", err)
+
+		return 1
+	}
+
+	return 0
+}
+
+func (a app) restore(args []string) int {
+	fs := flag.NewFlagSet("restore", flag.ContinueOnError)
+	fs.SetOutput(a.stderr)
+	opts := options{}
+	fs.BoolVar(&opts.dryRun, "dry-run", false, "show restore plan without writing files")
+	fs.BoolVar(&opts.yes, "yes", false, "restore without prompting")
+	fs.BoolVar(&opts.apps, "apps", false, "restore allowlisted app configuration from apps.yaml")
+	fs.StringVar(&opts.archivePath, "archive", "", "archive directory to restore from")
+	fs.StringVar(&opts.configPath, "config", "", "app restore config path")
+
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+
+	if opts.archivePath == "" {
+		fmt.Fprintln(a.stderr, "restore requires --archive PATH")
+
+		return 2
+	}
+
+	if !opts.apps {
+		fmt.Fprintln(a.stderr, "restore currently requires --apps")
+
+		return 2
+	}
+
+	if err := a.confirmAndRun("app config restore", opts, func() error { return a.restoreAppConfigs(opts) }); err != nil {
+		fmt.Fprintf(a.stderr, "restore failed: %v\n", err)
 
 		return 1
 	}
@@ -381,6 +452,76 @@ func (a app) applyHomebrewBundle(opts options) error {
 	return err
 }
 
+func (a app) applyAppStoreApps(opts options) error {
+	if !opts.apps {
+		fmt.Fprintln(a.stdout, "skipped: run with --apps to install App Store apps")
+
+		return nil
+	}
+
+	cfg, err := a.loadAppConfig(opts.configPath)
+
+	if err != nil {
+		return err
+	}
+
+	for _, app := range cfg.Apps {
+		if app.InstallMethod != "mas" {
+			continue
+		}
+
+		cmd := []string{"mas", "install", app.Package}
+
+		if opts.dryRun {
+			fmt.Fprintf(a.stdout, "would run: %s # %s\n", shellQuote(cmd), app.Name)
+
+			continue
+		}
+
+		out, err := a.runner.Run(cmd[0], cmd[1:]...)
+		fmt.Fprint(a.stdout, string(out))
+
+		if err != nil {
+			return fmt.Errorf("install App Store app %q: %w", app.Name, err)
+		}
+	}
+
+	return nil
+}
+
+func (a app) reportManualApps(opts options) error {
+	if !opts.apps {
+		fmt.Fprintln(a.stdout, "skipped: run with --apps to report manual apps")
+
+		return nil
+	}
+
+	cfg, err := a.loadAppConfig(opts.configPath)
+
+	if err != nil {
+		return err
+	}
+
+	for _, app := range cfg.Apps {
+		switch app.InstallMethod {
+		case "manual":
+			fmt.Fprintf(a.stdout, "manual install required: %s", app.Name)
+
+			if app.Package != "" {
+				fmt.Fprintf(a.stdout, " (%s)", app.Package)
+			}
+
+			fmt.Fprintln(a.stdout)
+		case "brew":
+			fmt.Fprintf(a.stdout, "brew-managed app: %s (%s)\n", app.Name, app.Package)
+		case "system":
+			fmt.Fprintf(a.stdout, "system app: %s\n", app.Name)
+		}
+	}
+
+	return nil
+}
+
 func (a app) applyStow(opts options) error {
 	stowDir := filepath.Join(a.repo, "stow")
 
@@ -516,6 +657,18 @@ func (a app) captureArchive(opts options) error {
 			fmt.Fprintf(a.stdout, "would capture: %s -> %s\n", item.source, item.target)
 		}
 
+		if opts.apps {
+			cfg, err := a.loadAppConfig(opts.configPath)
+
+			if err != nil {
+				return err
+			}
+
+			for _, item := range appCapturePlan(cfg) {
+				fmt.Fprintf(a.stdout, "would capture app config: %s -> %s\n", item.source, item.target)
+			}
+		}
+
 		for _, domain := range defaultsDomains {
 			fmt.Fprintf(a.stdout, "would export defaults domain: %s\n", domain)
 		}
@@ -571,6 +724,12 @@ func (a app) captureArchive(opts options) error {
 
 	if err := a.copySafeFiles(dest); err != nil {
 		return err
+	}
+
+	if opts.apps {
+		if err := a.copyAppConfigFiles(dest, opts); err != nil {
+			return err
+		}
 	}
 
 	if err := a.exportDefaults(dest); err != nil {
@@ -829,6 +988,140 @@ func (a app) exportDefaults(root string) error {
 	return nil
 }
 
+func (a app) copyAppConfigFiles(root string, opts options) error {
+	cfg, err := a.loadAppConfig(opts.configPath)
+
+	if err != nil {
+		return err
+	}
+
+	if err := copyFile(a.appConfigPath(opts.configPath), filepath.Join(root, "apps/apps.yaml")); err != nil {
+		return err
+	}
+
+	for _, item := range appCapturePlan(cfg) {
+		source := expandHome(item.source, a.home)
+
+		if shouldSkipSensitive(source) || shouldSkipSensitive(item.target) {
+			fmt.Fprintf(a.stdout, "skipped sensitive app config: %s\n", item.source)
+
+			continue
+		}
+
+		info, err := os.Stat(source)
+
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				fmt.Fprintf(a.stdout, "missing app config, skipped: %s\n", item.source)
+
+				continue
+			}
+
+			return err
+		}
+
+		target := filepath.Join(root, item.target)
+
+		if info.IsDir() {
+			if err := copyDirSafe(source, target); err != nil {
+				return err
+			}
+
+			fmt.Fprintf(a.stdout, "captured app config: %s\n", item.target)
+
+			continue
+		}
+
+		data, err := os.ReadFile(source)
+
+		if err != nil {
+			return err
+		}
+
+		data = sanitizeDotfile(source, a.home, data)
+
+		if err := writeFile(target, data, 0o600); err != nil {
+			return err
+		}
+
+		fmt.Fprintf(a.stdout, "captured app config: %s\n", item.target)
+	}
+
+	return nil
+}
+
+func (a app) restoreAppConfigs(opts options) error {
+	if !opts.apps {
+		fmt.Fprintln(a.stdout, "skipped: run with --apps to restore app configs")
+
+		return nil
+	}
+
+	if opts.archivePath == "" {
+		fmt.Fprintln(a.stdout, "skipped: no --archive supplied for app config restore")
+
+		return nil
+	}
+
+	cfg, err := a.loadAppConfig(opts.configPath)
+
+	if err != nil {
+		return err
+	}
+
+	archive := expandHome(opts.archivePath, a.home)
+
+	for _, app := range cfg.Apps {
+		switch app.ConfigMode {
+		case "auto":
+			for _, path := range app.ConfigPaths {
+				source := filepath.Join(archive, path.Target)
+				target := expandHome(path.Source, a.home)
+
+				if shouldSkipSensitive(source) || shouldSkipSensitive(target) {
+					fmt.Fprintf(a.stdout, "skipped sensitive restore path: %s\n", path.Source)
+
+					continue
+				}
+
+				info, err := os.Stat(source)
+
+				if err != nil {
+					if errors.Is(err, os.ErrNotExist) {
+						fmt.Fprintf(a.stdout, "missing archive config, skipped: %s\n", path.Target)
+
+						continue
+					}
+
+					return err
+				}
+
+				if opts.dryRun {
+					fmt.Fprintf(a.stdout, "would restore app config: %s -> %s\n", source, target)
+
+					continue
+				}
+
+				if info.IsDir() {
+					if err := copyDirSafe(source, target); err != nil {
+						return err
+					}
+				} else if err := copyFile(source, target); err != nil {
+					return err
+				}
+
+				fmt.Fprintf(a.stdout, "restored app config: %s\n", target)
+			}
+		case "reference":
+			fmt.Fprintf(a.stdout, "reference only: %s\n", app.Name)
+		case "manual":
+			fmt.Fprintf(a.stdout, "manual config restore: %s\n", app.Name)
+		}
+	}
+
+	return nil
+}
+
 func (a app) runDoctor(options) error {
 	if runtime.GOOS != "darwin" {
 		fmt.Fprintf(a.stdout, "OS: %s (unsupported)\n", runtime.GOOS)
@@ -836,7 +1129,7 @@ func (a app) runDoctor(options) error {
 		fmt.Fprintln(a.stdout, "OS: darwin")
 	}
 
-	required := []string{"brew", "git", "stow", "op", "age"}
+	required := []string{"brew", "git", "stow", "op", "age", "mas"}
 
 	for _, name := range required {
 		path, err := exec.LookPath(name)
@@ -936,6 +1229,7 @@ var devTools = []devTool{
 	{"go", []string{"version"}},
 	{"php", []string{"--version"}},
 	{"composer", []string{"--version"}},
+	{"mas", []string{"version"}},
 	{"mysql", []string{"--version"}},
 	{"psql", []string{"--version"}},
 	{"docker", []string{"--version"}},
@@ -945,6 +1239,96 @@ var devTools = []devTool{
 	{"agent-browser", []string{"--version"}},
 	{"op", []string{"--version"}},
 	{"age", []string{"--version"}},
+}
+
+func (a app) loadAppConfig(path string) (appConfig, error) {
+	configPath := a.appConfigPath(path)
+	v := viper.New()
+	v.SetConfigFile(configPath)
+	v.SetConfigType("yaml")
+
+	if err := v.ReadInConfig(); err != nil {
+		return appConfig{}, fmt.Errorf("read app config %s: %w", configPath, err)
+	}
+
+	var cfg appConfig
+
+	if err := v.Unmarshal(&cfg); err != nil {
+		return appConfig{}, fmt.Errorf("parse app config %s: %w", configPath, err)
+	}
+
+	if err := validateAppConfig(cfg); err != nil {
+		return appConfig{}, fmt.Errorf("validate app config %s: %w", configPath, err)
+	}
+
+	return cfg, nil
+}
+
+func (a app) appConfigPath(path string) string {
+	if path == "" {
+		return filepath.Join(a.repo, "apps.yaml")
+	}
+
+	if strings.HasPrefix(path, "~/") {
+		return filepath.Join(a.home, strings.TrimPrefix(path, "~/"))
+	}
+
+	if filepath.IsAbs(path) {
+		return path
+	}
+
+	return filepath.Join(a.repo, path)
+}
+
+func validateAppConfig(cfg appConfig) error {
+	if len(cfg.Apps) == 0 {
+		return errors.New("apps must contain at least one app")
+	}
+
+	installModes := map[string]bool{"brew": true, "mas": true, "manual": true, "system": true}
+	configModes := map[string]bool{"auto": true, "reference": true, "manual": true}
+
+	for i, app := range cfg.Apps {
+		prefix := fmt.Sprintf("apps[%d]", i)
+
+		if strings.TrimSpace(app.Name) == "" {
+			return fmt.Errorf("%s.name is required", prefix)
+		}
+
+		if !installModes[app.InstallMethod] {
+			return fmt.Errorf("%s.install_method %q is invalid", prefix, app.InstallMethod)
+		}
+
+		if !configModes[app.ConfigMode] {
+			return fmt.Errorf("%s.config_mode %q is invalid", prefix, app.ConfigMode)
+		}
+
+		if (app.InstallMethod == "brew" || app.InstallMethod == "mas") && strings.TrimSpace(app.Package) == "" {
+			return fmt.Errorf("%s.package is required for %s installs", prefix, app.InstallMethod)
+		}
+
+		if app.ConfigMode == "auto" && len(app.ConfigPaths) == 0 {
+			return fmt.Errorf("%s.config_paths is required for auto config restore", prefix)
+		}
+
+		for j, path := range app.ConfigPaths {
+			pathPrefix := fmt.Sprintf("%s.config_paths[%d]", prefix, j)
+
+			if strings.TrimSpace(path.Source) == "" {
+				return fmt.Errorf("%s.source is required", pathPrefix)
+			}
+
+			if strings.TrimSpace(path.Target) == "" {
+				return fmt.Errorf("%s.target is required", pathPrefix)
+			}
+
+			if filepath.IsAbs(path.Target) || strings.HasPrefix(path.Target, "..") || strings.Contains(filepath.Clean(path.Target), "../") {
+				return fmt.Errorf("%s.target must be archive-relative", pathPrefix)
+			}
+		}
+	}
+
+	return nil
 }
 
 func adoptPlan(home, repo string) []captureItem {
@@ -957,6 +1341,22 @@ func adoptPlan(home, repo string) []captureItem {
 		{filepath.Join(home, ".config/git/ignore"), filepath.Join(repo, "stow/git/.config/git/ignore")},
 		{filepath.Join(home, ".config/ghostty/config"), filepath.Join(repo, "stow/ghostty/.config/ghostty/config")},
 	}
+}
+
+func appCapturePlan(cfg appConfig) []captureItem {
+	items := []captureItem{}
+
+	for _, app := range cfg.Apps {
+		if app.ConfigMode == "manual" {
+			continue
+		}
+
+		for _, path := range app.ConfigPaths {
+			items = append(items, captureItem{source: path.Source, target: path.Target})
+		}
+	}
+
+	return items
 }
 
 func capturePlan() []captureItem {
@@ -1005,6 +1405,7 @@ func brewfileContent() string {
 		"jq",
 		"libavif",
 		"libpq",
+		"mas",
 		"mysql",
 		"nginx",
 		"node@24",
@@ -1022,15 +1423,27 @@ func brewfileContent() string {
 		"bruno",
 		"claude",
 		"codex",
+		"codexbar",
+		"dbeaver-community",
+		"discord",
 		"docker",
 		"ghostty",
 		"google-chrome",
 		"iterm2",
+		"jetbrains-toolbox",
 		"jordanbaird-ice",
 		"latest",
+		"linearmouse",
+		"markedit",
+		"microsoft-teams",
+		"notion",
+		"postman",
 		"raycast",
+		"spotify",
 		"stats",
+		"sublime-text",
 		"visual-studio-code",
+		"zoom",
 	}
 
 	var b strings.Builder
@@ -1125,13 +1538,18 @@ func shouldSkipSensitive(path string) bool {
 		"file-history",
 		"state.vscdb",
 		"storage.json",
+		"cookies",
+		"login data",
 		"machineid",
 		"token",
 		"secret",
 		"private",
 		"keyring",
+		"keychain",
 		"docker.raw",
 		"database",
+		"library/application support/google/chrome",
+		"library/application support/bravesoftware",
 	}
 
 	for _, pattern := range patterns {
@@ -1210,6 +1628,14 @@ func firstLine(b []byte) string {
 	return string(line)
 }
 
+func expandHome(path, home string) string {
+	if strings.HasPrefix(path, "~/") {
+		return filepath.Join(home, strings.TrimPrefix(path, "~/"))
+	}
+
+	return path
+}
+
 func findRepoRoot(start string) string {
 	if root, ok := walkForRepoRoot(start); ok {
 		return root
@@ -1236,6 +1662,12 @@ func walkForRepoRoot(start string) (string, bool) {
 	for {
 		if hasRepoMarkers(dir) {
 			return dir, true
+		}
+
+		macOSDir := filepath.Join(dir, "mac-os")
+
+		if hasRepoMarkers(macOSDir) {
+			return macOSDir, true
 		}
 
 		parent := filepath.Dir(dir)

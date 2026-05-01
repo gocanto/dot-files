@@ -25,6 +25,8 @@ func TestShouldSkipSensitive(t *testing.T) {
 		"/Users/gus/.config/ghostty/config":                                          false,
 		"/Users/gus/Library/Application Support/Code/User/settings.json":             false,
 		"/Users/gus/Library/Application Support/Code/User/globalStorage/state.vscdb": true,
+		"/Users/gus/Library/Application Support/Google/Chrome/Default/Cookies":       true,
+		"/Users/gus/Library/Keychains/login.keychain-db":                             true,
 		"/Users/gus/.claude/file-history/abc/def":                                    true,
 	}
 
@@ -44,6 +46,7 @@ func TestBrewfileIncludesDevToolsAndStow(t *testing.T) {
 		`brew "agent-browser"`,
 		`brew "codex"`,
 		`brew "claude-code"`,
+		`brew "mas"`,
 		`brew "opencode"`,
 		`brew "node@24"`,
 		`brew "mysql"`,
@@ -54,6 +57,103 @@ func TestBrewfileIncludesDevToolsAndStow(t *testing.T) {
 		if !strings.Contains(content, want) {
 			t.Fatalf("Brewfile missing %s\n%s", want, content)
 		}
+	}
+}
+
+func TestLoadAppConfigValidatesModesAndPaths(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "apps.yaml")
+	content := []byte(`
+apps:
+  - name: Ghostty
+    bundle_id: com.mitchellh.ghostty
+    install_method: brew
+    package: ghostty
+    config_mode: auto
+    config_paths:
+      - source: ~/.config/ghostty/config
+        target: apps/ghostty/config
+`)
+
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	a := app{home: "/Users/gus", repo: dir}
+	cfg, err := a.loadAppConfig("")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(cfg.Apps) != 1 {
+		t.Fatalf("loaded %d apps, want 1", len(cfg.Apps))
+	}
+
+	if got := cfg.Apps[0].Package; got != "ghostty" {
+		t.Fatalf("package = %q, want ghostty", got)
+	}
+}
+
+func TestLoadAppConfigRejectsInvalidMode(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "apps.yaml")
+	content := []byte(`
+apps:
+  - name: Broken
+    install_method: curl
+    config_mode: auto
+    config_paths:
+      - source: ~/.config/broken
+        target: apps/broken
+`)
+
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	a := app{home: "/Users/gus", repo: dir}
+	_, err := a.loadAppConfig("")
+
+	if err == nil {
+		t.Fatal("expected invalid install mode error")
+	}
+
+	if !strings.Contains(err.Error(), "install_method") {
+		t.Fatalf("error = %v, want install_method validation", err)
+	}
+}
+
+func TestAppCapturePlanSkipsManualConfig(t *testing.T) {
+	cfg := appConfig{Apps: []managedApp{
+		{
+			Name:          "Ghostty",
+			InstallMethod: "brew",
+			Package:       "ghostty",
+			ConfigMode:    "auto",
+			ConfigPaths: []appConfigPath{
+				{Source: "~/.config/ghostty/config", Target: "apps/ghostty/config"},
+			},
+		},
+		{
+			Name:          "Slack",
+			InstallMethod: "mas",
+			Package:       "803453959",
+			ConfigMode:    "manual",
+			ConfigPaths: []appConfigPath{
+				{Source: "~/Library/Application Support/Slack", Target: "apps/slack"},
+			},
+		},
+	}}
+
+	got := appCapturePlan(cfg)
+
+	if len(got) != 1 {
+		t.Fatalf("appCapturePlan returned %d items, want 1", len(got))
+	}
+
+	if got[0].target != "apps/ghostty/config" {
+		t.Fatalf("target = %q", got[0].target)
 	}
 }
 
@@ -107,6 +207,94 @@ func TestCaptureDryRunShowsEncryptionPlan(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Fatalf("dry-run output missing %q\n%s", want, got)
 		}
+	}
+}
+
+func TestCaptureDryRunShowsAppConfigPlan(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "apps.yaml")
+	content := []byte(`
+apps:
+  - name: Ghostty
+    install_method: brew
+    package: ghostty
+    config_mode: auto
+    config_paths:
+      - source: ~/.config/ghostty/config
+        target: apps/ghostty/config
+`)
+
+	if err := os.WriteFile(configPath, content, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	a := app{
+		home:   "/Users/gus",
+		repo:   dir,
+		stdout: &stdout,
+		runner: stubRunner{},
+	}
+
+	if err := a.captureArchive(options{dryRun: true, apps: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	got := stdout.String()
+
+	if !strings.Contains(got, "would capture app config: ~/.config/ghostty/config -> apps/ghostty/config") {
+		t.Fatalf("dry-run output missing app config plan\n%s", got)
+	}
+}
+
+func TestRestoreDryRunShowsAppConfigPlan(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "apps.yaml")
+	archive := filepath.Join(dir, "archive")
+	source := filepath.Join(archive, "apps/ghostty/config")
+	content := []byte(`
+apps:
+  - name: Ghostty
+    install_method: brew
+    package: ghostty
+    config_mode: auto
+    config_paths:
+      - source: ~/.config/ghostty/config
+        target: apps/ghostty/config
+`)
+
+	if err := os.WriteFile(configPath, content, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(source), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(source, []byte("font-size = 16\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	a := app{
+		home:   "/Users/gus",
+		repo:   dir,
+		stdout: &stdout,
+		runner: stubRunner{},
+	}
+
+	if err := a.restoreAppConfigs(options{dryRun: true, apps: true, archivePath: archive}); err != nil {
+		t.Fatal(err)
+	}
+
+	got := stdout.String()
+
+	if !strings.Contains(got, "would restore app config:") {
+		t.Fatalf("dry-run output missing restore plan\n%s", got)
+	}
+
+	if !strings.Contains(got, "/Users/gus/.config/ghostty/config") {
+		t.Fatalf("dry-run output missing expanded target\n%s", got)
 	}
 }
 
@@ -175,5 +363,26 @@ func TestFindRepoRootWalksUp(t *testing.T) {
 
 	if got := findRepoRoot(nested); got != dir {
 		t.Fatalf("findRepoRoot(%q) = %q, want %q", nested, got, dir)
+	}
+}
+
+func TestFindRepoRootFromOuterRepoUsesMacOSDir(t *testing.T) {
+	dir := t.TempDir()
+	macOSDir := filepath.Join(dir, "mac-os")
+
+	if err := os.MkdirAll(filepath.Join(macOSDir, "stow"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(macOSDir, "go.mod"), []byte("module test\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(macOSDir, "Brewfile"), []byte("tap \"homebrew/bundle\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := findRepoRoot(dir); got != macOSDir {
+		t.Fatalf("findRepoRoot(%q) = %q, want %q", dir, got, macOSDir)
 	}
 }

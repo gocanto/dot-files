@@ -6,7 +6,7 @@
 *.tar.gz.age
 macos-settings-archives/
 archives/
-
+storage/.cache
 # Secrets and generated local state.
 *.pem
 *.key

@@ -10,12 +10,21 @@ This repo separates two jobs:
 ## Usage
 
 ```sh
+go run ./mac-os/cmd/mac-os doctor
+go run ./mac-os/cmd/mac-os bootstrap --apps --dry-run
+go run ./mac-os/cmd/mac-os bootstrap --apps
+go run ./mac-os/cmd/mac-os capture --apps --encrypt
+go run ./mac-os/cmd/mac-os restore --archive "$HOME/.local/state/macos-settings-archives/<timestamp>" --apps --dry-run
+```
+
+From inside this `mac-os` directory, the shorter module-local form also works:
+
+```sh
 go run ./cmd/mac-os adopt --dry-run
 go run ./cmd/mac-os doctor
-go run ./cmd/mac-os bootstrap --dry-run
-go run ./cmd/mac-os bootstrap
-go run ./cmd/mac-os capture
-go run ./cmd/mac-os capture --encrypt
+go run ./cmd/mac-os bootstrap --apps --dry-run
+go run ./cmd/mac-os capture --apps --encrypt
+go run ./cmd/mac-os restore --archive "$HOME/.local/state/macos-settings-archives/<timestamp>" --apps --dry-run
 ```
 
 Private archives are written to:
@@ -33,13 +42,32 @@ Encrypted archives are written beside the timestamped capture directory as:
 ## Commands
 
 - `adopt`: imports safe current dotfiles into the repo's Stow layout and redacts known machine IDs.
-- `bootstrap`: prompted phases for prerequisites, Homebrew, safe dotfile adoption, Stow links, macOS defaults, archive capture, and doctor checks.
-- `capture`: writes a private machine inventory outside the repo.
+- `bootstrap`: prompted phases for prerequisites, Homebrew, App Store apps, manual app reporting, safe dotfile adoption, Stow links, optional app config restore, macOS defaults, archive capture, and doctor checks.
+- `capture`: writes a private machine inventory outside the repo; `--apps` adds allowlisted app configuration from `apps.yaml`.
+- `restore`: restores only app configuration marked `auto` in `apps.yaml` from a private archive.
 - `doctor`: prints required tools and developer tool versions.
 - `brewfile`: prints or writes the curated Brewfile.
 - `macos`: applies only the curated macOS defaults.
 
 All mutating commands support `--dry-run`. Prompted commands support `--yes`.
+App-aware commands accept `--config PATH`; by default they load `apps.yaml`
+through Viper.
+
+## App restore policy
+
+`apps.yaml` is the tracked source of truth for near-clone app restore behavior:
+
+- `install_method: brew` apps are installed by the Brewfile.
+- `install_method: mas` apps are installed with `mas install`.
+- `install_method: manual` apps are reported with their download/source notes.
+- `install_method: system` apps are expected to ship with macOS.
+- `config_mode: auto` paths are captured and can be restored automatically.
+- `config_mode: reference` paths are captured for review but not replayed.
+- `config_mode: manual` requires app sync, login, export/import, or restore notes.
+
+Secrets, sessions, browser profiles, keychains, SSH/GPG private keys, database
+data, Docker VM data, and token-like files are intentionally skipped even when
+they appear under an allowlisted directory.
 
 ## 1Password private archive
 
@@ -73,10 +101,10 @@ age-keygen
 Copy the `AGE-SECRET-KEY-...` line into `archive_age_identity` and the
 `age1...` public recipient into `archive_age_recipient`.
 
-Capture and encrypt the current machine:
+Capture and encrypt the current machine, including allowlisted app config:
 
 ```sh
-go run ./cmd/mac-os capture --encrypt
+go run ./cmd/mac-os capture --apps --encrypt
 ```
 
 Use a different vault, item, or archive location when needed:

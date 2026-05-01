@@ -6,9 +6,12 @@ This started as dotfiles, but the repo now treats dotfiles as one part of a
 larger restore flow:
 
 - install command-line tools and apps with Homebrew;
+- install App Store apps with `mas` and report manual app installs from a
+  tracked Viper-loaded app policy;
 - link safe shell, git, Vim, and terminal config with Stow;
 - apply curated macOS defaults;
-- capture a private machine inventory outside the repo;
+- capture a private machine inventory and allowlisted app config outside the
+  repo;
 - use 1Password to store private archive metadata and encryption keys.
 
 See [mac-os/README.md](mac-os/README.md) for the restore workflow.
