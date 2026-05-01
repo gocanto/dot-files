@@ -1,5 +1,5 @@
 [user]
-	name = "Gustavo Ocanto"
+	name = <NAME>
 	email = <EMAIL>
 	signingkey = <KEY>
 [commit]

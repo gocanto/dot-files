@@ -20,3 +20,6 @@ hosts.yml
 ngrok.yml
 state.vscdb
 storage.json
+
+# Decrypted private Git config is restored from 1Password or private.gitconfig.age.
+mac-os/stow/git/.config/git/private.gitconfig

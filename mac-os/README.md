@@ -103,6 +103,7 @@ Expected fields:
 archive_age_identity   concealed Age private identity
 archive_age_recipient  Age public recipient
 archive_root           directory for encrypted archives
+gitconfig_plaintext    concealed private ~/.config/git/private.gitconfig contents
 latest_archive         last encrypted archive path, updated by capture
 restore_notes          short manual restore notes
 ```
@@ -135,6 +136,40 @@ On a new Mac, run `./setup.sh --apps` first. After Homebrew, 1Password, `op`,
 and `age` are installed, sign in with `op`, retrieve the identity from
 1Password, and decrypt the latest archive. Keep the identity file outside the
 repo.
+
+## Private Git config
+
+Private dotfile overlays are declared in `secrets.yaml`. The tracked Stow Git
+config includes `~/.config/git/private.gitconfig`, but the plaintext private
+file is ignored by git. Store its contents in the `gitconfig_plaintext` field
+above and keep the encrypted repo copy in:
+
+```text
+mac-os/stow/git/.config/git/private.gitconfig.age
+```
+
+Restore it from the encrypted file, falling back to the 1Password plaintext
+field when the encrypted file is unavailable:
+
+```sh
+go run ./cmd/mac-os secrets decrypt-gitconfig
+```
+
+Update all encrypted secret files from 1Password:
+
+```sh
+go run ./cmd/mac-os secrets encrypt
+```
+
+After editing the local ignored plaintext file, push the new plaintext back to
+1Password and refresh the encrypted file:
+
+```sh
+go run ./cmd/mac-os secrets sync --target gitconfig
+```
+
+The `encrypt-gitconfig`, `decrypt-gitconfig`, and `sync-gitconfig` commands are
+kept as aliases for the `gitconfig` target.
 
 ## Developer tools
 

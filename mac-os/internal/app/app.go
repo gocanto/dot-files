@@ -37,15 +37,17 @@ type app struct {
 }
 
 type options struct {
-	dryRun      bool
-	yes         bool
-	encrypt     bool
-	apps        bool
-	archiveRoot string
-	archivePath string
-	configPath  string
-	opVault     string
-	opItem      string
+	dryRun       bool
+	yes          bool
+	encrypt      bool
+	apps         bool
+	archiveRoot  string
+	archivePath  string
+	configPath   string
+	secretsPath  string
+	secretTarget string
+	opVault      string
+	opItem       string
 }
 
 type macSetting struct {
@@ -83,10 +85,25 @@ type appConfigPath struct {
 	Target string `mapstructure:"target"`
 }
 
+type secretConfig struct {
+	Secrets []managedSecret `mapstructure:"secrets"`
+}
+
+type managedSecret struct {
+	Name          string `mapstructure:"name"`
+	OPField       string `mapstructure:"op_field"`
+	PlaintextPath string `mapstructure:"plaintext_path"`
+	EncryptedPath string `mapstructure:"encrypted_path"`
+	Mode          string `mapstructure:"mode"`
+}
+
 const (
 	defaultArchiveRoot = ".local/state/macos-settings-archives"
 	defaultOPVault     = "Private"
 	defaultOPItem      = "Mac Migration Archive"
+	gitconfigPlaintext = "gitconfig_plaintext"
+	gitconfigSecret    = "gitconfig"
+	secretModeAgeFile  = "age-file"
 )
 
 func (realRunner) Run(name string, args ...string) ([]byte, error) {
@@ -130,10 +147,12 @@ func Run(args []string) int {
 		return 0
 	}
 
-	if err := a.requireSudo(); err != nil {
-		fmt.Fprintf(a.stderr, "sudo access required: %v\n", err)
+	if args[0] != "secrets" {
+		if err := a.requireSudo(); err != nil {
+			fmt.Fprintf(a.stderr, "sudo access required: %v\n", err)
 
-		return 1
+			return 1
+		}
 	}
 
 	switch args[0] {
@@ -151,6 +170,8 @@ func Run(args []string) int {
 		return a.brewfile(args[1:])
 	case "macos":
 		return a.macos(args[1:])
+	case "secrets":
+		return a.secrets(args[1:])
 	case "help", "-h", "--help":
 		a.usage()
 
@@ -171,6 +192,9 @@ Usage:
   mac-os bootstrap [--archive PATH] [--apps] [--config PATH] [--dry-run] [--yes]
   mac-os capture [--apps] [--config PATH] [--archive-root PATH] [--encrypt] [--op-vault VAULT] [--op-item ITEM] [--dry-run] [--yes]
   mac-os restore --archive PATH [--apps] [--config PATH] [--dry-run] [--yes]
+  mac-os secrets encrypt [--target NAME] [--secrets-config PATH] [--op-vault VAULT] [--op-item ITEM] [--dry-run]
+  mac-os secrets decrypt [--target NAME] [--secrets-config PATH] [--op-vault VAULT] [--op-item ITEM] [--dry-run]
+  mac-os secrets sync [--target NAME] [--secrets-config PATH] [--op-vault VAULT] [--op-item ITEM] [--dry-run]
   mac-os doctor
   mac-os brewfile [--write PATH]
   mac-os macos [--dry-run] [--yes]
@@ -180,6 +204,7 @@ Commands:
   bootstrap  Run prompted phases for tools, dotfiles, macOS defaults, capture, and doctor.
   capture    Save a private settings inventory outside the repo by default.
   restore    Restore allowlisted app configuration from a private archive.
+  secrets    Manage encrypted private dotfile overlays with 1Password and Age.
   doctor     Print installed tool versions and missing prerequisites.
   brewfile   Print or write the curated Brewfile for this setup.
   macos      Apply curated macOS defaults only.`)
@@ -270,6 +295,74 @@ func (a app) capture(args []string) int {
 	}
 
 	return 0
+}
+
+func (a app) secrets(args []string) int {
+	if len(args) == 0 {
+		a.secretsUsage()
+
+		return 0
+	}
+
+	fs := flag.NewFlagSet("secrets "+args[0], flag.ContinueOnError)
+	fs.SetOutput(a.stderr)
+	opts := options{}
+	fs.BoolVar(&opts.dryRun, "dry-run", false, "show secret workflow without writing files")
+	fs.StringVar(&opts.secretTarget, "target", "", "secret target name from secrets.yaml")
+	fs.StringVar(&opts.secretsPath, "secrets-config", "", "secret manifest config path")
+	fs.StringVar(&opts.opVault, "op-vault", defaultOPVault, "1Password vault containing secret metadata")
+	fs.StringVar(&opts.opItem, "op-item", defaultOPItem, "1Password item containing secret metadata")
+
+	if err := fs.Parse(args[1:]); err != nil {
+		return 2
+	}
+
+	var err error
+
+	switch args[0] {
+	case "encrypt":
+		err = a.encryptSecrets(opts)
+	case "decrypt":
+		err = a.decryptSecrets(opts)
+	case "sync":
+		err = a.syncSecrets(opts)
+	case "encrypt-gitconfig":
+		opts.secretTarget = gitconfigSecret
+		err = a.encryptSecrets(opts)
+	case "decrypt-gitconfig":
+		opts.secretTarget = gitconfigSecret
+		err = a.decryptSecrets(opts)
+	case "sync-gitconfig":
+		opts.secretTarget = gitconfigSecret
+		err = a.syncSecrets(opts)
+	case "help", "-h", "--help":
+		a.secretsUsage()
+
+		return 0
+	default:
+		fmt.Fprintf(a.stderr, "unknown secrets command %q\n\n", args[0])
+		a.secretsUsage()
+
+		return 2
+	}
+
+	if err != nil {
+		fmt.Fprintf(a.stderr, "secrets %s failed: %v\n", args[0], err)
+
+		return 1
+	}
+
+	return 0
+}
+
+func (a app) secretsUsage() {
+	fmt.Fprintln(a.stdout, `Usage:
+  mac-os secrets encrypt [--target NAME] [--secrets-config PATH] [--op-vault VAULT] [--op-item ITEM] [--dry-run]
+  mac-os secrets decrypt [--target NAME] [--secrets-config PATH] [--op-vault VAULT] [--op-item ITEM] [--dry-run]
+  mac-os secrets sync [--target NAME] [--secrets-config PATH] [--op-vault VAULT] [--op-item ITEM] [--dry-run]
+  mac-os secrets encrypt-gitconfig [--op-vault VAULT] [--op-item ITEM] [--dry-run]
+  mac-os secrets decrypt-gitconfig [--op-vault VAULT] [--op-item ITEM] [--dry-run]
+  mac-os secrets sync-gitconfig [--op-vault VAULT] [--op-item ITEM] [--dry-run]`)
 }
 
 func (a app) restore(args []string) int {
@@ -856,6 +949,311 @@ func (a app) updateArchiveMetadata(encryptedPath, archiveRoot string, opts optio
 	return nil
 }
 
+func (a app) encryptGitconfigSecret(opts options) error {
+	opts.secretTarget = gitconfigSecret
+
+	return a.encryptSecrets(opts)
+}
+
+func (a app) decryptGitconfigSecret(opts options) error {
+	opts.secretTarget = gitconfigSecret
+
+	return a.decryptSecrets(opts)
+}
+
+func (a app) syncGitconfigSecret(opts options) error {
+	opts.secretTarget = gitconfigSecret
+
+	return a.syncSecrets(opts)
+}
+
+func (a app) encryptSecrets(opts options) error {
+	secrets, err := a.secretTargets(opts)
+
+	if err != nil {
+		return err
+	}
+
+	fields, err := a.onePasswordFields(opts)
+
+	if err != nil {
+		return err
+	}
+
+	for _, secret := range secrets {
+		if err := a.encryptSecret(opts, fields, secret); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (a app) encryptSecret(opts options, fields map[string]string, secret managedSecret) error {
+	plaintext := fields[secret.OPField]
+
+	if strings.TrimSpace(plaintext) == "" {
+		return fmt.Errorf("missing %s in 1Password item %q", secret.OPField, opts.opItem)
+	}
+
+	if opts.dryRun {
+		fmt.Fprintf(a.stdout, "would read %s from 1Password item: %s/%s\n", secret.OPField, opts.opVault, opts.opItem)
+		fmt.Fprintf(a.stdout, "would write ignored secret %s: %s\n", secret.Name, a.secretPlaintextPath(secret))
+		fmt.Fprintf(a.stdout, "would encrypt secret %s with Age recipient from 1Password: %s\n", secret.Name, a.secretEncryptedPath(secret))
+
+		return nil
+	}
+
+	if err := writeFile(a.secretPlaintextPath(secret), []byte(strings.TrimRight(plaintext, "\n")+"\n"), 0o600); err != nil {
+		return err
+	}
+
+	if err := a.encryptSecretFile(opts, fields, secret); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(a.stdout, "encrypted secret %s at %s\n", secret.Name, a.secretEncryptedPath(secret))
+
+	return nil
+}
+
+func (a app) decryptSecrets(opts options) error {
+	secrets, err := a.secretTargets(opts)
+
+	if err != nil {
+		return err
+	}
+
+	fields, err := a.onePasswordFields(opts)
+
+	if err != nil {
+		return err
+	}
+
+	for _, secret := range secrets {
+		if err := a.decryptSecret(opts, fields, secret); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (a app) decryptSecret(opts options, fields map[string]string, secret managedSecret) error {
+	encryptedPath := a.secretEncryptedPath(secret)
+
+	if _, err := os.Stat(encryptedPath); err == nil {
+		if opts.dryRun {
+			fmt.Fprintf(a.stdout, "would decrypt secret %s with Age identity from 1Password: %s\n", secret.Name, encryptedPath)
+			fmt.Fprintf(a.stdout, "would write ignored secret %s: %s\n", secret.Name, a.secretPlaintextPath(secret))
+
+			return nil
+		}
+
+		if err := a.decryptSecretFile(opts, fields, secret); err != nil {
+			return err
+		}
+
+		fmt.Fprintf(a.stdout, "decrypted secret %s at %s\n", secret.Name, a.secretPlaintextPath(secret))
+
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	plaintext := fields[secret.OPField]
+
+	if strings.TrimSpace(plaintext) == "" {
+		return fmt.Errorf("missing %s in 1Password item %q", secret.OPField, opts.opItem)
+	}
+
+	if opts.dryRun {
+		fmt.Fprintf(a.stdout, "would read %s from 1Password item: %s/%s\n", secret.OPField, opts.opVault, opts.opItem)
+		fmt.Fprintf(a.stdout, "would write ignored secret %s: %s\n", secret.Name, a.secretPlaintextPath(secret))
+
+		return nil
+	}
+
+	if err := writeFile(a.secretPlaintextPath(secret), []byte(strings.TrimRight(plaintext, "\n")+"\n"), 0o600); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(a.stdout, "restored secret %s from 1Password at %s\n", secret.Name, a.secretPlaintextPath(secret))
+
+	return nil
+}
+
+func (a app) syncSecrets(opts options) error {
+	secrets, err := a.secretTargets(opts)
+
+	if err != nil {
+		return err
+	}
+
+	fields, err := a.onePasswordFields(opts)
+
+	if err != nil {
+		return err
+	}
+
+	for _, secret := range secrets {
+		if err := a.syncSecret(opts, fields, secret); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (a app) syncSecret(opts options, fields map[string]string, secret managedSecret) error {
+	data, err := os.ReadFile(a.secretPlaintextPath(secret))
+
+	if err != nil {
+		return err
+	}
+
+	if opts.dryRun {
+		fmt.Fprintf(a.stdout, "would update %s in 1Password item: %s/%s\n", secret.OPField, opts.opVault, opts.opItem)
+		fmt.Fprintf(a.stdout, "would encrypt secret %s with Age recipient from 1Password: %s\n", secret.Name, a.secretEncryptedPath(secret))
+
+		return nil
+	}
+
+	args := []string{
+		"item", "edit", opts.opItem,
+		"--vault", opts.opVault,
+		secret.OPField + "[concealed]=" + strings.TrimRight(string(data), "\n"),
+	}
+
+	out, err := a.runner.Run("op", args...)
+
+	if len(out) > 0 {
+		fmt.Fprint(a.stdout, string(out))
+	}
+
+	if err != nil {
+		return fmt.Errorf("update 1Password secret %s: %w", secret.Name, err)
+	}
+
+	if err := a.encryptSecretFile(opts, fields, secret); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(a.stdout, "synced secret %s to 1Password and %s\n", secret.Name, a.secretEncryptedPath(secret))
+
+	return nil
+}
+
+func (a app) encryptSecretFile(opts options, fields map[string]string, secret managedSecret) error {
+	recipient := strings.TrimSpace(fields["archive_age_recipient"])
+
+	if recipient == "" {
+		return fmt.Errorf("missing archive_age_recipient in 1Password item %q", opts.opItem)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(a.secretEncryptedPath(secret)), 0o700); err != nil {
+		return err
+	}
+
+	out, err := a.runner.Run("age", "-r", recipient, "-o", a.secretEncryptedPath(secret), a.secretPlaintextPath(secret))
+
+	if len(out) > 0 {
+		fmt.Fprint(a.stdout, string(out))
+	}
+
+	if err != nil {
+		return fmt.Errorf("encrypt secret %s: %w", secret.Name, err)
+	}
+
+	return nil
+}
+
+func (a app) decryptSecretFile(opts options, fields map[string]string, secret managedSecret) error {
+	identity := strings.TrimSpace(fields["archive_age_identity"])
+
+	if identity == "" {
+		return fmt.Errorf("missing archive_age_identity in 1Password item %q", opts.opItem)
+	}
+
+	tmp, err := os.CreateTemp("", "mac-os-age-identity-*")
+
+	if err != nil {
+		return err
+	}
+
+	tmpPath := tmp.Name()
+
+	defer os.Remove(tmpPath)
+
+	if err := tmp.Chmod(0o600); err != nil {
+		tmp.Close()
+
+		return err
+	}
+
+	if _, err := tmp.WriteString(identity + "\n"); err != nil {
+		tmp.Close()
+
+		return err
+	}
+
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(a.secretPlaintextPath(secret)), 0o700); err != nil {
+		return err
+	}
+
+	out, err := a.runner.Run("age", "-d", "-i", tmpPath, "-o", a.secretPlaintextPath(secret), a.secretEncryptedPath(secret))
+
+	if len(out) > 0 {
+		fmt.Fprint(a.stdout, string(out))
+	}
+
+	if err != nil {
+		return fmt.Errorf("decrypt secret %s: %w", secret.Name, err)
+	}
+
+	return nil
+}
+
+func (a app) privateGitconfigPath() string {
+	return a.secretPlaintextPath(managedSecret{PlaintextPath: "stow/git/.config/git/private.gitconfig"})
+}
+
+func (a app) encryptedGitconfigPath() string {
+	return a.secretEncryptedPath(managedSecret{EncryptedPath: "stow/git/.config/git/private.gitconfig.age"})
+}
+
+func (a app) secretTargets(opts options) ([]managedSecret, error) {
+	cfg, err := a.loadSecretConfig(opts.secretsPath)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if opts.secretTarget == "" {
+		return cfg.Secrets, nil
+	}
+
+	for _, secret := range cfg.Secrets {
+		if secret.Name == opts.secretTarget {
+			return []managedSecret{secret}, nil
+		}
+	}
+
+	return nil, fmt.Errorf("secret target %q not found in %s", opts.secretTarget, a.secretConfigPath(opts.secretsPath))
+}
+
+func (a app) secretPlaintextPath(secret managedSecret) string {
+	return filepath.Join(a.repo, secret.PlaintextPath)
+}
+
+func (a app) secretEncryptedPath(secret managedSecret) string {
+	return filepath.Join(a.repo, secret.EncryptedPath)
+}
+
 func (a app) onePasswordFields(opts options) (map[string]string, error) {
 	out, err := a.runner.Run("op", "item", "get", opts.opItem, "--vault", opts.opVault, "--format", "json")
 
@@ -1222,6 +1620,39 @@ func (a app) printOnePasswordArchiveStatus(vault, item string) {
 	}
 
 	fmt.Fprintf(a.stdout, "  archive item found: %s/%s\n", vault, item)
+	a.printSecretManifestStatus(options{opVault: vault, opItem: item})
+}
+
+func (a app) printSecretManifestStatus(opts options) {
+	cfg, err := a.loadSecretConfig(opts.secretsPath)
+
+	if err != nil {
+		fmt.Fprintf(a.stdout, "  secret manifest unavailable: %v\n", err)
+
+		return
+	}
+
+	fields, err := a.onePasswordFields(opts)
+
+	if err != nil {
+		fmt.Fprintf(a.stdout, "  secret fields unavailable: %v\n", err)
+
+		return
+	}
+
+	for _, secret := range cfg.Secrets {
+		status := "ok"
+
+		if strings.TrimSpace(fields[secret.OPField]) == "" {
+			status = "missing 1Password field"
+		} else if _, err := os.Stat(a.secretEncryptedPath(secret)); errors.Is(err, os.ErrNotExist) {
+			status = "missing encrypted file"
+		} else if err != nil {
+			status = "encrypted file unreadable"
+		}
+
+		fmt.Fprintf(a.stdout, "  secret %-18s %s\n", secret.Name, status)
+	}
 }
 
 func macOSDefaults() []macSetting {
@@ -1293,9 +1724,48 @@ func (a app) loadAppConfig(path string) (appConfig, error) {
 	return cfg, nil
 }
 
+func (a app) loadSecretConfig(path string) (secretConfig, error) {
+	configPath := a.secretConfigPath(path)
+	v := viper.New()
+	v.SetConfigFile(configPath)
+	v.SetConfigType("yaml")
+
+	if err := v.ReadInConfig(); err != nil {
+		return secretConfig{}, fmt.Errorf("read secret config %s: %w", configPath, err)
+	}
+
+	var cfg secretConfig
+
+	if err := v.Unmarshal(&cfg); err != nil {
+		return secretConfig{}, fmt.Errorf("parse secret config %s: %w", configPath, err)
+	}
+
+	if err := validateSecretConfig(cfg); err != nil {
+		return secretConfig{}, fmt.Errorf("validate secret config %s: %w", configPath, err)
+	}
+
+	return cfg, nil
+}
+
 func (a app) appConfigPath(path string) string {
 	if path == "" {
 		return filepath.Join(a.repo, "apps.yaml")
+	}
+
+	if strings.HasPrefix(path, "~/") {
+		return filepath.Join(a.home, strings.TrimPrefix(path, "~/"))
+	}
+
+	if filepath.IsAbs(path) {
+		return path
+	}
+
+	return filepath.Join(a.repo, path)
+}
+
+func (a app) secretConfigPath(path string) string {
+	if path == "" {
+		return filepath.Join(a.repo, "secrets.yaml")
 	}
 
 	if strings.HasPrefix(path, "~/") {
@@ -1355,6 +1825,62 @@ func validateAppConfig(cfg appConfig) error {
 				return fmt.Errorf("%s.target must be archive-relative", pathPrefix)
 			}
 		}
+	}
+
+	return nil
+}
+
+func validateSecretConfig(cfg secretConfig) error {
+	if len(cfg.Secrets) == 0 {
+		return errors.New("secrets must contain at least one secret")
+	}
+
+	names := map[string]bool{}
+
+	for i, secret := range cfg.Secrets {
+		prefix := fmt.Sprintf("secrets[%d]", i)
+
+		if strings.TrimSpace(secret.Name) == "" {
+			return fmt.Errorf("%s.name is required", prefix)
+		}
+
+		if names[secret.Name] {
+			return fmt.Errorf("%s.name %q is duplicated", prefix, secret.Name)
+		}
+
+		names[secret.Name] = true
+
+		if strings.TrimSpace(secret.OPField) == "" {
+			return fmt.Errorf("%s.op_field is required", prefix)
+		}
+
+		if strings.TrimSpace(secret.PlaintextPath) == "" {
+			return fmt.Errorf("%s.plaintext_path is required", prefix)
+		}
+
+		if strings.TrimSpace(secret.EncryptedPath) == "" {
+			return fmt.Errorf("%s.encrypted_path is required", prefix)
+		}
+
+		if err := validateRepoRelativePath(secret.PlaintextPath); err != nil {
+			return fmt.Errorf("%s.plaintext_path: %w", prefix, err)
+		}
+
+		if err := validateRepoRelativePath(secret.EncryptedPath); err != nil {
+			return fmt.Errorf("%s.encrypted_path: %w", prefix, err)
+		}
+
+		if secret.Mode != secretModeAgeFile {
+			return fmt.Errorf("%s.mode must be %q", prefix, secretModeAgeFile)
+		}
+	}
+
+	return nil
+}
+
+func validateRepoRelativePath(path string) error {
+	if filepath.IsAbs(path) || strings.HasPrefix(path, "..") || strings.Contains(filepath.Clean(path), "../") {
+		return errors.New("must be repo-relative")
 	}
 
 	return nil

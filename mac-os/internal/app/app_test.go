@@ -25,6 +25,43 @@ func (r stubRunner) Run(name string, args ...string) ([]byte, error) {
 	return r.outputs[key], r.errors[key]
 }
 
+func containsCall(calls []string, want string) bool {
+	for _, call := range calls {
+		if call == want {
+			return true
+		}
+	}
+
+	return false
+}
+
+func containsCallPrefix(calls []string, prefix string) bool {
+	for _, call := range calls {
+		if strings.HasPrefix(call, prefix) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func writeTestSecretConfig(t *testing.T, dir string) {
+	t.Helper()
+
+	content := []byte(`
+secrets:
+  - name: gitconfig
+    op_field: gitconfig_plaintext
+    plaintext_path: stow/git/.config/git/private.gitconfig
+    encrypted_path: stow/git/.config/git/private.gitconfig.age
+    mode: age-file
+`)
+
+	if err := os.WriteFile(filepath.Join(dir, "secrets.yaml"), content, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestShouldSkipSensitive(t *testing.T) {
 	cases := map[string]bool{
 		"/Users/gus/.ssh/id_ed25519":                                                 true,
@@ -254,6 +291,111 @@ func TestAppCapturePlanSkipsManualConfig(t *testing.T) {
 	}
 }
 
+func TestLoadSecretConfigValidatesViperManifest(t *testing.T) {
+	dir := t.TempDir()
+	writeTestSecretConfig(t, dir)
+
+	a := app{repo: dir}
+	cfg, err := a.loadSecretConfig("")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(cfg.Secrets) != 1 {
+		t.Fatalf("loaded %d secrets, want 1", len(cfg.Secrets))
+	}
+
+	if got := cfg.Secrets[0].Name; got != gitconfigSecret {
+		t.Fatalf("secret name = %q, want %q", got, gitconfigSecret)
+	}
+}
+
+func TestLoadSecretConfigRejectsDuplicateNames(t *testing.T) {
+	dir := t.TempDir()
+	content := []byte(`
+secrets:
+  - name: gitconfig
+    op_field: gitconfig_plaintext
+    plaintext_path: stow/git/.config/git/private.gitconfig
+    encrypted_path: stow/git/.config/git/private.gitconfig.age
+    mode: age-file
+  - name: gitconfig
+    op_field: other_plaintext
+    plaintext_path: stow/git/.config/git/other
+    encrypted_path: stow/git/.config/git/other.age
+    mode: age-file
+`)
+
+	if err := os.WriteFile(filepath.Join(dir, "secrets.yaml"), content, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	a := app{repo: dir}
+	_, err := a.loadSecretConfig("")
+
+	if err == nil {
+		t.Fatal("expected duplicate secret name error")
+	}
+
+	if !strings.Contains(err.Error(), "duplicated") {
+		t.Fatalf("error = %v, want duplicated", err)
+	}
+}
+
+func TestLoadSecretConfigRejectsUnsafePaths(t *testing.T) {
+	dir := t.TempDir()
+	content := []byte(`
+secrets:
+  - name: gitconfig
+    op_field: gitconfig_plaintext
+    plaintext_path: /tmp/private.gitconfig
+    encrypted_path: stow/git/.config/git/private.gitconfig.age
+    mode: age-file
+`)
+
+	if err := os.WriteFile(filepath.Join(dir, "secrets.yaml"), content, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	a := app{repo: dir}
+	_, err := a.loadSecretConfig("")
+
+	if err == nil {
+		t.Fatal("expected unsafe path error")
+	}
+
+	if !strings.Contains(err.Error(), "repo-relative") {
+		t.Fatalf("error = %v, want repo-relative", err)
+	}
+}
+
+func TestLoadSecretConfigRejectsMissingRequiredFields(t *testing.T) {
+	dir := t.TempDir()
+	content := []byte(`
+secrets:
+  - name: gitconfig
+    plaintext_path: stow/git/.config/git/private.gitconfig
+    encrypted_path: stow/git/.config/git/private.gitconfig.age
+    mode: age-file
+`)
+
+	if err := os.WriteFile(filepath.Join(dir, "secrets.yaml"), content, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	a := app{repo: dir}
+	_, err := a.loadSecretConfig("")
+
+	if err == nil {
+		t.Fatal("expected missing op_field error")
+	}
+
+	if !strings.Contains(err.Error(), "op_field") {
+		t.Fatalf("error = %v, want op_field", err)
+	}
+}
+
 func TestOnePasswordFieldsParsesIDAndLabel(t *testing.T) {
 	a := app{
 		runner: stubRunner{outputs: map[string][]byte{
@@ -304,6 +446,218 @@ func TestCaptureDryRunShowsEncryptionPlan(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Fatalf("dry-run output missing %q\n%s", want, got)
 		}
+	}
+}
+
+func TestEncryptGitconfigSecretRequiresPlaintextField(t *testing.T) {
+	dir := t.TempDir()
+	writeTestSecretConfig(t, dir)
+	a := app{
+		repo: dir,
+		runner: stubRunner{outputs: map[string][]byte{
+			`op item get 'Mac Migration Archive' --vault Private --format json`: []byte(`{
+				"fields": [
+					{"id": "archive_age_recipient", "label": "archive_age_recipient", "value": "age1example"}
+				]
+			}`),
+		}},
+	}
+
+	err := a.encryptGitconfigSecret(options{opVault: defaultOPVault, opItem: defaultOPItem})
+
+	if err == nil {
+		t.Fatal("expected missing gitconfig_plaintext error")
+	}
+
+	if !strings.Contains(err.Error(), gitconfigPlaintext) {
+		t.Fatalf("error = %v, want %s", err, gitconfigPlaintext)
+	}
+}
+
+func TestEncryptGitconfigSecretDoesNotPrintPlaintext(t *testing.T) {
+	dir := t.TempDir()
+	writeTestSecretConfig(t, dir)
+	secret := "[user]\n\temail = private@example.com\n"
+
+	var stdout bytes.Buffer
+
+	var calls []string
+	a := app{
+		repo:   dir,
+		stdout: &stdout,
+		runner: stubRunner{
+			calls: &calls,
+			outputs: map[string][]byte{
+				`op item get 'Mac Migration Archive' --vault Private --format json`: []byte(`{
+					"fields": [
+						{"id": "archive_age_recipient", "label": "archive_age_recipient", "value": "age1example"},
+						{"id": "gitconfig_plaintext", "label": "gitconfig_plaintext", "value": "[user]\n\temail = private@example.com\n"}
+					]
+				}`),
+			},
+		},
+	}
+
+	if err := a.encryptGitconfigSecret(options{opVault: defaultOPVault, opItem: defaultOPItem}); err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.Contains(stdout.String(), "private@example.com") {
+		t.Fatalf("stdout leaked gitconfig plaintext: %s", stdout.String())
+	}
+
+	data, err := os.ReadFile(a.privateGitconfigPath())
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := string(data); got != secret {
+		t.Fatalf("private gitconfig = %q, want %q", got, secret)
+	}
+
+	ageCall := shellQuote([]string{"age", "-r", "age1example", "-o", a.encryptedGitconfigPath(), a.privateGitconfigPath()})
+
+	if !containsCall(calls, ageCall) {
+		t.Fatalf("calls = %v, want %s", calls, ageCall)
+	}
+}
+
+func TestSecretsEncryptTargetUsesManifest(t *testing.T) {
+	dir := t.TempDir()
+	writeTestSecretConfig(t, dir)
+
+	var stdout bytes.Buffer
+
+	var stderr bytes.Buffer
+
+	var calls []string
+	a := app{
+		repo:   dir,
+		stdout: &stdout,
+		stderr: &stderr,
+		runner: stubRunner{
+			calls: &calls,
+			outputs: map[string][]byte{
+				`op item get 'Mac Migration Archive' --vault Private --format json`: []byte(`{
+					"fields": [
+						{"id": "archive_age_recipient", "label": "archive_age_recipient", "value": "age1example"},
+						{"id": "gitconfig_plaintext", "label": "gitconfig_plaintext", "value": "[user]\n\temail = private@example.com\n"}
+					]
+				}`),
+			},
+		},
+	}
+
+	if got := a.secrets([]string{"encrypt", "--target", "gitconfig"}); got != 0 {
+		t.Fatalf("secrets encrypt exit = %d, stderr = %s", got, stderr.String())
+	}
+
+	if strings.Contains(stdout.String(), "private@example.com") {
+		t.Fatalf("stdout leaked gitconfig plaintext: %s", stdout.String())
+	}
+
+	ageCall := shellQuote([]string{"age", "-r", "age1example", "-o", a.encryptedGitconfigPath(), a.privateGitconfigPath()})
+
+	if !containsCall(calls, ageCall) {
+		t.Fatalf("calls = %v, want %s", calls, ageCall)
+	}
+}
+
+func TestDecryptGitconfigFallsBackToPlaintextWhenEncryptedFileMissing(t *testing.T) {
+	dir := t.TempDir()
+	writeTestSecretConfig(t, dir)
+
+	var calls []string
+
+	var stdout bytes.Buffer
+	a := app{
+		repo:   dir,
+		stdout: &stdout,
+		runner: stubRunner{
+			calls: &calls,
+			outputs: map[string][]byte{
+				`op item get 'Mac Migration Archive' --vault Private --format json`: []byte(`{
+					"fields": [
+						{"id": "gitconfig_plaintext", "label": "gitconfig_plaintext", "value": "[user]\n\tname = Private User\n"}
+					]
+				}`),
+			},
+		},
+	}
+
+	if err := a.decryptGitconfigSecret(options{opVault: defaultOPVault, opItem: defaultOPItem}); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, call := range calls {
+		if strings.HasPrefix(call, "age ") {
+			t.Fatalf("decrypt fallback called age unexpectedly: %v", calls)
+		}
+	}
+
+	data, err := os.ReadFile(a.privateGitconfigPath())
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(string(data), "Private User") {
+		t.Fatalf("private gitconfig missing fallback plaintext: %s", string(data))
+	}
+}
+
+func TestSyncGitconfigUpdatesOnePasswordAndEncryptedFile(t *testing.T) {
+	dir := t.TempDir()
+	writeTestSecretConfig(t, dir)
+
+	var calls []string
+
+	var stdout bytes.Buffer
+	a := app{
+		repo:   dir,
+		stdout: &stdout,
+		runner: stubRunner{
+			calls: &calls,
+			outputs: map[string][]byte{
+				`op item get 'Mac Migration Archive' --vault Private --format json`: []byte(`{
+					"fields": [
+						{"id": "archive_age_recipient", "label": "archive_age_recipient", "value": "age1example"}
+					]
+				}`),
+			},
+		},
+	}
+
+	if err := writeFile(a.privateGitconfigPath(), []byte("[user]\n\temail = private@example.com\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := a.syncGitconfigSecret(options{opVault: defaultOPVault, opItem: defaultOPItem}); err != nil {
+		t.Fatal(err)
+	}
+
+	opPrefix := "op item edit 'Mac Migration Archive' --vault Private "
+	ageCall := shellQuote([]string{"age", "-r", "age1example", "-o", a.encryptedGitconfigPath(), a.privateGitconfigPath()})
+
+	if !containsCallPrefix(calls, opPrefix) {
+		t.Fatalf("calls = %v, want prefix %s", calls, opPrefix)
+	}
+
+	if !containsCall(calls, ageCall) {
+		t.Fatalf("calls = %v, want %s", calls, ageCall)
+	}
+}
+
+func TestPrivateGitconfigIsIgnoredByGit(t *testing.T) {
+	content, err := os.ReadFile(filepath.Join("..", "..", "..", ".gitignore"))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(string(content), "mac-os/stow/git/.config/git/private.gitconfig") {
+		t.Fatal(".gitignore does not ignore decrypted private gitconfig")
 	}
 }
 
