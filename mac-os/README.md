@@ -23,6 +23,8 @@ missing, then runs the Go bootstrap flow.
 After bootstrap, or when developing this tool, run commands directly:
 
 ```sh
+go run ./mac-os/cmd/mac-os
+go run ./mac-os/cmd/mac-os tui
 go run ./mac-os/cmd/mac-os doctor
 go run ./mac-os/cmd/mac-os bootstrap --apps --dry-run
 go run ./mac-os/cmd/mac-os bootstrap --apps
@@ -33,6 +35,8 @@ go run ./mac-os/cmd/mac-os restore --archive "$HOME/.local/state/macos-settings-
 From inside this `mac-os` directory, the shorter module-local form also works:
 
 ```sh
+go run ./cmd/mac-os
+go run ./cmd/mac-os tui
 go run ./cmd/mac-os adopt --dry-run
 go run ./cmd/mac-os doctor
 go run ./cmd/mac-os bootstrap --apps --dry-run
@@ -54,6 +58,7 @@ Encrypted archives are written beside the timestamped capture directory as:
 
 ## Commands
 
+- `tui`: opens the Bubble Tea workflow dashboard. Running `mac-os` with no arguments opens the same dashboard.
 - `adopt`: imports safe current dotfiles into the repo's Stow layout and redacts known machine IDs.
 - `bootstrap`: prompted phases for prerequisites, Homebrew, App Store apps, manual app reporting, safe dotfile adoption, Stow links, optional app config restore, macOS defaults, archive capture, and doctor checks.
 - `capture`: writes a private machine inventory outside the repo; `--apps` adds allowlisted app configuration from `apps.yaml`.
@@ -62,11 +67,35 @@ Encrypted archives are written beside the timestamped capture directory as:
 - `brewfile`: prints or writes the curated Brewfile.
 - `macos`: applies only the curated macOS defaults.
 
-All mutating commands support `--dry-run`. Prompted commands support `--yes`.
+All mutating scriptable commands support `--dry-run`. Prompted scriptable
+commands support `--yes`.
 App-aware commands accept `--config PATH`; by default they load `apps.yaml`
 through Viper.
-All `mac-os` commands validate sudo access at startup, including read-only
-commands, because machine setup assumes administrator access.
+Scriptable setup commands validate sudo access at startup, including read-only
+commands, because machine setup assumes administrator access. The TUI and
+`secrets` entrypoints do not preflight sudo at launch.
+
+## Interactive TUI
+
+The default no-argument command and `mac-os tui` use Bubble Tea v2
+(`charm.land/bubbletea/v2`) to present a terminal dashboard for common
+workflows:
+
+- Bootstrap
+- Capture Archive
+- Restore App Configs
+- Apply macOS Defaults
+- Doctor
+- Brewfile Preview
+
+Use arrow keys or `j`/`k` to move, `enter` to open or run, `space` to toggle
+phases in a workflow, and `q`/`esc` to exit before execution. The run screen
+executes enabled phases in order, shows each phase status, stops on first
+failure, and returns a non-zero exit code on failure or `ctrl+c` cancellation.
+
+The current TUI defaults to dry-run-oriented workflows so it is safe as an
+interactive front door. Use the scriptable commands with explicit flags when
+you need fully unattended mutation.
 
 ## App restore policy
 
@@ -181,6 +210,23 @@ The Brewfile includes common CLI/dev tools, databases, AI tools, and app casks:
 - Runtimes/databases: `go`, `node@24`, `mysql`, `libpq`, `nginx`.
 - AI/dev CLIs: `agent-browser`, `codex`, `claude-code`, `opencode`.
 - Apps: Docker, VS Code, Ghostty, iTerm2, Raycast, Stats, 1Password, Bruno, Claude, Ice.
+
+## Code organization
+
+The Go module keeps `internal/app` as the CLI coordinator and splits behavior
+into small packages:
+
+- `internal/command`: command runner, shell quoting, 1Password field parsing.
+- `internal/appconfig`: `apps.yaml` loading, validation, and app capture plans.
+- `internal/safefs`: safe writes/copies, sensitive-path filtering, sanitization.
+- `internal/dotfiles`: dotfile adopt and capture plans.
+- `internal/macosdefaults`: curated defaults apply/export behavior.
+- `internal/brewfile`: Brewfile generation.
+- `internal/apps`: App Store install reporting and app config capture/restore.
+- `internal/archive`: private archive capture, encryption, metadata updates.
+- `internal/doctor`: prerequisite and developer tool checks.
+- `internal/secrets`: encrypted private dotfile overlay workflows.
+- `internal/tui`: Bubble Tea models, views, key handling, and phase execution.
 
 ## Safety
 

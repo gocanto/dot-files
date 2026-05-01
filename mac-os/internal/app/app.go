@@ -2,38 +2,35 @@ package app
 
 import (
 	"bufio"
-	"bytes"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
-	"time"
 
-	"github.com/spf13/viper"
+	"github.com/gocanto/mac-os/internal/apps"
+	"github.com/gocanto/mac-os/internal/archive"
+	"github.com/gocanto/mac-os/internal/brewfile"
+	"github.com/gocanto/mac-os/internal/command"
+	"github.com/gocanto/mac-os/internal/doctor"
+	"github.com/gocanto/mac-os/internal/dotfiles"
+	"github.com/gocanto/mac-os/internal/macosdefaults"
+	"github.com/gocanto/mac-os/internal/secrets"
+	"github.com/gocanto/mac-os/internal/tui"
 )
 
-type commandRunner interface {
-	Run(name string, args ...string) ([]byte, error)
-}
-
-type realRunner struct{}
-
 type app struct {
-	home   string
-	repo   string
-	goos   string
-	stdout io.Writer
-	stderr io.Writer
-	stdin  io.Reader
-	runner commandRunner
+	home      string
+	repo      string
+	goos      string
+	stdout    io.Writer
+	stderr    io.Writer
+	stdin     io.Reader
+	runner    command.Runner
+	tuiRunner func(io.Reader, io.Writer, []tui.Workflow) (tui.Result, error)
 }
 
 type options struct {
@@ -50,67 +47,10 @@ type options struct {
 	opItem       string
 }
 
-type macSetting struct {
-	domain string
-	key    string
-	args   []string
-}
-
-type devTool struct {
-	name        string
-	versionArgs []string
-}
-
-type captureItem struct {
-	source string
-	target string
-}
-
-type appConfig struct {
-	Apps []managedApp `mapstructure:"apps"`
-}
-
-type managedApp struct {
-	Name              string          `mapstructure:"name"`
-	BundleID          string          `mapstructure:"bundle_id"`
-	InstallMethod     string          `mapstructure:"install_method"`
-	Package           string          `mapstructure:"package"`
-	ConfigMode        string          `mapstructure:"config_mode"`
-	ConfigPaths       []appConfigPath `mapstructure:"config_paths"`
-	OnePasswordFields []string        `mapstructure:"onepassword_fields"`
-}
-
-type appConfigPath struct {
-	Source string `mapstructure:"source"`
-	Target string `mapstructure:"target"`
-}
-
-type secretConfig struct {
-	Secrets []managedSecret `mapstructure:"secrets"`
-}
-
-type managedSecret struct {
-	Name          string `mapstructure:"name"`
-	OPField       string `mapstructure:"op_field"`
-	PlaintextPath string `mapstructure:"plaintext_path"`
-	EncryptedPath string `mapstructure:"encrypted_path"`
-	Mode          string `mapstructure:"mode"`
-}
-
 const (
-	defaultArchiveRoot = ".local/state/macos-settings-archives"
-	defaultOPVault     = "Private"
-	defaultOPItem      = "Mac Migration Archive"
-	gitconfigPlaintext = "gitconfig_plaintext"
-	gitconfigSecret    = "gitconfig"
-	secretModeAgeFile  = "age-file"
+	defaultOPVault = "Private"
+	defaultOPItem  = "Mac Migration Archive"
 )
-
-func (realRunner) Run(name string, args ...string) ([]byte, error) {
-	cmd := exec.Command(name, args...)
-
-	return cmd.CombinedOutput()
-}
 
 func Run(args []string) int {
 	home, err := os.UserHomeDir()
@@ -129,25 +69,30 @@ func Run(args []string) int {
 		return 1
 	}
 
-	repo = findRepoRoot(repo)
+	a := newApp(home, findRepoRoot(repo), os.Stdin, os.Stdout, os.Stderr, command.RealRunner{})
 
-	a := app{
-		home:   home,
-		repo:   repo,
-		goos:   runtime.GOOS,
-		stdout: os.Stdout,
-		stderr: os.Stderr,
-		stdin:  os.Stdin,
-		runner: realRunner{},
+	return a.run(args)
+}
+
+func newApp(home, repo string, stdin io.Reader, stdout, stderr io.Writer, runner command.Runner) app {
+	return app{
+		home:      home,
+		repo:      repo,
+		goos:      runtime.GOOS,
+		stdout:    stdout,
+		stderr:    stderr,
+		stdin:     stdin,
+		runner:    runner,
+		tuiRunner: tui.Run,
 	}
+}
 
+func (a app) run(args []string) int {
 	if len(args) == 0 {
-		a.usage()
-
-		return 0
+		return a.tui(nil)
 	}
 
-	if args[0] != "secrets" {
+	if args[0] != "secrets" && args[0] != "tui" {
 		if err := a.requireSudo(); err != nil {
 			fmt.Fprintf(a.stderr, "sudo access required: %v\n", err)
 
@@ -172,6 +117,8 @@ func Run(args []string) int {
 		return a.macos(args[1:])
 	case "secrets":
 		return a.secrets(args[1:])
+	case "tui":
+		return a.tui(args[1:])
 	case "help", "-h", "--help":
 		a.usage()
 
@@ -188,6 +135,8 @@ func (a app) usage() {
 	fmt.Fprintln(a.stdout, `mac-os manages this machine's dotfiles, developer tools, and macOS settings.
 
 Usage:
+  mac-os
+  mac-os tui
   mac-os adopt [--dry-run] [--yes]
   mac-os bootstrap [--archive PATH] [--apps] [--config PATH] [--dry-run] [--yes]
   mac-os capture [--apps] [--config PATH] [--archive-root PATH] [--encrypt] [--op-vault VAULT] [--op-item ITEM] [--dry-run] [--yes]
@@ -200,6 +149,7 @@ Usage:
   mac-os macos [--dry-run] [--yes]
 
 Commands:
+  tui        Open the interactive Bubble Tea workflow dashboard.
   adopt      Import safe current dotfiles into the repo's Stow layout.
   bootstrap  Run prompted phases for tools, dotfiles, macOS defaults, capture, and doctor.
   capture    Save a private settings inventory outside the repo by default.
@@ -224,25 +174,9 @@ func (a app) bootstrap(args []string) int {
 		return 2
 	}
 
-	phases := []struct {
-		name string
-		run  func(options) error
-	}{
-		{"prerequisites", a.ensurePrerequisites},
-		{"homebrew bundle", a.applyHomebrewBundle},
-		{"app store apps", a.applyAppStoreApps},
-		{"manual app report", a.reportManualApps},
-		{"adopt safe dotfiles", a.adoptDotfiles},
-		{"stow links", a.applyStow},
-		{"app config restore", a.restoreAppConfigs},
-		{"macOS defaults", a.applyMacOSDefaults},
-		{"private archive capture", a.captureArchive},
-		{"doctor", a.runDoctor},
-	}
-
-	for _, phase := range phases {
-		if err := a.confirmAndRun(phase.name, opts, func() error { return phase.run(opts) }); err != nil {
-			fmt.Fprintf(a.stderr, "%s failed: %v\n", phase.name, err)
+	for _, phase := range a.bootstrapPhases(opts) {
+		if err := a.confirmAndRun(phase.Name, opts, func() error { return phase.Run(a.stdout) }); err != nil {
+			fmt.Fprintf(a.stderr, "%s failed: %v\n", phase.Name, err)
 
 			return 1
 		}
@@ -295,74 +229,6 @@ func (a app) capture(args []string) int {
 	}
 
 	return 0
-}
-
-func (a app) secrets(args []string) int {
-	if len(args) == 0 {
-		a.secretsUsage()
-
-		return 0
-	}
-
-	fs := flag.NewFlagSet("secrets "+args[0], flag.ContinueOnError)
-	fs.SetOutput(a.stderr)
-	opts := options{}
-	fs.BoolVar(&opts.dryRun, "dry-run", false, "show secret workflow without writing files")
-	fs.StringVar(&opts.secretTarget, "target", "", "secret target name from secrets.yaml")
-	fs.StringVar(&opts.secretsPath, "secrets-config", "", "secret manifest config path")
-	fs.StringVar(&opts.opVault, "op-vault", defaultOPVault, "1Password vault containing secret metadata")
-	fs.StringVar(&opts.opItem, "op-item", defaultOPItem, "1Password item containing secret metadata")
-
-	if err := fs.Parse(args[1:]); err != nil {
-		return 2
-	}
-
-	var err error
-
-	switch args[0] {
-	case "encrypt":
-		err = a.encryptSecrets(opts)
-	case "decrypt":
-		err = a.decryptSecrets(opts)
-	case "sync":
-		err = a.syncSecrets(opts)
-	case "encrypt-gitconfig":
-		opts.secretTarget = gitconfigSecret
-		err = a.encryptSecrets(opts)
-	case "decrypt-gitconfig":
-		opts.secretTarget = gitconfigSecret
-		err = a.decryptSecrets(opts)
-	case "sync-gitconfig":
-		opts.secretTarget = gitconfigSecret
-		err = a.syncSecrets(opts)
-	case "help", "-h", "--help":
-		a.secretsUsage()
-
-		return 0
-	default:
-		fmt.Fprintf(a.stderr, "unknown secrets command %q\n\n", args[0])
-		a.secretsUsage()
-
-		return 2
-	}
-
-	if err != nil {
-		fmt.Fprintf(a.stderr, "secrets %s failed: %v\n", args[0], err)
-
-		return 1
-	}
-
-	return 0
-}
-
-func (a app) secretsUsage() {
-	fmt.Fprintln(a.stdout, `Usage:
-  mac-os secrets encrypt [--target NAME] [--secrets-config PATH] [--op-vault VAULT] [--op-item ITEM] [--dry-run]
-  mac-os secrets decrypt [--target NAME] [--secrets-config PATH] [--op-vault VAULT] [--op-item ITEM] [--dry-run]
-  mac-os secrets sync [--target NAME] [--secrets-config PATH] [--op-vault VAULT] [--op-item ITEM] [--dry-run]
-  mac-os secrets encrypt-gitconfig [--op-vault VAULT] [--op-item ITEM] [--dry-run]
-  mac-os secrets decrypt-gitconfig [--op-vault VAULT] [--op-item ITEM] [--dry-run]
-  mac-os secrets sync-gitconfig [--op-vault VAULT] [--op-item ITEM] [--dry-run]`)
 }
 
 func (a app) restore(args []string) int {
@@ -426,7 +292,7 @@ func (a app) brewfile(args []string) int {
 		return 2
 	}
 
-	content := brewfileContent()
+	content := brewfile.Content()
 
 	if *writePath == "" {
 		fmt.Fprint(a.stdout, content)
@@ -463,6 +329,93 @@ func (a app) macos(args []string) int {
 	}
 
 	return 0
+}
+
+func (a app) secrets(args []string) int {
+	if len(args) == 0 {
+		a.secretsUsage()
+
+		return 0
+	}
+
+	fs := flag.NewFlagSet("secrets "+args[0], flag.ContinueOnError)
+	fs.SetOutput(a.stderr)
+	opts := options{}
+	fs.BoolVar(&opts.dryRun, "dry-run", false, "show secret workflow without writing files")
+	fs.StringVar(&opts.secretTarget, "target", "", "secret target name from secrets.yaml")
+	fs.StringVar(&opts.secretsPath, "secrets-config", "", "secret manifest config path")
+	fs.StringVar(&opts.opVault, "op-vault", defaultOPVault, "1Password vault containing secret metadata")
+	fs.StringVar(&opts.opItem, "op-item", defaultOPItem, "1Password item containing secret metadata")
+
+	if err := fs.Parse(args[1:]); err != nil {
+		return 2
+	}
+
+	var err error
+
+	switch args[0] {
+	case "encrypt":
+		err = a.encryptSecrets(opts)
+	case "decrypt":
+		err = a.decryptSecrets(opts)
+	case "sync":
+		err = a.syncSecrets(opts)
+	case "encrypt-gitconfig":
+		opts.secretTarget = secrets.GitconfigSecret
+		err = a.encryptSecrets(opts)
+	case "decrypt-gitconfig":
+		opts.secretTarget = secrets.GitconfigSecret
+		err = a.decryptSecrets(opts)
+	case "sync-gitconfig":
+		opts.secretTarget = secrets.GitconfigSecret
+		err = a.syncSecrets(opts)
+	case "help", "-h", "--help":
+		a.secretsUsage()
+
+		return 0
+	default:
+		fmt.Fprintf(a.stderr, "unknown secrets command %q\n\n", args[0])
+		a.secretsUsage()
+
+		return 2
+	}
+
+	if err != nil {
+		fmt.Fprintf(a.stderr, "secrets %s failed: %v\n", args[0], err)
+
+		return 1
+	}
+
+	return 0
+}
+
+func (a app) secretsUsage() {
+	fmt.Fprintln(a.stdout, `Usage:
+  mac-os secrets encrypt [--target NAME] [--secrets-config PATH] [--op-vault VAULT] [--op-item ITEM] [--dry-run]
+  mac-os secrets decrypt [--target NAME] [--secrets-config PATH] [--op-vault VAULT] [--op-item ITEM] [--dry-run]
+  mac-os secrets sync [--target NAME] [--secrets-config PATH] [--op-vault VAULT] [--op-item ITEM] [--dry-run]
+  mac-os secrets encrypt-gitconfig [--op-vault VAULT] [--op-item ITEM] [--dry-run]
+  mac-os secrets decrypt-gitconfig [--op-vault VAULT] [--op-item ITEM] [--dry-run]
+  mac-os secrets sync-gitconfig [--op-vault VAULT] [--op-item ITEM] [--dry-run]`)
+}
+
+func (a app) tui(args []string) int {
+	fs := flag.NewFlagSet("tui", flag.ContinueOnError)
+	fs.SetOutput(a.stderr)
+
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+
+	result, err := a.tuiRunner(a.stdin, a.stdout, a.tuiWorkflows())
+
+	if err != nil {
+		fmt.Fprintf(a.stderr, "tui failed: %v\n", err)
+
+		return 1
+	}
+
+	return result.ExitCode
 }
 
 func (a app) confirmAndRun(name string, opts options, fn func() error) error {
@@ -519,51 +472,55 @@ func (a app) requireSudo() error {
 	return nil
 }
 
+func (a app) bootstrapPhases(opts options) []tui.Phase {
+	return []tui.Phase{
+		{Name: "prerequisites", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).ensurePrerequisites(opts) }},
+		{Name: "homebrew bundle", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).applyHomebrewBundle(opts) }},
+		{Name: "app store apps", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).applyAppStoreApps(opts) }},
+		{Name: "manual app report", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).reportManualApps(opts) }},
+		{Name: "adopt safe dotfiles", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).adoptDotfiles(opts) }},
+		{Name: "stow links", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).applyStow(opts) }},
+		{Name: "app config restore", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).restoreAppConfigs(opts) }},
+		{Name: "macOS defaults", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).applyMacOSDefaults(opts) }},
+		{Name: "private archive capture", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).captureArchive(opts) }},
+		{Name: "doctor", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).runDoctor(opts) }},
+	}
+}
+
+func (a app) tuiWorkflows() []tui.Workflow {
+	dryRunOpts := options{dryRun: true, yes: true, opVault: defaultOPVault, opItem: defaultOPItem}
+
+	return []tui.Workflow{
+		{Name: "Bootstrap", Phases: a.bootstrapPhases(dryRunOpts)},
+		{Name: "Capture Archive", Phases: []tui.Phase{{Name: "capture dry-run", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).captureArchive(dryRunOpts) }}}},
+		{Name: "Restore App Configs", Phases: []tui.Phase{{Name: "restore app configs dry-run", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).restoreAppConfigs(options{dryRun: true, apps: true}) }}}},
+		{Name: "Apply macOS Defaults", Phases: []tui.Phase{{Name: "macOS defaults dry-run", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).applyMacOSDefaults(dryRunOpts) }}}},
+		{Name: "Doctor", Phases: []tui.Phase{{Name: "doctor", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).runDoctor(dryRunOpts) }}}},
+		{Name: "Brewfile Preview", Phases: []tui.Phase{{Name: "brewfile preview", Enabled: true, Run: func(w io.Writer) error { fmt.Fprint(w, brewfile.Content()); return nil }}}},
+	}
+}
+
+func (a app) withStdout(stdout io.Writer) app {
+	a.stdout = stdout
+
+	return a
+}
+
 func (a app) ensurePrerequisites(opts options) error {
-	if a.goos != "darwin" {
-		return fmt.Errorf("mac-os only supports darwin, current OS is %s", a.goos)
-	}
-
-	cmd := []string{"xcode-select", "-p"}
-
-	if opts.dryRun {
-		fmt.Fprintf(a.stdout, "would run: %s\n", shellQuote(cmd))
-		fmt.Fprintln(a.stdout, "would check Xcode Command Line Tools license status")
-
-		return nil
-	}
-
-	out, err := a.runner.Run(cmd[0], cmd[1:]...)
-
-	if err != nil {
-		return fmt.Errorf("Xcode Command Line Tools are missing or unusable; run `xcode-select --install`, complete Apple's installer, then rerun setup\n%s", strings.TrimSpace(string(out)))
-	}
-
-	fmt.Fprintf(a.stdout, "%s ok\n", cmd[0])
-
-	if out, err := a.runner.Run("xcodebuild", "-license", "check"); err != nil {
-		message := strings.TrimSpace(string(out))
-		lower := strings.ToLower(message)
-
-		if strings.Contains(lower, "license") || strings.Contains(lower, "agree") {
-			return fmt.Errorf("Xcode Command Line Tools license needs attention; run `sudo xcodebuild -license` and accept Apple's prompts\n%s", message)
-		}
-	}
-
-	return nil
+	return doctor.Service{GOOS: a.goos, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}.EnsurePrerequisites(opts.dryRun)
 }
 
 func (a app) applyHomebrewBundle(opts options) error {
-	brewfile := filepath.Join(a.repo, "Brewfile")
+	brewfilePath := filepath.Join(a.repo, "Brewfile")
 
-	if _, err := os.Stat(brewfile); err != nil {
-		return fmt.Errorf("missing Brewfile at %s", brewfile)
+	if _, err := os.Stat(brewfilePath); err != nil {
+		return fmt.Errorf("missing Brewfile at %s", brewfilePath)
 	}
 
-	cmd := []string{"brew", "bundle", "--file", brewfile}
+	cmd := []string{"brew", "bundle", "--file", brewfilePath}
 
 	if opts.dryRun {
-		fmt.Fprintf(a.stdout, "would run: %s\n", shellQuote(cmd))
+		fmt.Fprintf(a.stdout, "would run: %s\n", command.ShellQuote(cmd))
 
 		return nil
 	}
@@ -575,73 +532,11 @@ func (a app) applyHomebrewBundle(opts options) error {
 }
 
 func (a app) applyAppStoreApps(opts options) error {
-	if !opts.apps {
-		fmt.Fprintln(a.stdout, "skipped: run with --apps to install App Store apps")
-
-		return nil
-	}
-
-	cfg, err := a.loadAppConfig(opts.configPath)
-
-	if err != nil {
-		return err
-	}
-
-	for _, app := range cfg.Apps {
-		if app.InstallMethod != "mas" {
-			continue
-		}
-
-		cmd := []string{"mas", "install", app.Package}
-
-		if opts.dryRun {
-			fmt.Fprintf(a.stdout, "would run: %s # %s\n", shellQuote(cmd), app.Name)
-
-			continue
-		}
-
-		out, err := a.runner.Run(cmd[0], cmd[1:]...)
-		fmt.Fprint(a.stdout, string(out))
-
-		if err != nil {
-			return fmt.Errorf("install App Store app %q: %w", app.Name, err)
-		}
-	}
-
-	return nil
+	return a.apps().ApplyAppStore(apps.Options{DryRun: opts.dryRun, Apps: opts.apps, ConfigPath: opts.configPath})
 }
 
 func (a app) reportManualApps(opts options) error {
-	if !opts.apps {
-		fmt.Fprintln(a.stdout, "skipped: run with --apps to report manual apps")
-
-		return nil
-	}
-
-	cfg, err := a.loadAppConfig(opts.configPath)
-
-	if err != nil {
-		return err
-	}
-
-	for _, app := range cfg.Apps {
-		switch app.InstallMethod {
-		case "manual":
-			fmt.Fprintf(a.stdout, "manual install required: %s", app.Name)
-
-			if app.Package != "" {
-				fmt.Fprintf(a.stdout, " (%s)", app.Package)
-			}
-
-			fmt.Fprintln(a.stdout)
-		case "brew":
-			fmt.Fprintf(a.stdout, "brew-managed app: %s (%s)\n", app.Name, app.Package)
-		case "system":
-			fmt.Fprintf(a.stdout, "system app: %s\n", app.Name)
-		}
-	}
-
-	return nil
+	return a.apps().ReportManual(apps.Options{DryRun: opts.dryRun, Apps: opts.apps, ConfigPath: opts.configPath})
 }
 
 func (a app) applyStow(opts options) error {
@@ -666,7 +561,7 @@ func (a app) applyStow(opts options) error {
 
 		if opts.dryRun {
 			cmd = append(cmd, "--no")
-			fmt.Fprintf(a.stdout, "would run: %s\n", shellQuote(cmd))
+			fmt.Fprintf(a.stdout, "would run: %s\n", command.ShellQuote(cmd))
 
 			continue
 		}
@@ -683,1513 +578,61 @@ func (a app) applyStow(opts options) error {
 }
 
 func (a app) adoptDotfiles(opts options) error {
-	for _, item := range adoptPlan(a.home, a.repo) {
-		source := item.source
-		target := item.target
-
-		if opts.dryRun {
-			fmt.Fprintf(a.stdout, "would import: %s -> %s\n", source, target)
-
-			continue
-		}
-
-		if shouldSkipSensitive(source) {
-			fmt.Fprintf(a.stdout, "skipped sensitive path: %s\n", source)
-
-			continue
-		}
-
-		data, err := os.ReadFile(source)
-
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				fmt.Fprintf(a.stdout, "missing, skipped: %s\n", source)
-
-				continue
-			}
-
-			return err
-		}
-
-		data = sanitizeDotfile(source, a.home, data)
-
-		if err := writeFile(target, data, 0o600); err != nil {
-			return err
-		}
-
-		fmt.Fprintf(a.stdout, "imported: %s\n", target)
-	}
-
-	return nil
+	return dotfiles.Service{Home: a.home, Repo: a.repo, Stdout: a.stdout}.Adopt(opts.dryRun)
 }
 
 func (a app) applyMacOSDefaults(opts options) error {
-	for _, setting := range macOSDefaults() {
-		cmd := append([]string{"defaults", "write", setting.domain, setting.key}, setting.args...)
-
-		if opts.dryRun {
-			fmt.Fprintf(a.stdout, "would run: %s\n", shellQuote(cmd))
-
-			continue
-		}
-
-		out, err := a.runner.Run(cmd[0], cmd[1:]...)
-
-		if len(out) > 0 {
-			fmt.Fprint(a.stdout, string(out))
-		}
-
-		if err != nil {
-			return fmt.Errorf("%s: %w", shellQuote(cmd), err)
-		}
-	}
-
-	restarts := [][]string{
-		{"killall", "Finder"},
-		{"killall", "Dock"},
-		{"killall", "SystemUIServer"},
-	}
-
-	for _, cmd := range restarts {
-		if opts.dryRun {
-			fmt.Fprintf(a.stdout, "would run: %s\n", shellQuote(cmd))
-
-			continue
-		}
-
-		_, _ = a.runner.Run(cmd[0], cmd[1:]...)
-	}
-
-	return nil
+	return macosdefaults.Service{Runner: a.runner, Stdout: a.stdout, Stderr: a.stderr}.Apply(opts.dryRun)
 }
 
 func (a app) captureArchive(opts options) error {
-	root, err := a.resolveArchiveRoot(opts)
-
-	if err != nil {
-		return err
-	}
-
-	stamp := time.Now().Format("20060102-150405")
-	dest := filepath.Join(root, stamp)
-	fmt.Fprintf(a.stdout, "archive destination: %s\n", dest)
-
-	if opts.dryRun {
-		for _, item := range capturePlan() {
-			fmt.Fprintf(a.stdout, "would capture: %s -> %s\n", item.source, item.target)
-		}
-
-		if opts.apps {
-			cfg, err := a.loadAppConfig(opts.configPath)
-
-			if err != nil {
-				return err
-			}
-
-			for _, item := range appCapturePlan(cfg) {
-				fmt.Fprintf(a.stdout, "would capture app config: %s -> %s\n", item.source, item.target)
-			}
-		}
-
-		for _, domain := range defaultsDomains {
-			fmt.Fprintf(a.stdout, "would export defaults domain: %s\n", domain)
-		}
-
-		if opts.encrypt {
-			fmt.Fprintf(a.stdout, "would read 1Password item: %s/%s\n", opts.opVault, opts.opItem)
-			fmt.Fprintf(a.stdout, "would encrypt archive with Age recipient from 1Password\n")
-			fmt.Fprintf(a.stdout, "would update 1Password latest_archive metadata\n")
-		}
-
-		return nil
-	}
-
-	if err := os.MkdirAll(dest, 0o700); err != nil {
-		return err
-	}
-
-	if err := a.writeManifest(dest); err != nil {
-		return err
-	}
-
-	if err := a.writeCommandOutput(dest, "system/sw_vers.txt", "sw_vers"); err != nil {
-		return err
-	}
-
-	if err := a.writeCommandOutput(dest, "system/uname.txt", "uname", "-a"); err != nil {
-		return err
-	}
-
-	if err := a.writeCommandOutput(dest, "brew/leaves.txt", "brew", "leaves"); err != nil {
-		return err
-	}
-
-	if err := a.writeCommandOutput(dest, "brew/casks.txt", "brew", "list", "--cask"); err != nil {
-		return err
-	}
-
-	if err := a.writeCommandOutput(dest, "brew/bundle-dump.txt", "brew", "bundle", "dump", "--file=-"); err != nil {
-		fmt.Fprintf(a.stderr, "warning: brew bundle dump failed: %v\n", err)
-	}
-
-	if err := a.writeCommandOutput(dest, "apps/applications.txt", "find", "/Applications", "-maxdepth", "2", "-name", "*.app", "-print"); err != nil {
-		fmt.Fprintf(a.stderr, "warning: application inventory failed: %v\n", err)
-	}
-
-	if err := a.writeCommandOutput(dest, "launch/agents-daemons.txt", "sh", "-c", `find "$HOME/Library/LaunchAgents" /Library/LaunchAgents /Library/LaunchDaemons -maxdepth 1 -type f -name '*.plist' -print 2>/dev/null | sort`); err != nil {
-		fmt.Fprintf(a.stderr, "warning: launch inventory failed: %v\n", err)
-	}
-
-	if err := a.writeToolVersions(dest); err != nil {
-		return err
-	}
-
-	if err := a.copySafeFiles(dest); err != nil {
-		return err
-	}
-
-	if opts.apps {
-		if err := a.copyAppConfigFiles(dest, opts); err != nil {
-			return err
-		}
-	}
-
-	if err := a.exportDefaults(dest); err != nil {
-		return err
-	}
-
-	if opts.encrypt {
-		encryptedPath, err := a.encryptArchive(dest, root, opts)
-
-		if err != nil {
-			return err
-		}
-
-		if err := a.updateArchiveMetadata(encryptedPath, root, opts); err != nil {
-			return err
-		}
-
-		fmt.Fprintf(a.stdout, "encrypted archive at %s\n", encryptedPath)
-	}
-
-	fmt.Fprintf(a.stdout, "captured archive at %s\n", dest)
-
-	return nil
-}
-
-func (a app) resolveArchiveRoot(opts options) (string, error) {
-	root := opts.archiveRoot
-
-	if root == "" && opts.encrypt {
-		fields, err := a.onePasswordFields(opts)
-
-		if err == nil {
-			root = fields["archive_root"]
-		}
-	}
-
-	if root == "" {
-		root = filepath.Join(a.home, defaultArchiveRoot)
-	}
-
-	if strings.HasPrefix(root, "~/") {
-		root = filepath.Join(a.home, strings.TrimPrefix(root, "~/"))
-	}
-
-	return root, nil
-}
-
-func (a app) encryptArchive(sourceDir, archiveRoot string, opts options) (string, error) {
-	fields, err := a.onePasswordFields(opts)
-
-	if err != nil {
-		return "", err
-	}
-
-	recipient := strings.TrimSpace(fields["archive_age_recipient"])
-
-	if recipient == "" {
-		return "", fmt.Errorf("missing archive_age_recipient in 1Password item %q", opts.opItem)
-	}
-
-	name := filepath.Base(sourceDir) + ".tar.gz.age"
-	target := filepath.Join(archiveRoot, name)
-	cmd := fmt.Sprintf("tar -C %s -czf - . | age -r %s -o %s", shellQuote([]string{sourceDir}), shellQuote([]string{recipient}), shellQuote([]string{target}))
-	out, err := a.runner.Run("sh", "-c", cmd)
-
-	if len(out) > 0 {
-		fmt.Fprint(a.stdout, string(out))
-	}
-
-	if err != nil {
-		return "", fmt.Errorf("encrypt archive: %w", err)
-	}
-
-	return target, nil
-}
-
-func (a app) updateArchiveMetadata(encryptedPath, archiveRoot string, opts options) error {
-	args := []string{
-		"item", "edit", opts.opItem,
-		"--vault", opts.opVault,
-		"archive_root=" + archiveRoot,
-		"latest_archive=" + encryptedPath,
-	}
-
-	out, err := a.runner.Run("op", args...)
-
-	if len(out) > 0 {
-		fmt.Fprint(a.stdout, string(out))
-	}
-
-	if err != nil {
-		return fmt.Errorf("update 1Password archive metadata: %w", err)
-	}
-
-	return nil
-}
-
-func (a app) encryptGitconfigSecret(opts options) error {
-	opts.secretTarget = gitconfigSecret
-
-	return a.encryptSecrets(opts)
-}
-
-func (a app) decryptGitconfigSecret(opts options) error {
-	opts.secretTarget = gitconfigSecret
-
-	return a.decryptSecrets(opts)
-}
-
-func (a app) syncGitconfigSecret(opts options) error {
-	opts.secretTarget = gitconfigSecret
-
-	return a.syncSecrets(opts)
-}
-
-func (a app) encryptSecrets(opts options) error {
-	secrets, err := a.secretTargets(opts)
-
-	if err != nil {
-		return err
-	}
-
-	fields, err := a.onePasswordFields(opts)
-
-	if err != nil {
-		return err
-	}
-
-	for _, secret := range secrets {
-		if err := a.encryptSecret(opts, fields, secret); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (a app) encryptSecret(opts options, fields map[string]string, secret managedSecret) error {
-	plaintext := fields[secret.OPField]
-
-	if strings.TrimSpace(plaintext) == "" {
-		return fmt.Errorf("missing %s in 1Password item %q", secret.OPField, opts.opItem)
-	}
-
-	if opts.dryRun {
-		fmt.Fprintf(a.stdout, "would read %s from 1Password item: %s/%s\n", secret.OPField, opts.opVault, opts.opItem)
-		fmt.Fprintf(a.stdout, "would write ignored secret %s: %s\n", secret.Name, a.secretPlaintextPath(secret))
-		fmt.Fprintf(a.stdout, "would encrypt secret %s with Age recipient from 1Password: %s\n", secret.Name, a.secretEncryptedPath(secret))
-
-		return nil
-	}
-
-	if err := writeFile(a.secretPlaintextPath(secret), []byte(strings.TrimRight(plaintext, "\n")+"\n"), 0o600); err != nil {
-		return err
-	}
-
-	if err := a.encryptSecretFile(opts, fields, secret); err != nil {
-		return err
-	}
-
-	fmt.Fprintf(a.stdout, "encrypted secret %s at %s\n", secret.Name, a.secretEncryptedPath(secret))
-
-	return nil
-}
-
-func (a app) decryptSecrets(opts options) error {
-	secrets, err := a.secretTargets(opts)
-
-	if err != nil {
-		return err
-	}
-
-	fields, err := a.onePasswordFields(opts)
-
-	if err != nil {
-		return err
-	}
-
-	for _, secret := range secrets {
-		if err := a.decryptSecret(opts, fields, secret); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (a app) decryptSecret(opts options, fields map[string]string, secret managedSecret) error {
-	encryptedPath := a.secretEncryptedPath(secret)
-
-	if _, err := os.Stat(encryptedPath); err == nil {
-		if opts.dryRun {
-			fmt.Fprintf(a.stdout, "would decrypt secret %s with Age identity from 1Password: %s\n", secret.Name, encryptedPath)
-			fmt.Fprintf(a.stdout, "would write ignored secret %s: %s\n", secret.Name, a.secretPlaintextPath(secret))
-
-			return nil
-		}
-
-		if err := a.decryptSecretFile(opts, fields, secret); err != nil {
-			return err
-		}
-
-		fmt.Fprintf(a.stdout, "decrypted secret %s at %s\n", secret.Name, a.secretPlaintextPath(secret))
-
-		return nil
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-
-	plaintext := fields[secret.OPField]
-
-	if strings.TrimSpace(plaintext) == "" {
-		return fmt.Errorf("missing %s in 1Password item %q", secret.OPField, opts.opItem)
-	}
-
-	if opts.dryRun {
-		fmt.Fprintf(a.stdout, "would read %s from 1Password item: %s/%s\n", secret.OPField, opts.opVault, opts.opItem)
-		fmt.Fprintf(a.stdout, "would write ignored secret %s: %s\n", secret.Name, a.secretPlaintextPath(secret))
-
-		return nil
-	}
-
-	if err := writeFile(a.secretPlaintextPath(secret), []byte(strings.TrimRight(plaintext, "\n")+"\n"), 0o600); err != nil {
-		return err
-	}
-
-	fmt.Fprintf(a.stdout, "restored secret %s from 1Password at %s\n", secret.Name, a.secretPlaintextPath(secret))
-
-	return nil
-}
-
-func (a app) syncSecrets(opts options) error {
-	secrets, err := a.secretTargets(opts)
-
-	if err != nil {
-		return err
-	}
-
-	fields, err := a.onePasswordFields(opts)
-
-	if err != nil {
-		return err
-	}
-
-	for _, secret := range secrets {
-		if err := a.syncSecret(opts, fields, secret); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (a app) syncSecret(opts options, fields map[string]string, secret managedSecret) error {
-	data, err := os.ReadFile(a.secretPlaintextPath(secret))
-
-	if err != nil {
-		return err
-	}
-
-	if opts.dryRun {
-		fmt.Fprintf(a.stdout, "would update %s in 1Password item: %s/%s\n", secret.OPField, opts.opVault, opts.opItem)
-		fmt.Fprintf(a.stdout, "would encrypt secret %s with Age recipient from 1Password: %s\n", secret.Name, a.secretEncryptedPath(secret))
-
-		return nil
-	}
-
-	args := []string{
-		"item", "edit", opts.opItem,
-		"--vault", opts.opVault,
-		secret.OPField + "[concealed]=" + strings.TrimRight(string(data), "\n"),
-	}
-
-	out, err := a.runner.Run("op", args...)
-
-	if len(out) > 0 {
-		fmt.Fprint(a.stdout, string(out))
-	}
-
-	if err != nil {
-		return fmt.Errorf("update 1Password secret %s: %w", secret.Name, err)
-	}
-
-	if err := a.encryptSecretFile(opts, fields, secret); err != nil {
-		return err
-	}
-
-	fmt.Fprintf(a.stdout, "synced secret %s to 1Password and %s\n", secret.Name, a.secretEncryptedPath(secret))
-
-	return nil
-}
-
-func (a app) encryptSecretFile(opts options, fields map[string]string, secret managedSecret) error {
-	recipient := strings.TrimSpace(fields["archive_age_recipient"])
-
-	if recipient == "" {
-		return fmt.Errorf("missing archive_age_recipient in 1Password item %q", opts.opItem)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(a.secretEncryptedPath(secret)), 0o700); err != nil {
-		return err
-	}
-
-	out, err := a.runner.Run("age", "-r", recipient, "-o", a.secretEncryptedPath(secret), a.secretPlaintextPath(secret))
-
-	if len(out) > 0 {
-		fmt.Fprint(a.stdout, string(out))
-	}
-
-	if err != nil {
-		return fmt.Errorf("encrypt secret %s: %w", secret.Name, err)
-	}
-
-	return nil
-}
-
-func (a app) decryptSecretFile(opts options, fields map[string]string, secret managedSecret) error {
-	identity := strings.TrimSpace(fields["archive_age_identity"])
-
-	if identity == "" {
-		return fmt.Errorf("missing archive_age_identity in 1Password item %q", opts.opItem)
-	}
-
-	tmp, err := os.CreateTemp("", "mac-os-age-identity-*")
-
-	if err != nil {
-		return err
-	}
-
-	tmpPath := tmp.Name()
-
-	defer os.Remove(tmpPath)
-
-	if err := tmp.Chmod(0o600); err != nil {
-		tmp.Close()
-
-		return err
-	}
-
-	if _, err := tmp.WriteString(identity + "\n"); err != nil {
-		tmp.Close()
-
-		return err
-	}
-
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-
-	if err := os.MkdirAll(filepath.Dir(a.secretPlaintextPath(secret)), 0o700); err != nil {
-		return err
-	}
-
-	out, err := a.runner.Run("age", "-d", "-i", tmpPath, "-o", a.secretPlaintextPath(secret), a.secretEncryptedPath(secret))
-
-	if len(out) > 0 {
-		fmt.Fprint(a.stdout, string(out))
-	}
-
-	if err != nil {
-		return fmt.Errorf("decrypt secret %s: %w", secret.Name, err)
-	}
-
-	return nil
-}
-
-func (a app) privateGitconfigPath() string {
-	return a.secretPlaintextPath(managedSecret{PlaintextPath: "stow/git/.config/git/private.gitconfig"})
-}
-
-func (a app) encryptedGitconfigPath() string {
-	return a.secretEncryptedPath(managedSecret{EncryptedPath: "stow/git/.config/git/private.gitconfig.age"})
-}
-
-func (a app) secretTargets(opts options) ([]managedSecret, error) {
-	cfg, err := a.loadSecretConfig(opts.secretsPath)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if opts.secretTarget == "" {
-		return cfg.Secrets, nil
-	}
-
-	for _, secret := range cfg.Secrets {
-		if secret.Name == opts.secretTarget {
-			return []managedSecret{secret}, nil
-		}
-	}
-
-	return nil, fmt.Errorf("secret target %q not found in %s", opts.secretTarget, a.secretConfigPath(opts.secretsPath))
-}
-
-func (a app) secretPlaintextPath(secret managedSecret) string {
-	return filepath.Join(a.repo, secret.PlaintextPath)
-}
-
-func (a app) secretEncryptedPath(secret managedSecret) string {
-	return filepath.Join(a.repo, secret.EncryptedPath)
-}
-
-func (a app) onePasswordFields(opts options) (map[string]string, error) {
-	out, err := a.runner.Run("op", "item", "get", opts.opItem, "--vault", opts.opVault, "--format", "json")
-
-	if err != nil {
-		return nil, fmt.Errorf("read 1Password item %q in vault %q: %w", opts.opItem, opts.opVault, err)
-	}
-
-	var item struct {
-		Fields []struct {
-			ID    string `json:"id"`
-			Label string `json:"label"`
-			Value string `json:"value"`
-		} `json:"fields"`
-	}
-
-	if err := json.Unmarshal(out, &item); err != nil {
-		return nil, fmt.Errorf("parse 1Password item JSON: %w", err)
-	}
-
-	fields := make(map[string]string, len(item.Fields))
-
-	for _, field := range item.Fields {
-		if field.ID != "" {
-			fields[field.ID] = field.Value
-		}
-
-		if field.Label != "" {
-			fields[field.Label] = field.Value
-		}
-	}
-
-	return fields, nil
-}
-
-func (a app) writeManifest(dest string) error {
-	content := `# macOS Settings Archive
-
-This archive is private machine inventory, not a replay script.
-
-Captured:
-- OS, Homebrew, app, launch agent, and developer tool inventories.
-- Selected safe dotfiles and plain-text configuration.
-- Curated defaults exports for reference.
-
-Skipped or redacted:
-- SSH private keys, GPG keyrings, shell histories, API tokens, auth files.
-- Browser/app caches, sessions, Claude/Codex file history, machine IDs.
-- Docker VM data, database data directories, sockets, and generated state.
-`
-
-	return writeFile(filepath.Join(dest, "MANIFEST.md"), []byte(content), 0o600)
-}
-
-func (a app) writeCommandOutput(root, rel, name string, args ...string) error {
-	out, err := a.runner.Run(name, args...)
-
-	if err != nil {
-		return fmt.Errorf("%s: %w\n%s", shellQuote(append([]string{name}, args...)), err, strings.TrimSpace(string(out)))
-	}
-
-	return writeFile(filepath.Join(root, rel), out, 0o600)
-}
-
-func (a app) writeToolVersions(root string) error {
-	var b strings.Builder
-
-	for _, tool := range devTools {
-		path, _ := exec.LookPath(tool.name)
-		fmt.Fprintf(&b, "## %s\n", tool.name)
-
-		if path == "" {
-			fmt.Fprintln(&b, "missing")
-			fmt.Fprintln(&b)
-
-			continue
-		}
-
-		fmt.Fprintf(&b, "path: %s\n", path)
-		out, err := a.runner.Run(tool.name, tool.versionArgs...)
-
-		if err != nil {
-			fmt.Fprintf(&b, "version error: %v\n%s\n\n", err, strings.TrimSpace(string(out)))
-
-			continue
-		}
-
-		fmt.Fprintf(&b, "%s\n", strings.TrimSpace(string(out)))
-		fmt.Fprintln(&b)
-	}
-
-	return writeFile(filepath.Join(root, "dev-tools/versions.md"), []byte(b.String()), 0o600)
-}
-
-func (a app) copySafeFiles(root string) error {
-	for _, item := range capturePlan() {
-		source := item.source
-
-		if strings.HasPrefix(source, "~/") {
-			source = filepath.Join(a.home, strings.TrimPrefix(source, "~/"))
-		}
-
-		info, err := os.Stat(source)
-
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				continue
-			}
-
-			return err
-		}
-
-		target := filepath.Join(root, item.target)
-
-		if info.IsDir() {
-			if err := copyDirSafe(source, target); err != nil {
-				return err
-			}
-
-			continue
-		}
-
-		if shouldSkipSensitive(source) {
-			continue
-		}
-
-		data, err := os.ReadFile(source)
-
-		if err != nil {
-			return err
-		}
-
-		data = sanitizeDotfile(source, a.home, data)
-
-		if err := writeFile(target, data, 0o600); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (a app) exportDefaults(root string) error {
-	for _, domain := range defaultsDomains {
-		out, err := a.runner.Run("defaults", "export", domain, "-")
-
-		if err != nil {
-			fmt.Fprintf(a.stderr, "warning: defaults export %s failed: %v\n", domain, err)
-
-			continue
-		}
-
-		name := strings.ReplaceAll(domain, "/", "_") + ".plist"
-
-		if err := writeFile(filepath.Join(root, "defaults", name), out, 0o600); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (a app) copyAppConfigFiles(root string, opts options) error {
-	cfg, err := a.loadAppConfig(opts.configPath)
-
-	if err != nil {
-		return err
-	}
-
-	if err := copyFile(a.appConfigPath(opts.configPath), filepath.Join(root, "apps/apps.yaml")); err != nil {
-		return err
-	}
-
-	for _, item := range appCapturePlan(cfg) {
-		source := expandHome(item.source, a.home)
-
-		if shouldSkipSensitive(source) || shouldSkipSensitive(item.target) {
-			fmt.Fprintf(a.stdout, "skipped sensitive app config: %s\n", item.source)
-
-			continue
-		}
-
-		info, err := os.Stat(source)
-
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				fmt.Fprintf(a.stdout, "missing app config, skipped: %s\n", item.source)
-
-				continue
-			}
-
-			return err
-		}
-
-		target := filepath.Join(root, item.target)
-
-		if info.IsDir() {
-			if err := copyDirSafe(source, target); err != nil {
-				return err
-			}
-
-			fmt.Fprintf(a.stdout, "captured app config: %s\n", item.target)
-
-			continue
-		}
-
-		data, err := os.ReadFile(source)
-
-		if err != nil {
-			return err
-		}
-
-		data = sanitizeDotfile(source, a.home, data)
-
-		if err := writeFile(target, data, 0o600); err != nil {
-			return err
-		}
-
-		fmt.Fprintf(a.stdout, "captured app config: %s\n", item.target)
-	}
-
-	return nil
-}
-
-func (a app) restoreAppConfigs(opts options) error {
-	if !opts.apps {
-		fmt.Fprintln(a.stdout, "skipped: run with --apps to restore app configs")
-
-		return nil
-	}
-
-	if opts.archivePath == "" {
-		fmt.Fprintln(a.stdout, "skipped: no --archive supplied for app config restore")
-
-		return nil
-	}
-
-	cfg, err := a.loadAppConfig(opts.configPath)
-
-	if err != nil {
-		return err
-	}
-
-	archive := expandHome(opts.archivePath, a.home)
-
-	for _, app := range cfg.Apps {
-		switch app.ConfigMode {
-		case "auto":
-			for _, path := range app.ConfigPaths {
-				source := filepath.Join(archive, path.Target)
-				target := expandHome(path.Source, a.home)
-
-				if shouldSkipSensitive(source) || shouldSkipSensitive(target) {
-					fmt.Fprintf(a.stdout, "skipped sensitive restore path: %s\n", path.Source)
-
-					continue
-				}
-
-				info, err := os.Stat(source)
-
-				if err != nil {
-					if errors.Is(err, os.ErrNotExist) {
-						fmt.Fprintf(a.stdout, "missing archive config, skipped: %s\n", path.Target)
-
-						continue
-					}
-
-					return err
-				}
-
-				if opts.dryRun {
-					fmt.Fprintf(a.stdout, "would restore app config: %s -> %s\n", source, target)
-
-					continue
-				}
-
-				if info.IsDir() {
-					if err := copyDirSafe(source, target); err != nil {
-						return err
-					}
-				} else if err := copyFile(source, target); err != nil {
-					return err
-				}
-
-				fmt.Fprintf(a.stdout, "restored app config: %s\n", target)
-			}
-		case "reference":
-			fmt.Fprintf(a.stdout, "reference only: %s\n", app.Name)
-		case "manual":
-			fmt.Fprintf(a.stdout, "manual config restore: %s\n", app.Name)
-		}
-	}
-
-	return nil
-}
-
-func (a app) runDoctor(options) error {
-	if runtime.GOOS != "darwin" {
-		fmt.Fprintf(a.stdout, "OS: %s (unsupported)\n", runtime.GOOS)
-	} else {
-		fmt.Fprintln(a.stdout, "OS: darwin")
-	}
-
-	required := []string{"brew", "git", "stow", "op", "age", "mas"}
-
-	for _, name := range required {
-		path, err := exec.LookPath(name)
-
-		if err != nil {
-			fmt.Fprintf(a.stdout, "missing: %s\n", name)
-
-			continue
-		}
-
-		fmt.Fprintf(a.stdout, "found: %s -> %s\n", name, path)
-	}
-
-	fmt.Fprintln(a.stdout, "\nDeveloper tools:")
-
-	for _, tool := range devTools {
-		path, err := exec.LookPath(tool.name)
-
-		if err != nil {
-			fmt.Fprintf(a.stdout, "  %-14s missing\n", tool.name)
-
-			continue
-		}
-
-		out, err := a.runner.Run(tool.name, tool.versionArgs...)
-		version := strings.TrimSpace(firstLine(out))
-
-		if err != nil {
-			version = "version check failed"
-		}
-
-		fmt.Fprintf(a.stdout, "  %-14s %s (%s)\n", tool.name, version, path)
-	}
-
-	a.printOnePasswordArchiveStatus(defaultOPVault, defaultOPItem)
-
-	return nil
-}
-
-func (a app) printOnePasswordArchiveStatus(vault, item string) {
-	fmt.Fprintln(a.stdout, "\nPrivate archive:")
-
-	if _, err := exec.LookPath("op"); err != nil {
-		fmt.Fprintln(a.stdout, "  1Password CLI missing")
-
-		return
-	}
-
-	if out, err := a.runner.Run("op", "account", "list"); err != nil {
-		fmt.Fprintf(a.stdout, "  1Password account unavailable: %s\n", strings.TrimSpace(string(out)))
-
-		return
-	}
-
-	fmt.Fprintln(a.stdout, "  1Password account available")
-
-	if _, err := a.onePasswordFields(options{opVault: vault, opItem: item}); err != nil {
-		fmt.Fprintf(a.stdout, "  archive item missing or unreadable: %v\n", err)
-
-		return
-	}
-
-	fmt.Fprintf(a.stdout, "  archive item found: %s/%s\n", vault, item)
-	a.printSecretManifestStatus(options{opVault: vault, opItem: item})
-}
-
-func (a app) printSecretManifestStatus(opts options) {
-	cfg, err := a.loadSecretConfig(opts.secretsPath)
-
-	if err != nil {
-		fmt.Fprintf(a.stdout, "  secret manifest unavailable: %v\n", err)
-
-		return
-	}
-
-	fields, err := a.onePasswordFields(opts)
-
-	if err != nil {
-		fmt.Fprintf(a.stdout, "  secret fields unavailable: %v\n", err)
-
-		return
-	}
-
-	for _, secret := range cfg.Secrets {
-		status := "ok"
-
-		if strings.TrimSpace(fields[secret.OPField]) == "" {
-			status = "missing 1Password field"
-		} else if _, err := os.Stat(a.secretEncryptedPath(secret)); errors.Is(err, os.ErrNotExist) {
-			status = "missing encrypted file"
-		} else if err != nil {
-			status = "encrypted file unreadable"
-		}
-
-		fmt.Fprintf(a.stdout, "  secret %-18s %s\n", secret.Name, status)
-	}
-}
-
-func macOSDefaults() []macSetting {
-	return []macSetting{
-		{"NSGlobalDomain", "AppleInterfaceStyle", []string{"-string", "Dark"}},
-		{"NSGlobalDomain", "AppleShowAllExtensions", []string{"-bool", "true"}},
-		{"NSGlobalDomain", "ApplePressAndHoldEnabled", []string{"-bool", "false"}},
-		{"NSGlobalDomain", "NSAutomaticDashSubstitutionEnabled", []string{"-bool", "false"}},
-		{"NSGlobalDomain", "NSAutomaticQuoteSubstitutionEnabled", []string{"-bool", "false"}},
-		{"NSGlobalDomain", "NSAutomaticPeriodSubstitutionEnabled", []string{"-bool", "false"}},
-		{"NSGlobalDomain", "NSNavPanelExpandedStateForSaveMode", []string{"-bool", "true"}},
-		{"NSGlobalDomain", "PMPrintingExpandedStateForPrint", []string{"-bool", "true"}},
-		{"com.apple.finder", "AppleShowAllFiles", []string{"-bool", "true"}},
-		{"com.apple.finder", "ShowPathbar", []string{"-bool", "true"}},
-		{"com.apple.finder", "ShowStatusBar", []string{"-bool", "true"}},
-		{"com.apple.finder", "FXPreferredViewStyle", []string{"-string", "Nlsv"}},
-		{"com.apple.finder", "_FXShowPosixPathInTitle", []string{"-bool", "true"}},
-		{"com.apple.dock", "autohide", []string{"-bool", "true"}},
-		{"com.apple.dock", "mineffect", []string{"-string", "scale"}},
-		{"com.apple.dock", "minimize-to-application", []string{"-bool", "true"}},
-		{"com.apple.screencapture", "type", []string{"-string", "png"}},
-		{"com.apple.screencapture", "disable-shadow", []string{"-bool", "true"}},
-	}
-}
-
-var devTools = []devTool{
-	{"git", []string{"--version"}},
-	{"gh", []string{"--version"}},
-	{"node", []string{"--version"}},
-	{"npm", []string{"--version"}},
-	{"pnpm", []string{"--version"}},
-	{"yarn", []string{"--version"}},
-	{"python3", []string{"--version"}},
-	{"go", []string{"version"}},
-	{"php", []string{"--version"}},
-	{"composer", []string{"--version"}},
-	{"mas", []string{"version"}},
-	{"mysql", []string{"--version"}},
-	{"psql", []string{"--version"}},
-	{"docker", []string{"--version"}},
-	{"claude", []string{"--version"}},
-	{"codex", []string{"--version"}},
-	{"opencode", []string{"--version"}},
-	{"agent-browser", []string{"--version"}},
-	{"op", []string{"--version"}},
-	{"age", []string{"--version"}},
-}
-
-func (a app) loadAppConfig(path string) (appConfig, error) {
-	configPath := a.appConfigPath(path)
-	v := viper.New()
-	v.SetConfigFile(configPath)
-	v.SetConfigType("yaml")
-
-	if err := v.ReadInConfig(); err != nil {
-		return appConfig{}, fmt.Errorf("read app config %s: %w", configPath, err)
-	}
-
-	var cfg appConfig
-
-	if err := v.Unmarshal(&cfg); err != nil {
-		return appConfig{}, fmt.Errorf("parse app config %s: %w", configPath, err)
-	}
-
-	if err := validateAppConfig(cfg); err != nil {
-		return appConfig{}, fmt.Errorf("validate app config %s: %w", configPath, err)
-	}
-
-	return cfg, nil
-}
-
-func (a app) loadSecretConfig(path string) (secretConfig, error) {
-	configPath := a.secretConfigPath(path)
-	v := viper.New()
-	v.SetConfigFile(configPath)
-	v.SetConfigType("yaml")
-
-	if err := v.ReadInConfig(); err != nil {
-		return secretConfig{}, fmt.Errorf("read secret config %s: %w", configPath, err)
-	}
-
-	var cfg secretConfig
-
-	if err := v.Unmarshal(&cfg); err != nil {
-		return secretConfig{}, fmt.Errorf("parse secret config %s: %w", configPath, err)
-	}
-
-	if err := validateSecretConfig(cfg); err != nil {
-		return secretConfig{}, fmt.Errorf("validate secret config %s: %w", configPath, err)
-	}
-
-	return cfg, nil
-}
-
-func (a app) appConfigPath(path string) string {
-	if path == "" {
-		return filepath.Join(a.repo, "apps.yaml")
-	}
-
-	if strings.HasPrefix(path, "~/") {
-		return filepath.Join(a.home, strings.TrimPrefix(path, "~/"))
-	}
-
-	if filepath.IsAbs(path) {
-		return path
-	}
-
-	return filepath.Join(a.repo, path)
-}
-
-func (a app) secretConfigPath(path string) string {
-	if path == "" {
-		return filepath.Join(a.repo, "secrets.yaml")
-	}
-
-	if strings.HasPrefix(path, "~/") {
-		return filepath.Join(a.home, strings.TrimPrefix(path, "~/"))
-	}
-
-	if filepath.IsAbs(path) {
-		return path
-	}
-
-	return filepath.Join(a.repo, path)
-}
-
-func validateAppConfig(cfg appConfig) error {
-	if len(cfg.Apps) == 0 {
-		return errors.New("apps must contain at least one app")
-	}
-
-	installModes := map[string]bool{"brew": true, "mas": true, "manual": true, "system": true}
-	configModes := map[string]bool{"auto": true, "reference": true, "manual": true}
-
-	for i, app := range cfg.Apps {
-		prefix := fmt.Sprintf("apps[%d]", i)
-
-		if strings.TrimSpace(app.Name) == "" {
-			return fmt.Errorf("%s.name is required", prefix)
-		}
-
-		if !installModes[app.InstallMethod] {
-			return fmt.Errorf("%s.install_method %q is invalid", prefix, app.InstallMethod)
-		}
-
-		if !configModes[app.ConfigMode] {
-			return fmt.Errorf("%s.config_mode %q is invalid", prefix, app.ConfigMode)
-		}
-
-		if (app.InstallMethod == "brew" || app.InstallMethod == "mas") && strings.TrimSpace(app.Package) == "" {
-			return fmt.Errorf("%s.package is required for %s installs", prefix, app.InstallMethod)
-		}
-
-		if app.ConfigMode == "auto" && len(app.ConfigPaths) == 0 {
-			return fmt.Errorf("%s.config_paths is required for auto config restore", prefix)
-		}
-
-		for j, path := range app.ConfigPaths {
-			pathPrefix := fmt.Sprintf("%s.config_paths[%d]", prefix, j)
-
-			if strings.TrimSpace(path.Source) == "" {
-				return fmt.Errorf("%s.source is required", pathPrefix)
-			}
-
-			if strings.TrimSpace(path.Target) == "" {
-				return fmt.Errorf("%s.target is required", pathPrefix)
-			}
-
-			if filepath.IsAbs(path.Target) || strings.HasPrefix(path.Target, "..") || strings.Contains(filepath.Clean(path.Target), "../") {
-				return fmt.Errorf("%s.target must be archive-relative", pathPrefix)
-			}
-		}
-	}
-
-	return nil
-}
-
-func validateSecretConfig(cfg secretConfig) error {
-	if len(cfg.Secrets) == 0 {
-		return errors.New("secrets must contain at least one secret")
-	}
-
-	names := map[string]bool{}
-
-	for i, secret := range cfg.Secrets {
-		prefix := fmt.Sprintf("secrets[%d]", i)
-
-		if strings.TrimSpace(secret.Name) == "" {
-			return fmt.Errorf("%s.name is required", prefix)
-		}
-
-		if names[secret.Name] {
-			return fmt.Errorf("%s.name %q is duplicated", prefix, secret.Name)
-		}
-
-		names[secret.Name] = true
-
-		if strings.TrimSpace(secret.OPField) == "" {
-			return fmt.Errorf("%s.op_field is required", prefix)
-		}
-
-		if strings.TrimSpace(secret.PlaintextPath) == "" {
-			return fmt.Errorf("%s.plaintext_path is required", prefix)
-		}
-
-		if strings.TrimSpace(secret.EncryptedPath) == "" {
-			return fmt.Errorf("%s.encrypted_path is required", prefix)
-		}
-
-		if err := validateRepoRelativePath(secret.PlaintextPath); err != nil {
-			return fmt.Errorf("%s.plaintext_path: %w", prefix, err)
-		}
-
-		if err := validateRepoRelativePath(secret.EncryptedPath); err != nil {
-			return fmt.Errorf("%s.encrypted_path: %w", prefix, err)
-		}
-
-		if secret.Mode != secretModeAgeFile {
-			return fmt.Errorf("%s.mode must be %q", prefix, secretModeAgeFile)
-		}
-	}
-
-	return nil
-}
-
-func validateRepoRelativePath(path string) error {
-	if filepath.IsAbs(path) || strings.HasPrefix(path, "..") || strings.Contains(filepath.Clean(path), "../") {
-		return errors.New("must be repo-relative")
-	}
-
-	return nil
-}
-
-func adoptPlan(home, repo string) []captureItem {
-	return []captureItem{
-		{filepath.Join(home, ".zshrc"), filepath.Join(repo, "stow/shell/.zshrc")},
-		{filepath.Join(home, ".zprofile"), filepath.Join(repo, "stow/shell/.zprofile")},
-		{filepath.Join(home, ".bash_profile"), filepath.Join(repo, "stow/shell/.bash_profile")},
-		{filepath.Join(home, ".gitconfig"), filepath.Join(repo, "stow/git/.gitconfig")},
-		{filepath.Join(home, ".vimrc"), filepath.Join(repo, "stow/vim/.vimrc")},
-		{filepath.Join(home, ".config/git/ignore"), filepath.Join(repo, "stow/git/.config/git/ignore")},
-		{filepath.Join(home, ".config/ghostty/config"), filepath.Join(repo, "stow/ghostty/.config/ghostty/config")},
-	}
-}
-
-func appCapturePlan(cfg appConfig) []captureItem {
-	items := []captureItem{}
-
-	for _, app := range cfg.Apps {
-		if app.ConfigMode == "manual" {
-			continue
-		}
-
-		for _, path := range app.ConfigPaths {
-			items = append(items, captureItem{source: path.Source, target: path.Target})
-		}
-	}
-
-	return items
-}
-
-func capturePlan() []captureItem {
-	return []captureItem{
-		{"~/.zshrc", "dotfiles/.zshrc"},
-		{"~/.zprofile", "dotfiles/.zprofile"},
-		{"~/.bash_profile", "dotfiles/.bash_profile"},
-		{"~/.gitconfig", "dotfiles/.gitconfig"},
-		{"~/.vimrc", "dotfiles/.vimrc"},
-		{"~/.config/git/ignore", "dotfiles/.config/git/ignore"},
-		{"~/.config/ghostty/config", "dotfiles/.config/ghostty/config"},
-		{"~/.vscode/extensions/extensions.json", "editors/vscode/extensions.json"},
-		{"~/Library/Application Support/Code/User/settings.json", "editors/vscode/settings.json"},
-	}
-}
-
-var defaultsDomains = []string{
-	"NSGlobalDomain",
-	"com.apple.dock",
-	"com.apple.finder",
-	"com.apple.screencapture",
-	"com.apple.AppleMultitouchTrackpad",
-	"com.apple.driver.AppleBluetoothMultitouch.trackpad",
-	"com.mitchellh.ghostty",
-	"com.googlecode.iterm2",
-	"com.jordanbaird.Ice",
-}
-
-func brewfileContent() string {
-	formulae := []string{
-		"1password-cli",
-		"age",
-		"agent-browser",
-		"autossh",
-		"bruno",
-		"claude-code",
-		"codex",
-		"csvlens",
-		"fd",
-		"ffmpeg",
-		"fzf",
-		"gh",
-		"git",
-		"glow",
-		"go",
-		"gnupg",
-		"jq",
-		"libavif",
-		"libpq",
-		"mas",
-		"mysql",
-		"nginx",
-		"node@24",
-		"opencode",
-		"pinentry-mac",
-		"portless",
-		"sevenzip",
-		"stow",
-		"vim",
-		"yazi",
-		"zsh-syntax-highlighting",
-	}
-	casks := []string{
-		"1password",
-		"bruno",
-		"claude",
-		"codex",
-		"codexbar",
-		"dbeaver-community",
-		"discord",
-		"docker",
-		"ghostty",
-		"google-chrome",
-		"iterm2",
-		"jetbrains-toolbox",
-		"jordanbaird-ice",
-		"latest",
-		"linearmouse",
-		"markedit",
-		"microsoft-teams",
-		"notion",
-		"postman",
-		"raycast",
-		"spotify",
-		"stats",
-		"sublime-text",
-		"visual-studio-code",
-		"zoom",
-	}
-
-	var b strings.Builder
-
-	fmt.Fprintln(&b, `tap "homebrew/bundle"`)
-	fmt.Fprintln(&b)
-
-	for _, name := range formulae {
-		fmt.Fprintf(&b, "brew %s\n", strconv.Quote(name))
-	}
-
-	fmt.Fprintln(&b)
-
-	for _, name := range casks {
-		fmt.Fprintf(&b, "cask %s\n", strconv.Quote(name))
-	}
-
-	return b.String()
-}
-
-func writeFile(path string, content []byte, perm fs.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
-	}
-
-	return os.WriteFile(path, content, perm)
-}
-
-func copyFile(source, target string) error {
-	data, err := os.ReadFile(source)
-
-	if err != nil {
-		return err
-	}
-
-	return writeFile(target, data, 0o600)
-}
-
-func copyDirSafe(source, target string) error {
-	return filepath.WalkDir(source, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		rel, err := filepath.Rel(source, path)
-
-		if err != nil {
-			return err
-		}
-
-		if rel == "." {
-			return nil
-		}
-
-		if shouldSkipSensitive(path) {
-			if d.IsDir() {
-				return filepath.SkipDir
-			}
-
-			return nil
-		}
-
-		dst := filepath.Join(target, rel)
-
-		if d.IsDir() {
-			return os.MkdirAll(dst, 0o700)
-		}
-
-		return copyFile(path, dst)
+	return archive.Service{Home: a.home, Repo: a.repo, Stdout: a.stdout, Stderr: a.stderr, Runner: a.runner}.Capture(archive.Options{
+		DryRun:      opts.dryRun,
+		Encrypt:     opts.encrypt,
+		Apps:        opts.apps,
+		ArchiveRoot: opts.archiveRoot,
+		ConfigPath:  opts.configPath,
+		OPVault:     opts.opVault,
+		OPItem:      opts.opItem,
 	})
 }
 
-func shouldSkipSensitive(path string) bool {
-	lower := strings.ToLower(filepath.ToSlash(path))
-	base := strings.ToLower(filepath.Base(path))
-
-	if strings.Contains(lower, "/.ssh/id_") && !strings.HasSuffix(lower, ".pub") {
-		return true
-	}
-
-	patterns := []string{
-		".zsh_history",
-		".bash_history",
-		".mysql_history",
-		".gnupg",
-		"auth.json",
-		"hosts.yml",
-		"ngrok.yml",
-		"cache",
-		"session",
-		"sessions",
-		"file-history",
-		"state.vscdb",
-		"storage.json",
-		"cookies",
-		"login data",
-		"machineid",
-		"token",
-		"secret",
-		"private",
-		"keyring",
-		"keychain",
-		"docker.raw",
-		"database",
-		"library/application support/google/chrome",
-		"library/application support/bravesoftware",
-	}
-
-	for _, pattern := range patterns {
-		if strings.Contains(lower, pattern) || strings.Contains(base, pattern) {
-			return true
-		}
-	}
-
-	return false
+func (a app) restoreAppConfigs(opts options) error {
+	return a.apps().RestoreConfigs(apps.Options{DryRun: opts.dryRun, Apps: opts.apps, ArchivePath: opts.archivePath, ConfigPath: opts.configPath})
 }
 
-func sanitizeDotfile(path, home string, data []byte) []byte {
-	content := string(data)
-
-	if home != "" {
-		content = strings.ReplaceAll(content, home, "$HOME")
-	}
-
-	lines := strings.Split(content, "\n")
-	kept := make([]string, 0, len(lines))
-
-	for _, line := range lines {
-		lower := strings.ToLower(line)
-
-		if strings.Contains(lower, "machineid") ||
-			strings.Contains(lower, "machine_id") ||
-			strings.Contains(lower, "installation_id") ||
-			strings.Contains(lower, "api_key") ||
-			strings.Contains(lower, "apikey") ||
-			strings.Contains(lower, "access_token") ||
-			strings.Contains(lower, "refresh_token") ||
-			strings.Contains(lower, "secret=") ||
-			strings.Contains(lower, "token=") {
-			kept = append(kept, "# redacted machine-specific or secret-like setting")
-
-			continue
-		}
-
-		kept = append(kept, line)
-	}
-
-	out := strings.Join(kept, "\n")
-
-	if !strings.HasSuffix(out, "\n") {
-		out += "\n"
-	}
-
-	return []byte(out)
+func (a app) runDoctor(options) error {
+	return doctor.Service{GOOS: a.goos, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}.Run(defaultOPVault, defaultOPItem)
 }
 
-func shellQuote(parts []string) string {
-	quoted := make([]string, 0, len(parts))
-
-	for _, part := range parts {
-		if part == "" {
-			quoted = append(quoted, "''")
-
-			continue
-		}
-
-		if strings.ContainsAny(part, " \t\n\"'\\$`!*?[]{}()&;|<>") {
-			quoted = append(quoted, "'"+strings.ReplaceAll(part, "'", `'\''`)+"'")
-
-			continue
-		}
-
-		quoted = append(quoted, part)
-	}
-
-	return strings.Join(quoted, " ")
+func (a app) encryptSecrets(opts options) error {
+	return a.secretsService().Encrypt(secretOptions(opts))
 }
 
-func firstLine(b []byte) string {
-	line, _, _ := bytes.Cut(b, []byte("\n"))
-
-	return string(line)
+func (a app) decryptSecrets(opts options) error {
+	return a.secretsService().Decrypt(secretOptions(opts))
 }
 
-func expandHome(path, home string) string {
-	if strings.HasPrefix(path, "~/") {
-		return filepath.Join(home, strings.TrimPrefix(path, "~/"))
-	}
+func (a app) syncSecrets(opts options) error {
+	return a.secretsService().Sync(secretOptions(opts))
+}
 
-	return path
+func (a app) apps() apps.Service {
+	return apps.Service{Home: a.home, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}
+}
+
+func (a app) secretsService() secrets.Service {
+	return secrets.Service{Repo: a.repo, Stdout: a.stdout, Runner: a.runner}
+}
+
+func secretOptions(opts options) secrets.Options {
+	return secrets.Options{
+		DryRun:       opts.dryRun,
+		SecretsPath:  opts.secretsPath,
+		SecretTarget: opts.secretTarget,
+		OPVault:      opts.opVault,
+		OPItem:       opts.opItem,
+	}
 }
 
 func findRepoRoot(start string) string {
