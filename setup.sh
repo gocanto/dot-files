@@ -140,21 +140,19 @@ ensure_go() {
 	run brew install go
 }
 
-run_bootstrap() {
+run_tui() {
 	local root
 	root="$(cd "$(dirname "$0")" && pwd)"
 
-	log "running mac-os bootstrap"
+	log "opening mac-os TUI"
 
 	if [[ "$DRY_RUN" -eq 1 ]]; then
-		printf 'would run: go run ./mac-os/cmd/mac-os bootstrap --apps'
-		printf ' %q' "$@"
-		printf '\n'
+		printf 'would run: go run ./mac-os/cmd/mac-os\n'
 		return 0
 	fi
 
 	cd "$root"
-	go run ./mac-os/cmd/mac-os bootstrap --apps "$@"
+	go run ./mac-os/cmd/mac-os
 }
 
 ensure_macos
@@ -162,4 +160,4 @@ start_sudo_keepalive
 ensure_command_line_tools
 ensure_homebrew
 ensure_go
-run_bootstrap "$@"
+run_tui "$@"

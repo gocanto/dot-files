@@ -12,24 +12,19 @@ This repo separates two jobs:
 For a new Mac, start from the repository root:
 
 ```sh
-./setup.sh --apps
+./setup.sh
 ```
 
 The setup script requires macOS, network access, administrator/sudo access, and
 completion of any Apple Command Line Tools installer or license prompts. It
 installs or enables Xcode Command Line Tools, installs Homebrew and Go when
-missing, then runs the Go bootstrap flow.
+missing, then opens the Go TUI.
 
-After bootstrap, or when developing this tool, run commands directly:
+After bootstrap, or when developing this tool, open the TUI directly:
 
 ```sh
 go run ./mac-os/cmd/mac-os
 go run ./mac-os/cmd/mac-os tui
-go run ./mac-os/cmd/mac-os doctor
-go run ./mac-os/cmd/mac-os bootstrap --apps --dry-run
-go run ./mac-os/cmd/mac-os bootstrap --apps
-go run ./mac-os/cmd/mac-os capture --apps --encrypt
-go run ./mac-os/cmd/mac-os restore --archive "$HOME/.local/state/macos-settings-archives/<timestamp>" --apps --dry-run
 ```
 
 From inside this `mac-os` directory, the shorter module-local form also works:
@@ -37,11 +32,6 @@ From inside this `mac-os` directory, the shorter module-local form also works:
 ```sh
 go run ./cmd/mac-os
 go run ./cmd/mac-os tui
-go run ./cmd/mac-os adopt --dry-run
-go run ./cmd/mac-os doctor
-go run ./cmd/mac-os bootstrap --apps --dry-run
-go run ./cmd/mac-os capture --apps --encrypt
-go run ./cmd/mac-os restore --archive "$HOME/.local/state/macos-settings-archives/<timestamp>" --apps --dry-run
 ```
 
 Private archives are written to:
@@ -58,22 +48,11 @@ Encrypted archives are written beside the timestamped capture directory as:
 
 ## Commands
 
-- `tui`: opens the Bubble Tea workflow dashboard. Running `mac-os` with no arguments opens the same dashboard.
-- `adopt`: imports safe current dotfiles into the repo's Stow layout and redacts known machine IDs.
-- `bootstrap`: prompted phases for prerequisites, Homebrew, App Store apps, manual app reporting, safe dotfile adoption, Stow links, optional app config restore, macOS defaults, archive capture, and doctor checks.
-- `capture`: writes a private machine inventory outside the repo; `--apps` adds allowlisted app configuration from `apps.yaml`.
-- `restore`: restores only app configuration marked `auto` in `apps.yaml` from a private archive.
-- `doctor`: prints required tools and developer tool versions.
-- `brewfile`: prints or writes the curated Brewfile.
-- `macos`: applies only the curated macOS defaults.
+- `mac-os`: opens the Bubble Tea workflow dashboard.
+- `mac-os tui`: opens the same dashboard explicitly.
 
-All mutating scriptable commands support `--dry-run`. Prompted scriptable
-commands support `--yes`.
-App-aware commands accept `--config PATH`; by default they load `apps.yaml`
-through Viper.
-Scriptable setup commands validate sudo access at startup, including read-only
-commands, because machine setup assumes administrator access. The TUI and
-`secrets` entrypoints do not preflight sudo at launch.
+Previous scriptable subcommands are no longer supported. Workflow execution now
+runs through the TUI.
 
 ## Interactive TUI
 
@@ -94,8 +73,7 @@ executes enabled phases in order, shows each phase status, stops on first
 failure, and returns a non-zero exit code on failure or `ctrl+c` cancellation.
 
 The current TUI defaults to dry-run-oriented workflows so it is safe as an
-interactive front door. Use the scriptable commands with explicit flags when
-you need fully unattended mutation.
+interactive front door.
 
 ## App restore policy
 
@@ -146,22 +124,9 @@ age-keygen
 Copy the `AGE-SECRET-KEY-...` line into `archive_age_identity` and the
 `age1...` public recipient into `archive_age_recipient`.
 
-Capture and encrypt the current machine, including allowlisted app config:
+Use the TUI capture workflow to create a machine reference archive.
 
-```sh
-go run ./cmd/mac-os capture --apps --encrypt
-```
-
-Use a different vault, item, or archive location when needed:
-
-```sh
-go run ./cmd/mac-os capture --encrypt \
-  --op-vault Private \
-  --op-item "Mac Migration Archive" \
-  --archive-root "/Volumes/Migration/macbook"
-```
-
-On a new Mac, run `./setup.sh --apps` first. After Homebrew, 1Password, `op`,
+On a new Mac, run `./setup.sh` first. After Homebrew, 1Password, `op`,
 and `age` are installed, sign in with `op`, retrieve the identity from
 1Password, and decrypt the latest archive. Keep the identity file outside the
 repo.
@@ -177,28 +142,7 @@ above and keep the encrypted repo copy in:
 mac-os/stow/git/.config/git/private.gitconfig.age
 ```
 
-Restore it from the encrypted file, falling back to the 1Password plaintext
-field when the encrypted file is unavailable:
-
-```sh
-go run ./cmd/mac-os secrets decrypt-gitconfig
-```
-
-Update all encrypted secret files from 1Password:
-
-```sh
-go run ./cmd/mac-os secrets encrypt
-```
-
-After editing the local ignored plaintext file, push the new plaintext back to
-1Password and refresh the encrypted file:
-
-```sh
-go run ./cmd/mac-os secrets sync --target gitconfig
-```
-
-The `encrypt-gitconfig`, `decrypt-gitconfig`, and `sync-gitconfig` commands are
-kept as aliases for the `gitconfig` target.
+The public CLI no longer exposes standalone secret-management subcommands.
 
 ## Developer tools
 

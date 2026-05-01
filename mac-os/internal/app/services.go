@@ -11,7 +11,6 @@ import (
 	"github.com/gocanto/mac-os/internal/doctor"
 	"github.com/gocanto/mac-os/internal/dotfiles"
 	"github.com/gocanto/mac-os/internal/macosdefaults"
-	"github.com/gocanto/mac-os/internal/secrets"
 )
 
 func (a app) ensurePrerequisites(opts options) error {
@@ -113,32 +112,6 @@ func (a app) runDoctor(options) error {
 	return doctor.Service{GOOS: a.goos, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}.Run(defaultOPVault, defaultOPItem)
 }
 
-func (a app) encryptSecrets(opts options) error {
-	return a.secretsService().Encrypt(secretOptions(opts))
-}
-
-func (a app) decryptSecrets(opts options) error {
-	return a.secretsService().Decrypt(secretOptions(opts))
-}
-
-func (a app) syncSecrets(opts options) error {
-	return a.secretsService().Sync(secretOptions(opts))
-}
-
 func (a app) apps() apps.Service {
 	return apps.Service{Home: a.home, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}
-}
-
-func (a app) secretsService() secrets.Service {
-	return secrets.Service{Repo: a.repo, Stdout: a.stdout, Runner: a.runner}
-}
-
-func secretOptions(opts options) secrets.Options {
-	return secrets.Options{
-		DryRun:       opts.dryRun,
-		SecretsPath:  opts.secretsPath,
-		SecretTarget: opts.secretTarget,
-		OPVault:      opts.opVault,
-		OPItem:       opts.opItem,
-	}
 }

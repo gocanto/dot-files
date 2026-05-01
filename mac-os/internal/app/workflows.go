@@ -24,7 +24,7 @@ func (a app) bootstrapPhases(opts options) []tui.Phase {
 }
 
 func (a app) tuiWorkflows() []tui.Workflow {
-	dryRunOpts := options{dryRun: true, yes: true, opVault: defaultOPVault, opItem: defaultOPItem}
+	dryRunOpts := options{dryRun: true, opVault: defaultOPVault, opItem: defaultOPItem}
 
 	return []tui.Workflow{
 		{Name: "Bootstrap", Phases: a.bootstrapPhases(dryRunOpts)},

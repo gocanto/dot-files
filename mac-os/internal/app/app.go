@@ -22,17 +22,14 @@ type app struct {
 }
 
 type options struct {
-	dryRun       bool
-	yes          bool
-	encrypt      bool
-	apps         bool
-	archiveRoot  string
-	archivePath  string
-	configPath   string
-	secretsPath  string
-	secretTarget string
-	opVault      string
-	opItem       string
+	dryRun      bool
+	encrypt     bool
+	apps        bool
+	archiveRoot string
+	archivePath string
+	configPath  string
+	opVault     string
+	opItem      string
 }
 
 const (
@@ -80,31 +77,7 @@ func (a app) run(args []string) int {
 		return a.tui(nil)
 	}
 
-	if args[0] != "secrets" && args[0] != "tui" {
-		if err := a.requireSudo(); err != nil {
-			fmt.Fprintf(a.stderr, "sudo access required: %v\n", err)
-
-			return 1
-		}
-	}
-
 	switch args[0] {
-	case "bootstrap":
-		return a.bootstrap(args[1:])
-	case "adopt":
-		return a.adopt(args[1:])
-	case "capture":
-		return a.capture(args[1:])
-	case "restore":
-		return a.restore(args[1:])
-	case "doctor":
-		return a.doctor(args[1:])
-	case "brewfile":
-		return a.brewfile(args[1:])
-	case "macos":
-		return a.macos(args[1:])
-	case "secrets":
-		return a.secrets(args[1:])
 	case "tui":
 		return a.tui(args[1:])
 	case "help", "-h", "--help":

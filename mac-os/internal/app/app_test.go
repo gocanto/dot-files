@@ -2,7 +2,6 @@ package app
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -65,51 +64,43 @@ func TestTUICommandLaunchesTUI(t *testing.T) {
 	}
 }
 
-func TestRequireSudoValidatesWithSudoV(t *testing.T) {
-	var calls []string
-	a := app{runner: stubRunner{calls: &calls}}
+func TestOldCommandsAreRejected(t *testing.T) {
+	for _, command := range []string{"doctor", "bootstrap"} {
+		t.Run(command, func(t *testing.T) {
+			var stderr bytes.Buffer
+			a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, &stderr, stubRunner{})
 
-	if err := a.requireSudo(); err != nil {
-		t.Fatal(err)
-	}
+			if got := a.run([]string{command}); got != 2 {
+				t.Fatalf("exit = %d, want 2", got)
+			}
 
-	if len(calls) != 1 || calls[0] != "sudo -v" {
-		t.Fatalf("calls = %v, want sudo -v", calls)
-	}
-}
-
-func TestRequireSudoReportsAuthFailure(t *testing.T) {
-	a := app{
-		runner: stubRunner{
-			outputs: map[string][]byte{"sudo -v": []byte("not in sudoers\n")},
-			errors:  map[string]error{"sudo -v": errors.New("exit status 1")},
-		},
-	}
-
-	err := a.requireSudo()
-
-	if err == nil {
-		t.Fatal("expected sudo failure")
-	}
-
-	if !strings.Contains(err.Error(), "sudo -v") || !strings.Contains(err.Error(), "not in sudoers") {
-		t.Fatalf("error = %v, want sudo command and output", err)
+			if !strings.Contains(stderr.String(), `unknown command "`+command+`"`) {
+				t.Fatalf("stderr = %s", stderr.String())
+			}
+		})
 	}
 }
 
-func TestExistingCommandStillRequiresSudo(t *testing.T) {
-	var stderr bytes.Buffer
-	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, &stderr, stubRunner{
-		outputs: map[string][]byte{"sudo -v": []byte("nope\n")},
-		errors:  map[string]error{"sudo -v": errors.New("exit status 1")},
-	})
+func TestHelpOnlyShowsTUIUsage(t *testing.T) {
+	var stdout bytes.Buffer
+	a := newApp("/Users/gus", "/repo", strings.NewReader(""), &stdout, io.Discard, stubRunner{})
 
-	if got := a.run([]string{"doctor"}); got != 1 {
-		t.Fatalf("exit = %d, want 1", got)
+	if got := a.run([]string{"help"}); got != 0 {
+		t.Fatalf("exit = %d, want 0", got)
 	}
 
-	if !strings.Contains(stderr.String(), "sudo access required") {
-		t.Fatalf("stderr = %s", stderr.String())
+	output := stdout.String()
+
+	for _, want := range []string{"mac-os", "mac-os tui", "Commands:", "tui"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("help output = %s, want %q", output, want)
+		}
+	}
+
+	for _, old := range []string{"bootstrap", "adopt", "capture", "restore", "secrets", "doctor", "brewfile", "macos"} {
+		if strings.Contains(output, old) {
+			t.Fatalf("help output = %s, did not expect old command %q", output, old)
+		}
 	}
 }
 
