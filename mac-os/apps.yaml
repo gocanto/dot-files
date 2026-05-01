@@ -318,8 +318,8 @@ apps:
 
   - name: TrashMe
     bundle_id: com.jibapps.TrashMe
-    install_method: mas
-    package: "443126292"
+    install_method: manual
+    package: https://www.jibapps.com/apps/trashme/
     config_mode: auto
     config_paths:
       - source: ~/Library/Preferences/com.jibapps.TrashMe.plist

@@ -7,6 +7,7 @@ import (
 
 	"github.com/gocanto/mac-os/internal/apps"
 	"github.com/gocanto/mac-os/internal/archive"
+	"github.com/gocanto/mac-os/internal/brewfile"
 	"github.com/gocanto/mac-os/internal/command"
 	"github.com/gocanto/mac-os/internal/doctor"
 	"github.com/gocanto/mac-os/internal/dotfiles"
@@ -18,13 +19,13 @@ func (a app) ensurePrerequisites(opts options) error {
 }
 
 func (a app) applyHomebrewBundle(opts options) error {
-	brewfilePath := filepath.Join(a.repo, "Brewfile")
+	brewfilePath := filepath.Join(os.TempDir(), "mac-os-Brewfile")
 
-	if _, err := os.Stat(brewfilePath); err != nil {
-		return fmt.Errorf("missing Brewfile at %s", brewfilePath)
+	if err := os.WriteFile(brewfilePath, []byte(brewfile.Content()), 0o644); err != nil {
+		return fmt.Errorf("write generated Brewfile to %s: %w", brewfilePath, err)
 	}
 
-	cmd := []string{"brew", "bundle", "--file", brewfilePath}
+	cmd := []string{"brew", "bundle", "--verbose", "--file", brewfilePath}
 
 	if opts.dryRun {
 		fmt.Fprintf(a.stdout, "would run: %s\n", command.ShellQuote(cmd))
@@ -32,7 +33,24 @@ func (a app) applyHomebrewBundle(opts options) error {
 		return nil
 	}
 
-	return command.RunInteractive(a.runner, a.stdout, cmd[0], cmd[1:]...)
+	logPath := filepath.Join(os.TempDir(), "mac-os-homebrew-bundle.log")
+	fmt.Fprintf(a.stdout, "logging full output to %s\n", logPath)
+
+	out, runErr := a.runner.Run(cmd[0], cmd[1:]...)
+
+	if writeErr := os.WriteFile(logPath, out, 0o644); writeErr != nil {
+		fmt.Fprintf(a.stdout, "warning: could not write log file: %v\n", writeErr)
+	}
+
+	if len(out) > 0 {
+		fmt.Fprint(a.stdout, string(out))
+	}
+
+	if runErr != nil {
+		return fmt.Errorf("brew bundle failed (full log: %s): %w", logPath, runErr)
+	}
+
+	return nil
 }
 
 func (a app) applyAppStoreApps(opts options) error {

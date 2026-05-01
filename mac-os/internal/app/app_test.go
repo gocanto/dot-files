@@ -225,10 +225,6 @@ func TestFindRepoRootWalksUp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(filepath.Join(dir, "Brewfile"), []byte("tap \"homebrew/bundle\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
 	if err := os.Mkdir(filepath.Join(dir, "stow"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -253,10 +249,6 @@ func TestFindRepoRootFromOuterRepoUsesMacOSDir(t *testing.T) {
 	}
 
 	if err := os.WriteFile(filepath.Join(macOSDir, "go.mod"), []byte("module test\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := os.WriteFile(filepath.Join(macOSDir, "Brewfile"), []byte("tap \"homebrew/bundle\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
