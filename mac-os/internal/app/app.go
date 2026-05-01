@@ -78,8 +78,6 @@ func (a app) run(args []string) int {
 	}
 
 	switch args[0] {
-	case "tui":
-		return a.tui(args[1:])
 	case "help", "-h", "--help":
 		a.usage()
 

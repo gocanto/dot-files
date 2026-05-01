@@ -46,26 +46,30 @@ func TestNoArgsLaunchesTUI(t *testing.T) {
 	}
 }
 
-func TestTUICommandLaunchesTUI(t *testing.T) {
-	var launched bool
+func TestTUIWorkflowsStartWithFactoryInstall(t *testing.T) {
+	var workflows []tui.Workflow
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
-	a.tuiRunner = func(io.Reader, io.Writer, []tui.Workflow) (tui.Result, error) {
-		launched = true
+	a.tuiRunner = func(_ io.Reader, _ io.Writer, got []tui.Workflow) (tui.Result, error) {
+		workflows = got
 
-		return tui.Result{ExitCode: 7}, nil
+		return tui.Result{ExitCode: 0}, nil
 	}
 
-	if got := a.run([]string{"tui"}); got != 7 {
-		t.Fatalf("exit = %d, want 7", got)
+	if got := a.run(nil); got != 0 {
+		t.Fatalf("exit = %d, want 0", got)
 	}
 
-	if !launched {
-		t.Fatal("expected TUI launch")
+	if len(workflows) == 0 || workflows[0].Name != "Factory Install" {
+		t.Fatalf("first workflow = %#v, want Factory Install", workflows)
+	}
+
+	if len(workflows[0].Phases) != 1 || workflows[0].Phases[0].Name != "factory install" {
+		t.Fatalf("factory phases = %#v", workflows[0].Phases)
 	}
 }
 
-func TestOldCommandsAreRejected(t *testing.T) {
-	for _, command := range []string{"doctor", "bootstrap"} {
+func TestCommandsAreRejected(t *testing.T) {
+	for _, command := range []string{"tui", "doctor", "bootstrap"} {
 		t.Run(command, func(t *testing.T) {
 			var stderr bytes.Buffer
 			a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, &stderr, stubRunner{})
@@ -91,13 +95,13 @@ func TestHelpOnlyShowsTUIUsage(t *testing.T) {
 
 	output := stdout.String()
 
-	for _, want := range []string{"mac-os", "mac-os tui", "Commands:", "tui"} {
+	for _, want := range []string{"mac-os", "interactive Bubble Tea workflow dashboard"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("help output = %s, want %q", output, want)
 		}
 	}
 
-	for _, old := range []string{"bootstrap", "adopt", "capture", "restore", "secrets", "doctor", "brewfile", "macos"} {
+	for _, old := range []string{"mac-os tui", "bootstrap", "adopt", "capture", "restore", "secrets", "doctor", "brewfile", "macos"} {
 		if strings.Contains(output, old) {
 			t.Fatalf("help output = %s, did not expect old command %q", output, old)
 		}

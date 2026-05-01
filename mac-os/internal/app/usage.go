@@ -7,10 +7,6 @@ func (a app) usage() {
 
 Usage:
   mac-os
-  mac-os tui
 
-Commands:
-  tui        Open the interactive Bubble Tea workflow dashboard.
-
-Running mac-os with no arguments opens the same dashboard.`)
+Running mac-os opens the interactive Bubble Tea workflow dashboard.`)
 }

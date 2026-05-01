@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -39,6 +40,21 @@ type phaseDoneMsg struct {
 	output string
 	err    error
 }
+
+const (
+	reset      = "\x1b[0m"
+	bold       = "\x1b[1m"
+	fgText     = "\x1b[38;2;218;224;244m"
+	fgMuted    = "\x1b[38;2;126;135;158m"
+	fgAccent   = "\x1b[38;2;118;214;196m"
+	fgSuccess  = "\x1b[38;2;137;220;142m"
+	fgDanger   = "\x1b[38;2;239;118;122m"
+	bgSelected = "\x1b[48;2;31;42;50m"
+	leftPad    = "   "
+	rowWidth   = 76
+	footerLine = 16
+	logLines   = 8
+)
 
 func New(workflows []Workflow) Model {
 	return Model{
@@ -197,34 +213,45 @@ func (m Model) startNextPhase() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() tea.View {
+	var content string
+
 	switch m.screen {
 	case "workflow":
-		return tea.NewView(m.workflowView())
+		content = m.workflowView()
 	case "run":
-		return tea.NewView(m.runView())
+		content = m.runView()
 	default:
-		return tea.NewView(m.homeView())
+		content = m.homeView()
 	}
+
+	view := tea.NewView(content)
+	view.AltScreen = true
+
+	return view
 }
 
 func (m Model) homeView() string {
 	var b bytes.Buffer
 
-	fmt.Fprintln(&b, "mac-os")
+	fmt.Fprintln(&b)
+	fmt.Fprintln(&b, inset(banner("mac-os")))
+	fmt.Fprintln(&b, inset(muted(fmt.Sprintf("%d workflows ready", len(m.workflows)))))
 	fmt.Fprintln(&b)
 
 	for i, workflow := range m.workflows {
-		cursor := " "
+		phaseCount := enabledPhaseCount(workflow)
+		summary := fmt.Sprintf("%d/%d phases enabled", phaseCount, len(workflow.Phases))
+		row := menuRow("  ", workflow.Name, summary, false)
 
 		if i == m.cursor {
-			cursor = ">"
+			row = menuRow(">", workflow.Name, summary, true)
 		}
 
-		fmt.Fprintf(&b, "%s %s\n", cursor, workflow.Name)
+		fmt.Fprintln(&b, inset(row))
 	}
 
-	fmt.Fprintln(&b)
-	fmt.Fprintln(&b, "enter: open  q/esc: quit")
+	padToLine(&b, footerLine)
+	fmt.Fprintln(&b, inset(help("enter", "open", "j/k", "move", "q/esc", "quit")))
 
 	return b.String()
 }
@@ -232,27 +259,30 @@ func (m Model) homeView() string {
 func (m Model) workflowView() string {
 	var b bytes.Buffer
 	workflow := m.workflows[m.cursor]
-	fmt.Fprintln(&b, workflow.Name)
+	fmt.Fprintln(&b)
+	fmt.Fprintln(&b, inset(banner(workflow.Name)))
+	fmt.Fprintln(&b, inset(muted("Toggle phases, then launch the selected workflow.")))
 	fmt.Fprintln(&b)
 
 	for i, phase := range workflow.Phases {
-		cursor := " "
-
-		if i == m.phase {
-			cursor = ">"
-		}
-
-		checked := " "
+		checked := "[ ]"
 
 		if phase.Enabled {
-			checked = "x"
+			checked = "[x]"
 		}
 
-		fmt.Fprintf(&b, "%s [%s] %s\n", cursor, checked, phase.Name)
+		label := fmt.Sprintf("%s %s", checked, phase.Name)
+		row := menuRow("  ", label, stripANSI(phaseState(phase)), false)
+
+		if i == m.phase {
+			row = menuRow(">", label, stripANSI(phaseState(phase)), true)
+		}
+
+		fmt.Fprintln(&b, inset(row))
 	}
 
-	fmt.Fprintln(&b)
-	fmt.Fprintln(&b, "space: toggle  enter: run  backspace: home  q/esc: quit")
+	padToLine(&b, footerLine)
+	fmt.Fprintln(&b, inset(help("space", "toggle", "enter", "run", "backspace", "home", "q/esc", "quit")))
 
 	return b.String()
 }
@@ -260,7 +290,9 @@ func (m Model) workflowView() string {
 func (m Model) runView() string {
 	var b bytes.Buffer
 	workflow := m.workflows[m.cursor]
-	fmt.Fprintln(&b, workflow.Name)
+	fmt.Fprintln(&b)
+	fmt.Fprintln(&b, inset(banner(workflow.Name)))
+	fmt.Fprintln(&b, inset(runSummary(workflow, m.running, m.err)))
 	fmt.Fprintln(&b)
 
 	for _, phase := range workflow.Phases {
@@ -270,22 +302,223 @@ func (m Model) runView() string {
 			status = "pending"
 		}
 
-		fmt.Fprintf(&b, "%-24s %s\n", phase.Name, status)
+		fmt.Fprintln(&b, inset(statusRow(phase.Name, status)))
 	}
 
-	if m.log != "" {
-		fmt.Fprintln(&b)
-		fmt.Fprint(&b, m.log)
-	}
+	fmt.Fprintln(&b)
+	fmt.Fprintln(&b, inset(accent("output")))
+	fmt.Fprint(&b, outputPanel(m.log, logLines))
 
 	if m.err != nil {
-		fmt.Fprintf(&b, "\nfailed: %v\n", m.err)
+		fmt.Fprintln(&b)
+		fmt.Fprintln(&b, inset(danger(fmt.Sprintf("failed: %v", m.err))))
 	}
 
 	if !m.running {
-		fmt.Fprintln(&b)
-		fmt.Fprintln(&b, "enter: exit")
+		padToLine(&b, footerLine+logLines+3)
+		fmt.Fprintln(&b, inset(help("enter", "exit")))
 	}
 
 	return b.String()
+}
+
+func banner(title string) string {
+	title = strings.ToUpper(title)
+	rule := strings.Repeat("-", max(16, rowWidth-len(title)-2))
+
+	return accent(title) + " " + muted(rule)
+}
+
+func menuRow(marker, label, meta string, selected bool) string {
+	contentWidth := rowWidth - 4
+	labelWidth := 38
+
+	if len(label) > labelWidth {
+		labelWidth = len(label)
+	}
+
+	if !selected {
+		meta = muted(meta)
+	}
+
+	row := fmt.Sprintf(" %s %-*s %s", marker, labelWidth, label, meta)
+	row = padRight(row, contentWidth)
+
+	if selected {
+		return bgSelected + accent(row) + reset
+	}
+
+	return fgText + row + reset
+}
+
+func statusRow(label, status string) string {
+	row := fmt.Sprintf("  %-42s %s", label, statusBadge(status))
+
+	return padRight(row, rowWidth)
+}
+
+func help(parts ...string) string {
+	var b strings.Builder
+
+	for i := 0; i+1 < len(parts); i += 2 {
+		if i > 0 {
+			b.WriteString("  ")
+		}
+
+		b.WriteString(accent(parts[i]))
+		b.WriteString(": ")
+		b.WriteString(parts[i+1])
+	}
+
+	return b.String()
+}
+
+func enabledPhaseCount(workflow Workflow) int {
+	count := 0
+
+	for _, phase := range workflow.Phases {
+		if phase.Enabled {
+			count++
+		}
+	}
+
+	return count
+}
+
+func phaseState(phase Phase) string {
+	if phase.Enabled {
+		return "armed"
+	}
+
+	return "off"
+}
+
+func runSummary(workflow Workflow, running bool, err error) string {
+	if err != nil {
+		return danger("Run stopped on the first failing phase.")
+	}
+
+	if running {
+		return accent("Running enabled phases now.")
+	}
+
+	return success(fmt.Sprintf("Complete: %d phases processed.", len(workflow.Phases)))
+}
+
+func statusBadge(status string) string {
+	switch status {
+	case "ok":
+		return success("[OK]")
+	case "failed":
+		return danger("[FAIL]")
+	case "running":
+		return accent("[RUN]")
+	case "skipped":
+		return muted("[SKIP]")
+	default:
+		return muted("[WAIT]")
+	}
+}
+
+func accent(s string) string {
+	return fgAccent + bold + s + reset
+}
+
+func success(s string) string {
+	return fgSuccess + bold + s + reset
+}
+
+func danger(s string) string {
+	return fgDanger + bold + s + reset
+}
+
+func muted(s string) string {
+	return fgMuted + s + reset
+}
+
+func inset(s string) string {
+	return leftPad + s
+}
+
+func indentBlock(s string) string {
+	lines := strings.SplitAfter(s, "\n")
+
+	var b strings.Builder
+
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+
+		b.WriteString(leftPad)
+		b.WriteString("  ")
+		b.WriteString(line)
+	}
+
+	return b.String()
+}
+
+func outputPanel(log string, height int) string {
+	lines := tailLines(log, height)
+
+	var b strings.Builder
+
+	for i := 0; i < height; i++ {
+		line := ""
+
+		if i < len(lines) {
+			line = lines[i]
+		}
+
+		b.WriteString(leftPad)
+		b.WriteString("  ")
+		b.WriteString(muted(padRight(line, rowWidth-4)))
+		b.WriteString("\n")
+	}
+
+	return b.String()
+}
+
+func tailLines(log string, limit int) []string {
+	if log == "" {
+		return nil
+	}
+
+	lines := strings.Split(strings.TrimRight(log, "\n"), "\n")
+
+	if len(lines) <= limit {
+		return lines
+	}
+
+	return lines[len(lines)-limit:]
+}
+
+func padToLine(b *bytes.Buffer, target int) {
+	for strings.Count(b.String(), "\n") < target {
+		fmt.Fprintln(b)
+	}
+}
+
+func padRight(s string, width int) string {
+	plain := stripANSI(s)
+
+	if len(plain) >= width {
+		return s
+	}
+
+	return s + strings.Repeat(" ", width-len(plain))
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+
+	return b
+}
+
+func stripANSI(s string) string {
+	replacer := strings.NewReplacer(reset, "", bold, "", fgText, "", fgMuted, "", fgAccent, "", fgSuccess, "", fgDanger, "", bgSelected, "")
+
+	return replacer.Replace(s)
 }

@@ -24,14 +24,12 @@ After bootstrap, or when developing this tool, open the TUI directly:
 
 ```sh
 go run ./mac-os/cmd/mac-os
-go run ./mac-os/cmd/mac-os tui
 ```
 
 From inside this `mac-os` directory, the shorter module-local form also works:
 
 ```sh
 go run ./cmd/mac-os
-go run ./cmd/mac-os tui
 ```
 
 Private archives are written to:
@@ -49,17 +47,16 @@ Encrypted archives are written beside the timestamped capture directory as:
 ## Commands
 
 - `mac-os`: opens the Bubble Tea workflow dashboard.
-- `mac-os tui`: opens the same dashboard explicitly.
 
 Previous scriptable subcommands are no longer supported. Workflow execution now
 runs through the TUI.
 
 ## Interactive TUI
 
-The default no-argument command and `mac-os tui` use Bubble Tea v2
-(`charm.land/bubbletea/v2`) to present a terminal dashboard for common
-workflows:
+`mac-os` uses Bubble Tea v2 (`charm.land/bubbletea/v2`) to present a terminal
+dashboard for common workflows:
 
+- Factory Install
 - Bootstrap
 - Capture Archive
 - Restore App Configs
@@ -71,6 +68,10 @@ Use arrow keys or `j`/`k` to move, `enter` to open or run, `space` to toggle
 phases in a workflow, and `q`/`esc` to exit before execution. The run screen
 executes enabled phases in order, shows each phase status, stops on first
 failure, and returns a non-zero exit code on failure or `ctrl+c` cancellation.
+
+`Factory Install` is the one-pass setup path. It installs prerequisites,
+Homebrew packages, App Store apps, safe dotfiles, Stow links, macOS defaults,
+and doctor checks without walking through each workflow separately.
 
 The current TUI defaults to dry-run-oriented workflows so it is safe as an
 interactive front door.
