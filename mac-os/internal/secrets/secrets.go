@@ -22,15 +22,15 @@ type Options struct {
 }
 
 type Config struct {
-	Secrets []ManagedSecret `mapstructure:"secrets"`
+	Secrets []ManagedSecret `mapstructure:"secrets" yaml:"secrets"`
 }
 
 type ManagedSecret struct {
-	Name          string `mapstructure:"name"`
-	OPField       string `mapstructure:"op_field"`
-	PlaintextPath string `mapstructure:"plaintext_path"`
-	EncryptedPath string `mapstructure:"encrypted_path"`
-	Mode          string `mapstructure:"mode"`
+	Name          string `mapstructure:"name" yaml:"name"`
+	OPField       string `mapstructure:"op_field" yaml:"op_field"`
+	PlaintextPath string `mapstructure:"plaintext_path" yaml:"plaintext_path"`
+	EncryptedPath string `mapstructure:"encrypted_path" yaml:"encrypted_path"`
+	Mode          string `mapstructure:"mode" yaml:"mode"`
 }
 
 type Service struct {

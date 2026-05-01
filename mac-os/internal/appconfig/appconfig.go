@@ -11,22 +11,22 @@ import (
 )
 
 type Config struct {
-	Apps []ManagedApp `mapstructure:"apps"`
+	Apps []ManagedApp `mapstructure:"apps" yaml:"apps"`
 }
 
 type ManagedApp struct {
-	Name              string       `mapstructure:"name"`
-	BundleID          string       `mapstructure:"bundle_id"`
-	InstallMethod     string       `mapstructure:"install_method"`
-	Package           string       `mapstructure:"package"`
-	ConfigMode        string       `mapstructure:"config_mode"`
-	ConfigPaths       []ConfigPath `mapstructure:"config_paths"`
-	OnePasswordFields []string     `mapstructure:"onepassword_fields"`
+	Name              string       `mapstructure:"name" yaml:"name"`
+	BundleID          string       `mapstructure:"bundle_id" yaml:"bundle_id"`
+	InstallMethod     string       `mapstructure:"install_method" yaml:"install_method"`
+	Package           string       `mapstructure:"package" yaml:"package"`
+	ConfigMode        string       `mapstructure:"config_mode" yaml:"config_mode"`
+	ConfigPaths       []ConfigPath `mapstructure:"config_paths" yaml:"config_paths"`
+	OnePasswordFields []string     `mapstructure:"onepassword_fields" yaml:"onepassword_fields"`
 }
 
 type ConfigPath struct {
-	Source string `mapstructure:"source"`
-	Target string `mapstructure:"target"`
+	Source string `mapstructure:"source" yaml:"source"`
+	Target string `mapstructure:"target" yaml:"target"`
 }
 
 type Loader struct {

@@ -1,0 +1,144 @@
+package app
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/gocanto/mac-os/internal/apps"
+	"github.com/gocanto/mac-os/internal/archive"
+	"github.com/gocanto/mac-os/internal/command"
+	"github.com/gocanto/mac-os/internal/doctor"
+	"github.com/gocanto/mac-os/internal/dotfiles"
+	"github.com/gocanto/mac-os/internal/macosdefaults"
+	"github.com/gocanto/mac-os/internal/secrets"
+)
+
+func (a app) ensurePrerequisites(opts options) error {
+	return doctor.Service{GOOS: a.goos, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}.EnsurePrerequisites(opts.dryRun)
+}
+
+func (a app) applyHomebrewBundle(opts options) error {
+	brewfilePath := filepath.Join(a.repo, "Brewfile")
+
+	if _, err := os.Stat(brewfilePath); err != nil {
+		return fmt.Errorf("missing Brewfile at %s", brewfilePath)
+	}
+
+	cmd := []string{"brew", "bundle", "--file", brewfilePath}
+
+	if opts.dryRun {
+		fmt.Fprintf(a.stdout, "would run: %s\n", command.ShellQuote(cmd))
+
+		return nil
+	}
+
+	out, err := a.runner.Run(cmd[0], cmd[1:]...)
+	fmt.Fprint(a.stdout, string(out))
+
+	return err
+}
+
+func (a app) applyAppStoreApps(opts options) error {
+	return a.apps().ApplyAppStore(apps.Options{DryRun: opts.dryRun, Apps: opts.apps, ConfigPath: opts.configPath})
+}
+
+func (a app) reportManualApps(opts options) error {
+	return a.apps().ReportManual(apps.Options{DryRun: opts.dryRun, Apps: opts.apps, ConfigPath: opts.configPath})
+}
+
+func (a app) applyStow(opts options) error {
+	stowDir := filepath.Join(a.repo, "stow")
+
+	if _, err := os.Stat(stowDir); err != nil {
+		return fmt.Errorf("missing stow directory at %s", stowDir)
+	}
+
+	entries, err := os.ReadDir(stowDir)
+
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		cmd := []string{"stow", "--dir", stowDir, "--target", a.home, "--verbose", entry.Name()}
+
+		if opts.dryRun {
+			cmd = append(cmd, "--no")
+			fmt.Fprintf(a.stdout, "would run: %s\n", command.ShellQuote(cmd))
+
+			continue
+		}
+
+		out, err := a.runner.Run(cmd[0], cmd[1:]...)
+		fmt.Fprint(a.stdout, string(out))
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (a app) adoptDotfiles(opts options) error {
+	return dotfiles.Service{Home: a.home, Repo: a.repo, Stdout: a.stdout}.Adopt(opts.dryRun)
+}
+
+func (a app) applyMacOSDefaults(opts options) error {
+	return macosdefaults.Service{Runner: a.runner, Stdout: a.stdout, Stderr: a.stderr}.Apply(opts.dryRun)
+}
+
+func (a app) captureArchive(opts options) error {
+	return archive.Service{Home: a.home, Repo: a.repo, Stdout: a.stdout, Stderr: a.stderr, Runner: a.runner}.Capture(archive.Options{
+		DryRun:      opts.dryRun,
+		Encrypt:     opts.encrypt,
+		Apps:        opts.apps,
+		ArchiveRoot: opts.archiveRoot,
+		ConfigPath:  opts.configPath,
+		OPVault:     opts.opVault,
+		OPItem:      opts.opItem,
+	})
+}
+
+func (a app) restoreAppConfigs(opts options) error {
+	return a.apps().RestoreConfigs(apps.Options{DryRun: opts.dryRun, Apps: opts.apps, ArchivePath: opts.archivePath, ConfigPath: opts.configPath})
+}
+
+func (a app) runDoctor(options) error {
+	return doctor.Service{GOOS: a.goos, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}.Run(defaultOPVault, defaultOPItem)
+}
+
+func (a app) encryptSecrets(opts options) error {
+	return a.secretsService().Encrypt(secretOptions(opts))
+}
+
+func (a app) decryptSecrets(opts options) error {
+	return a.secretsService().Decrypt(secretOptions(opts))
+}
+
+func (a app) syncSecrets(opts options) error {
+	return a.secretsService().Sync(secretOptions(opts))
+}
+
+func (a app) apps() apps.Service {
+	return apps.Service{Home: a.home, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}
+}
+
+func (a app) secretsService() secrets.Service {
+	return secrets.Service{Repo: a.repo, Stdout: a.stdout, Runner: a.runner}
+}
+
+func secretOptions(opts options) secrets.Options {
+	return secrets.Options{
+		DryRun:       opts.dryRun,
+		SecretsPath:  opts.secretsPath,
+		SecretTarget: opts.secretTarget,
+		OPVault:      opts.opVault,
+		OPItem:       opts.opItem,
+	}
+}
