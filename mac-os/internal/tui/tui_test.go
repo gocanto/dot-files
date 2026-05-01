@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"strings"
@@ -115,6 +116,23 @@ func TestCommandSuccessHandling(t *testing.T) {
 	}
 }
 
+func TestRunViewShowsNumberedCurrentStep(t *testing.T) {
+	m := New(testWorkflow(nil))
+	model, _ := m.Update(key(tea.KeyEnter))
+	m = model.(Model)
+
+	model, _ = m.Update(key(tea.KeyEnter))
+	m = model.(Model)
+
+	view := stripANSI(viewString(m))
+
+	for _, want := range []string{"Step 1/2: one", "1/2", "[RUN]", "2/2", "[WAIT]"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("run view missing %q:\n%s", want, view)
+		}
+	}
+}
+
 func TestCommandFailureStopsRun(t *testing.T) {
 	m := New(testWorkflow(errors.New("boom")))
 	model, _ := m.Update(key(tea.KeyEnter))
@@ -163,5 +181,110 @@ func TestCancelWhileRunningReturnsNonZero(t *testing.T) {
 
 	if cmd == nil {
 		t.Fatal("expected quit command")
+	}
+}
+
+func TestConfirmationProceedStartsWorkflow(t *testing.T) {
+	var confirmationLog bytes.Buffer
+	workflows := []Workflow{
+		{
+			Name: "Factory Install",
+			Confirmation: &Confirmation{
+				Title:   "Confirm erase state",
+				Message: "Choose how to proceed.",
+				Options: []ConfirmationOption{
+					{
+						Label:    "Already erased",
+						Continue: true,
+						Run: func(w io.Writer) error {
+							_, _ = confirmationLog.WriteString("confirmed")
+							_, _ = w.Write([]byte("confirmed: already erased\n"))
+
+							return nil
+						},
+					},
+				},
+			},
+			Phases: []Phase{{Name: "one", Enabled: true, Run: func(io.Writer) error { return nil }}},
+		},
+	}
+
+	m := New(workflows)
+	model, _ := m.Update(key(tea.KeyEnter))
+	m = model.(Model)
+
+	model, _ = m.Update(key(tea.KeyEnter))
+	m = model.(Model)
+
+	if m.screen != "confirm" {
+		t.Fatalf("screen = %q, want confirm", m.screen)
+	}
+
+	model, cmd := m.Update(key(tea.KeyEnter))
+	m = model.(Model)
+
+	msg := cmd().(confirmationDoneMsg)
+	model, next := m.Update(msg)
+	m = model.(Model)
+
+	if confirmationLog.String() != "confirmed" {
+		t.Fatal("expected confirmation callback")
+	}
+
+	if !strings.Contains(m.log, "confirmed: already erased") {
+		t.Fatalf("log = %q", m.log)
+	}
+
+	if next == nil || !m.running || m.phase != 0 {
+		t.Fatalf("expected workflow to start, running = %v phase = %d next nil = %v", m.running, m.phase, next == nil)
+	}
+}
+
+func TestConfirmationStopDoesNotRunWorkflow(t *testing.T) {
+	ran := false
+	workflows := []Workflow{
+		{
+			Name: "Factory Install",
+			Confirmation: &Confirmation{
+				Title:   "Confirm erase state",
+				Message: "Choose how to proceed.",
+				Options: []ConfirmationOption{
+					{
+						Label:    "Erase first",
+						Continue: false,
+						Run: func(w io.Writer) error {
+							_, _ = w.Write([]byte("opening reset settings\n"))
+
+							return nil
+						},
+					},
+				},
+			},
+			Phases: []Phase{{Name: "one", Enabled: true, Run: func(io.Writer) error {
+				ran = true
+
+				return nil
+			}}},
+		},
+	}
+
+	m := New(workflows)
+	model, _ := m.Update(key(tea.KeyEnter))
+	m = model.(Model)
+	model, _ = m.Update(key(tea.KeyEnter))
+	m = model.(Model)
+	model, cmd := m.Update(key(tea.KeyEnter))
+	m = model.(Model)
+
+	msg := cmd().(confirmationDoneMsg)
+	model, next := m.Update(msg)
+	m = model.(Model)
+
+	if next != nil || m.running || ran {
+		t.Fatalf("expected stop before phases, next nil = %v running = %v ran = %v", next == nil, m.running, ran)
+	}
+
+	if m.exitCode != 0 || !strings.Contains(m.log, "opening reset settings") {
+		t.Fatalf("exitCode = %d log = %q", m.exitCode, m.log)
 	}
 }

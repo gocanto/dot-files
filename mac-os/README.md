@@ -57,6 +57,7 @@ runs through the TUI.
 dashboard for common workflows:
 
 - Factory Install
+- Factory Install Dry Run
 - Bootstrap
 - Capture Archive
 - Restore App Configs
@@ -69,9 +70,17 @@ phases in a workflow, and `q`/`esc` to exit before execution. The run screen
 executes enabled phases in order, shows each phase status, stops on first
 failure, and returns a non-zero exit code on failure or `ctrl+c` cancellation.
 
-`Factory Install` is the one-pass setup path. It installs prerequisites,
-Homebrew packages, App Store apps, safe dotfiles, Stow links, macOS defaults,
-and doctor checks without walking through each workflow separately.
+`Factory Install` is the one-pass setup path. It starts with an erase-state
+confirmation, then installs prerequisites, Homebrew packages, App Store apps,
+safe dotfiles, Stow links, macOS defaults, and doctor checks without walking
+through each workflow separately. Choosing `Erase first` validates
+administrator access, opens Apple's Erase Assistant settings, and stops before
+install phases run.
+
+`Factory Install Dry Run` exercises the same confirmation and phase progress in
+a read-only mode. It prints what would happen, including the Erase Assistant
+handoff and administrator validation, without asking for a password, opening
+reset settings, or installing packages.
 
 The current TUI defaults to dry-run-oriented workflows so it is safe as an
 interactive front door.

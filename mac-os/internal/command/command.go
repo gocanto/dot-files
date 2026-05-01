@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -12,12 +14,39 @@ type Runner interface {
 	Run(name string, args ...string) ([]byte, error)
 }
 
+type InteractiveRunner interface {
+	RunInteractive(name string, args ...string) error
+}
+
 type RealRunner struct{}
 
 func (RealRunner) Run(name string, args ...string) ([]byte, error) {
 	cmd := exec.Command(name, args...)
 
 	return cmd.CombinedOutput()
+}
+
+func (RealRunner) RunInteractive(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
+func RunInteractive(runner Runner, stdout io.Writer, name string, args ...string) error {
+	if interactive, ok := runner.(InteractiveRunner); ok {
+		return interactive.RunInteractive(name, args...)
+	}
+
+	out, err := runner.Run(name, args...)
+
+	if len(out) > 0 {
+		fmt.Fprint(stdout, string(out))
+	}
+
+	return err
 }
 
 func ShellQuote(parts []string) string {

@@ -17,8 +17,22 @@ type Phase struct {
 }
 
 type Workflow struct {
-	Name   string
-	Phases []Phase
+	Name         string
+	Phases       []Phase
+	Confirmation *Confirmation
+}
+
+type Confirmation struct {
+	Title   string
+	Message string
+	Options []ConfirmationOption
+}
+
+type ConfirmationOption struct {
+	Label       string
+	Description string
+	Continue    bool
+	Run         func(io.Writer) error
 }
 
 type Result struct {
@@ -30,15 +44,30 @@ type Model struct {
 	screen    string
 	cursor    int
 	phase     int
+	choice    int
 	log       string
 	running   bool
 	err       error
 	exitCode  int
+	message   string
+	execPhase bool
 }
 
 type phaseDoneMsg struct {
 	output string
 	err    error
+}
+
+type confirmationDoneMsg struct {
+	output  string
+	proceed bool
+	message string
+	err     error
+}
+
+type writerCommand struct {
+	run    func(io.Writer) error
+	output bytes.Buffer
 }
 
 const (
@@ -64,7 +93,10 @@ func New(workflows []Workflow) Model {
 }
 
 func Run(in io.Reader, out io.Writer, workflows []Workflow) (Result, error) {
-	model, err := tea.NewProgram(New(workflows), tea.WithInput(in), tea.WithOutput(out)).Run()
+	initial := New(workflows)
+	initial.execPhase = true
+
+	model, err := tea.NewProgram(initial, tea.WithInput(in), tea.WithOutput(out)).Run()
 
 	if err != nil {
 		return Result{ExitCode: 1}, err
@@ -87,6 +119,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return m.updateKey(msg)
+	case confirmationDoneMsg:
+		return m.updateConfirmationDone(msg)
 	case phaseDoneMsg:
 		return m.updatePhaseDone(msg)
 	}
@@ -148,14 +182,48 @@ func (m Model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case key.Code == tea.KeySpace:
 			m.workflows[m.cursor].Phases[m.phase].Enabled = !m.workflows[m.cursor].Phases[m.phase].Enabled
 		case key.Code == tea.KeyEnter:
-			m.screen = "run"
-			m.log = ""
-			m.phase = -1
+			if workflow.Confirmation != nil {
+				m.screen = "confirm"
+				m.choice = 0
 
-			return m.startNextPhase()
+				return m, nil
+			}
+
+			return m.startRun()
 		case key.Code == tea.KeyBackspace:
 			m.screen = "home"
 			m.phase = 0
+		}
+	case "confirm":
+		confirmation := m.workflows[m.cursor].Confirmation
+
+		if confirmation == nil || len(confirmation.Options) == 0 {
+			return m.startRun()
+		}
+
+		switch {
+		case key.Code == tea.KeyUp || key.Code == 'k':
+			if m.choice > 0 {
+				m.choice--
+			}
+		case key.Code == tea.KeyDown || key.Code == 'j':
+			if m.choice < len(confirmation.Options)-1 {
+				m.choice++
+			}
+		case key.Code == tea.KeyBackspace:
+			m.screen = "workflow"
+			m.choice = 0
+		case key.Code == tea.KeyEnter:
+			option := confirmation.Options[m.choice]
+			m.screen = "run"
+			m.log = ""
+			m.phase = -1
+			m.message = ""
+			m.err = nil
+			m.exitCode = 0
+			m.running = true
+
+			return m, m.runConfirmationOption(option)
 		}
 	case "run":
 		if key.Code == tea.KeyEnter && !m.running {
@@ -164,6 +232,75 @@ func (m Model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func (m Model) runConfirmationOption(option ConfirmationOption) tea.Cmd {
+	run := func(w io.Writer) error {
+		if option.Run == nil {
+			return nil
+		}
+
+		return option.Run(w)
+	}
+
+	if m.execPhase {
+		cmd := &writerCommand{run: run}
+
+		return tea.Exec(cmd, func(err error) tea.Msg {
+			return confirmationDoneMsg{
+				output:  cmd.output.String(),
+				proceed: option.Continue,
+				message: option.Label,
+				err:     err,
+			}
+		})
+	}
+
+	return func() tea.Msg {
+		var b bytes.Buffer
+		err := run(&b)
+
+		return confirmationDoneMsg{
+			output:  b.String(),
+			proceed: option.Continue,
+			message: option.Label,
+			err:     err,
+		}
+	}
+}
+
+func (m Model) startRun() (tea.Model, tea.Cmd) {
+	m.screen = "run"
+	m.log = ""
+	m.phase = -1
+	m.choice = 0
+	m.message = ""
+	m.err = nil
+	m.exitCode = 0
+
+	return m.startNextPhase()
+}
+
+func (m Model) updateConfirmationDone(msg confirmationDoneMsg) (tea.Model, tea.Cmd) {
+	m.running = false
+	m.log += msg.output
+	m.message = msg.message
+
+	if msg.err != nil {
+		m.err = msg.err
+		m.exitCode = 1
+
+		return m, nil
+	}
+
+	if !msg.proceed {
+		m.exitCode = 0
+		m.message = "Factory install stopped before install phases."
+
+		return m, nil
+	}
+
+	return m.startNextPhase()
 }
 
 func (m Model) updatePhaseDone(msg phaseDoneMsg) (tea.Model, tea.Cmd) {
@@ -199,12 +336,7 @@ func (m Model) startNextPhase() (tea.Model, tea.Cmd) {
 
 		phase := m.workflows[m.cursor].Phases[i]
 
-		return m, func() tea.Msg {
-			var b bytes.Buffer
-			err := phase.Run(&b)
-
-			return phaseDoneMsg{output: b.String(), err: err}
-		}
+		return m, m.runPhase(phase)
 	}
 
 	m.exitCode = 0
@@ -212,12 +344,41 @@ func (m Model) startNextPhase() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m Model) runPhase(phase Phase) tea.Cmd {
+	if m.execPhase {
+		cmd := &writerCommand{run: phase.Run}
+
+		return tea.Exec(cmd, func(err error) tea.Msg {
+			return phaseDoneMsg{output: cmd.output.String(), err: err}
+		})
+	}
+
+	return func() tea.Msg {
+		var b bytes.Buffer
+		err := phase.Run(&b)
+
+		return phaseDoneMsg{output: b.String(), err: err}
+	}
+}
+
+func (c *writerCommand) Run() error {
+	return c.run(&c.output)
+}
+
+func (c *writerCommand) SetStdin(io.Reader) {}
+
+func (c *writerCommand) SetStdout(io.Writer) {}
+
+func (c *writerCommand) SetStderr(io.Writer) {}
+
 func (m Model) View() tea.View {
 	var content string
 
 	switch m.screen {
 	case "workflow":
 		content = m.workflowView()
+	case "confirm":
+		content = m.confirmView()
 	case "run":
 		content = m.runView()
 	default:
@@ -252,6 +413,52 @@ func (m Model) homeView() string {
 
 	padToLine(&b, footerLine)
 	fmt.Fprintln(&b, inset(help("enter", "open", "j/k", "move", "q/esc", "quit")))
+
+	return b.String()
+}
+
+func (m Model) confirmView() string {
+	var b bytes.Buffer
+	workflow := m.workflows[m.cursor]
+	confirmation := workflow.Confirmation
+
+	fmt.Fprintln(&b)
+	fmt.Fprintln(&b, inset(banner(workflow.Name)))
+
+	if confirmation == nil {
+		fmt.Fprintln(&b, inset(muted("No confirmation is required.")))
+
+		return b.String()
+	}
+
+	title := confirmation.Title
+
+	if title == "" {
+		title = "Confirm before running"
+	}
+
+	fmt.Fprintln(&b, inset(accent(title)))
+
+	for _, line := range wrapLines(confirmation.Message, rowWidth-6) {
+		fmt.Fprintln(&b, inset(muted(line)))
+	}
+
+	fmt.Fprintln(&b)
+
+	for i, option := range confirmation.Options {
+		label := option.Label
+		meta := option.Description
+		row := menuRow("  ", label, meta, false)
+
+		if i == m.choice {
+			row = menuRow(">", label, meta, true)
+		}
+
+		fmt.Fprintln(&b, inset(row))
+	}
+
+	padToLine(&b, footerLine)
+	fmt.Fprintln(&b, inset(help("enter", "select", "j/k", "move", "backspace", "workflow", "q/esc", "quit")))
 
 	return b.String()
 }
@@ -293,16 +500,17 @@ func (m Model) runView() string {
 	fmt.Fprintln(&b)
 	fmt.Fprintln(&b, inset(banner(workflow.Name)))
 	fmt.Fprintln(&b, inset(runSummary(workflow, m.running, m.err)))
+	fmt.Fprintln(&b, inset(currentStep(workflow, m.phase, m.running, m.message)))
 	fmt.Fprintln(&b)
 
-	for _, phase := range workflow.Phases {
+	for i, phase := range workflow.Phases {
 		status := phase.Status
 
 		if status == "" {
 			status = "pending"
 		}
 
-		fmt.Fprintln(&b, inset(statusRow(phase.Name, status)))
+		fmt.Fprintln(&b, inset(statusRow(i+1, len(workflow.Phases), phase.Name, status)))
 	}
 
 	fmt.Fprintln(&b)
@@ -351,8 +559,9 @@ func menuRow(marker, label, meta string, selected bool) string {
 	return fgText + row + reset
 }
 
-func statusRow(label, status string) string {
-	row := fmt.Sprintf("  %-42s %s", label, statusBadge(status))
+func statusRow(index, total int, label, status string) string {
+	prefix := fmt.Sprintf("%2d/%-2d", index, total)
+	row := fmt.Sprintf("  %s  %-36s %s", prefix, label, statusBadge(status))
 
 	return padRight(row, rowWidth)
 }
@@ -403,6 +612,18 @@ func runSummary(workflow Workflow, running bool, err error) string {
 	}
 
 	return success(fmt.Sprintf("Complete: %d phases processed.", len(workflow.Phases)))
+}
+
+func currentStep(workflow Workflow, phase int, running bool, message string) string {
+	if running && phase >= 0 && phase < len(workflow.Phases) {
+		return accent(fmt.Sprintf("Step %d/%d: %s", phase+1, len(workflow.Phases), workflow.Phases[phase].Name))
+	}
+
+	if message != "" {
+		return muted(message)
+	}
+
+	return muted("No active step.")
 }
 
 func statusBadge(status string) string {
@@ -491,6 +712,34 @@ func tailLines(log string, limit int) []string {
 	}
 
 	return lines[len(lines)-limit:]
+}
+
+func wrapLines(s string, width int) []string {
+	if s == "" {
+		return nil
+	}
+
+	words := strings.Fields(s)
+
+	if len(words) == 0 {
+		return nil
+	}
+
+	lines := []string{}
+	line := words[0]
+
+	for _, word := range words[1:] {
+		if len(line)+1+len(word) > width {
+			lines = append(lines, line)
+			line = word
+
+			continue
+		}
+
+		line += " " + word
+	}
+
+	return append(lines, line)
 }
 
 func padToLine(b *bytes.Buffer, target int) {

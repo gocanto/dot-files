@@ -56,10 +56,7 @@ func (s Service) ApplyAppStore(opts Options) error {
 			continue
 		}
 
-		out, err := s.Runner.Run(cmd[0], cmd[1:]...)
-		fmt.Fprint(s.Stdout, string(out))
-
-		if err != nil {
+		if err := command.RunInteractive(s.Runner, s.Stdout, cmd[0], cmd[1:]...); err != nil {
 			return fmt.Errorf("install App Store app %q: %w", app.Name, err)
 		}
 	}
