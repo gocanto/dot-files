@@ -1,0 +1,25 @@
+.DS_Store
+*.log
+
+# Private migration artifacts should stay outside git.
+*.tar.gz
+*.tar.gz.age
+macos-settings-archives/
+archives/
+storage/.cache
+# Secrets and generated local state.
+*.pem
+*.key
+id_*
+!*.pub
+.zsh_history
+.bash_history
+.mysql_history
+auth.json
+hosts.yml
+ngrok.yml
+state.vscdb
+storage.json
+
+# Decrypted private Git config is restored from 1Password or private.gitconfig.age.
+mac-os/stow/git/.config/git/private.gitconfig

@@ -1,0 +1,6 @@
+[commit]
+	gpgsign = true
+[include]
+	path = ~/.config/git/private.gitconfig
+[coderabbit]
+# redacted machine-specific or secret-like setting
