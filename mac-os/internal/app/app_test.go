@@ -63,8 +63,89 @@ func TestTUIWorkflowsStartWithFactoryInstall(t *testing.T) {
 		t.Fatalf("first workflow = %#v, want Factory Install", workflows)
 	}
 
-	if len(workflows[0].Phases) != 1 || workflows[0].Phases[0].Name != "factory install" {
+	if len(workflows[0].Phases) < 8 {
 		t.Fatalf("factory phases = %#v", workflows[0].Phases)
+	}
+
+	if workflows[0].Phases[0].Name != "prerequisites" || workflows[0].Phases[1].Name != "homebrew bundle" {
+		t.Fatalf("factory phases = %#v", workflows[0].Phases)
+	}
+
+	if workflows[0].Confirmation == nil || len(workflows[0].Confirmation.Options) != 3 {
+		t.Fatalf("factory confirmation = %#v", workflows[0].Confirmation)
+	}
+}
+
+func TestFactoryInstallEraseConfirmationOptions(t *testing.T) {
+	var calls []string
+
+	var stdout bytes.Buffer
+	a := newApp("/Users/gus", "/repo", strings.NewReader(""), &stdout, io.Discard, stubRunner{calls: &calls})
+	a.goos = "linux"
+	confirmation := a.factoryInstallConfirmation(false)
+
+	if confirmation == nil || len(confirmation.Options) != 3 {
+		t.Fatalf("confirmation = %#v", confirmation)
+	}
+
+	if !confirmation.Options[1].Continue || !confirmation.Options[2].Continue {
+		t.Fatalf("expected already-erased and proceed-without-erase options to continue: %#v", confirmation.Options)
+	}
+
+	if confirmation.Options[0].Continue {
+		t.Fatal("expected erase-first option to stop before install phases")
+	}
+
+	if err := confirmation.Options[0].Run(&stdout); err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(stdout.String(), "Erase Assistant") {
+		t.Fatalf("stdout = %s", stdout.String())
+	}
+
+	if len(calls) != 0 {
+		t.Fatalf("non-darwin should not open settings, calls = %#v", calls)
+	}
+}
+
+func TestFactoryInstallEraseFirstOpensResetSettingsOnDarwin(t *testing.T) {
+	var calls []string
+	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{calls: &calls})
+	a.goos = "darwin"
+
+	if err := a.factoryInstallConfirmation(false).Options[0].Run(io.Discard); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(calls) != 1 || !strings.Contains(calls[0], "x-apple.systempreferences") {
+		t.Fatalf("calls = %#v", calls)
+	}
+}
+
+func TestFactoryInstallDryRunDoesNotOpenResetSettings(t *testing.T) {
+	var calls []string
+
+	var stdout bytes.Buffer
+	a := newApp("/Users/gus", "/repo", strings.NewReader(""), &stdout, io.Discard, stubRunner{calls: &calls})
+	a.goos = "darwin"
+
+	workflows := a.tuiWorkflows()
+
+	if len(workflows) < 2 || workflows[1].Name != "Factory Install Dry Run" {
+		t.Fatalf("workflows = %#v", workflows)
+	}
+
+	if err := workflows[1].Confirmation.Options[0].Run(&stdout); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(calls) != 0 {
+		t.Fatalf("dry run should not open settings, calls = %#v", calls)
+	}
+
+	if !strings.Contains(stdout.String(), "would open reset settings") {
+		t.Fatalf("stdout = %s", stdout.String())
 	}
 }
 
