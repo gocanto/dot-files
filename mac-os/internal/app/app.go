@@ -3,6 +3,7 @@ package app
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -35,7 +36,10 @@ type app struct {
 type options struct {
 	dryRun      bool
 	yes         bool
+	encrypt     bool
 	archiveRoot string
+	opVault     string
+	opItem      string
 }
 
 type macSetting struct {
@@ -56,6 +60,8 @@ type captureItem struct {
 
 const (
 	defaultArchiveRoot = ".local/state/macos-settings-archives"
+	defaultOPVault     = "Private"
+	defaultOPItem      = "Mac Migration Archive"
 )
 
 func (realRunner) Run(name string, args ...string) ([]byte, error) {
@@ -129,7 +135,7 @@ func (a app) usage() {
 Usage:
   mac-os adopt [--dry-run] [--yes]
   mac-os bootstrap [--dry-run] [--yes]
-  mac-os capture [--archive-root PATH] [--dry-run] [--yes]
+  mac-os capture [--archive-root PATH] [--encrypt] [--op-vault VAULT] [--op-item ITEM] [--dry-run] [--yes]
   mac-os doctor
   mac-os brewfile [--write PATH]
   mac-os macos [--dry-run] [--yes]
@@ -204,7 +210,10 @@ func (a app) capture(args []string) int {
 	opts := options{}
 	fs.BoolVar(&opts.dryRun, "dry-run", false, "show capture plan without writing files")
 	fs.BoolVar(&opts.yes, "yes", false, "capture without prompting")
+	fs.BoolVar(&opts.encrypt, "encrypt", false, "package and encrypt the archive with Age using 1Password metadata")
 	fs.StringVar(&opts.archiveRoot, "archive-root", "", "directory where timestamped archives are stored")
+	fs.StringVar(&opts.opVault, "op-vault", defaultOPVault, "1Password vault containing archive metadata")
+	fs.StringVar(&opts.opItem, "op-item", defaultOPItem, "1Password item containing archive metadata")
 
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -492,14 +501,10 @@ func (a app) applyMacOSDefaults(opts options) error {
 }
 
 func (a app) captureArchive(opts options) error {
-	root := opts.archiveRoot
+	root, err := a.resolveArchiveRoot(opts)
 
-	if root == "" {
-		root = filepath.Join(a.home, defaultArchiveRoot)
-	}
-
-	if strings.HasPrefix(root, "~/") {
-		root = filepath.Join(a.home, strings.TrimPrefix(root, "~/"))
+	if err != nil {
+		return err
 	}
 
 	stamp := time.Now().Format("20060102-150405")
@@ -513,6 +518,12 @@ func (a app) captureArchive(opts options) error {
 
 		for _, domain := range defaultsDomains {
 			fmt.Fprintf(a.stdout, "would export defaults domain: %s\n", domain)
+		}
+
+		if opts.encrypt {
+			fmt.Fprintf(a.stdout, "would read 1Password item: %s/%s\n", opts.opVault, opts.opItem)
+			fmt.Fprintf(a.stdout, "would encrypt archive with Age recipient from 1Password\n")
+			fmt.Fprintf(a.stdout, "would update 1Password latest_archive metadata\n")
 		}
 
 		return nil
@@ -566,9 +577,129 @@ func (a app) captureArchive(opts options) error {
 		return err
 	}
 
+	if opts.encrypt {
+		encryptedPath, err := a.encryptArchive(dest, root, opts)
+
+		if err != nil {
+			return err
+		}
+
+		if err := a.updateArchiveMetadata(encryptedPath, root, opts); err != nil {
+			return err
+		}
+
+		fmt.Fprintf(a.stdout, "encrypted archive at %s\n", encryptedPath)
+	}
+
 	fmt.Fprintf(a.stdout, "captured archive at %s\n", dest)
 
 	return nil
+}
+
+func (a app) resolveArchiveRoot(opts options) (string, error) {
+	root := opts.archiveRoot
+
+	if root == "" && opts.encrypt {
+		fields, err := a.onePasswordFields(opts)
+
+		if err == nil {
+			root = fields["archive_root"]
+		}
+	}
+
+	if root == "" {
+		root = filepath.Join(a.home, defaultArchiveRoot)
+	}
+
+	if strings.HasPrefix(root, "~/") {
+		root = filepath.Join(a.home, strings.TrimPrefix(root, "~/"))
+	}
+
+	return root, nil
+}
+
+func (a app) encryptArchive(sourceDir, archiveRoot string, opts options) (string, error) {
+	fields, err := a.onePasswordFields(opts)
+
+	if err != nil {
+		return "", err
+	}
+
+	recipient := strings.TrimSpace(fields["archive_age_recipient"])
+
+	if recipient == "" {
+		return "", fmt.Errorf("missing archive_age_recipient in 1Password item %q", opts.opItem)
+	}
+
+	name := filepath.Base(sourceDir) + ".tar.gz.age"
+	target := filepath.Join(archiveRoot, name)
+	cmd := fmt.Sprintf("tar -C %s -czf - . | age -r %s -o %s", shellQuote([]string{sourceDir}), shellQuote([]string{recipient}), shellQuote([]string{target}))
+	out, err := a.runner.Run("sh", "-c", cmd)
+
+	if len(out) > 0 {
+		fmt.Fprint(a.stdout, string(out))
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("encrypt archive: %w", err)
+	}
+
+	return target, nil
+}
+
+func (a app) updateArchiveMetadata(encryptedPath, archiveRoot string, opts options) error {
+	args := []string{
+		"item", "edit", opts.opItem,
+		"--vault", opts.opVault,
+		"archive_root=" + archiveRoot,
+		"latest_archive=" + encryptedPath,
+	}
+
+	out, err := a.runner.Run("op", args...)
+
+	if len(out) > 0 {
+		fmt.Fprint(a.stdout, string(out))
+	}
+
+	if err != nil {
+		return fmt.Errorf("update 1Password archive metadata: %w", err)
+	}
+
+	return nil
+}
+
+func (a app) onePasswordFields(opts options) (map[string]string, error) {
+	out, err := a.runner.Run("op", "item", "get", opts.opItem, "--vault", opts.opVault, "--format", "json")
+
+	if err != nil {
+		return nil, fmt.Errorf("read 1Password item %q in vault %q: %w", opts.opItem, opts.opVault, err)
+	}
+
+	var item struct {
+		Fields []struct {
+			ID    string `json:"id"`
+			Label string `json:"label"`
+			Value string `json:"value"`
+		} `json:"fields"`
+	}
+
+	if err := json.Unmarshal(out, &item); err != nil {
+		return nil, fmt.Errorf("parse 1Password item JSON: %w", err)
+	}
+
+	fields := make(map[string]string, len(item.Fields))
+
+	for _, field := range item.Fields {
+		if field.ID != "" {
+			fields[field.ID] = field.Value
+		}
+
+		if field.Label != "" {
+			fields[field.Label] = field.Value
+		}
+	}
+
+	return fields, nil
 }
 
 func (a app) writeManifest(dest string) error {
@@ -705,7 +836,7 @@ func (a app) runDoctor(options) error {
 		fmt.Fprintln(a.stdout, "OS: darwin")
 	}
 
-	required := []string{"brew", "git", "stow"}
+	required := []string{"brew", "git", "stow", "op", "age"}
 
 	for _, name := range required {
 		path, err := exec.LookPath(name)
@@ -740,7 +871,35 @@ func (a app) runDoctor(options) error {
 		fmt.Fprintf(a.stdout, "  %-14s %s (%s)\n", tool.name, version, path)
 	}
 
+	a.printOnePasswordArchiveStatus(defaultOPVault, defaultOPItem)
+
 	return nil
+}
+
+func (a app) printOnePasswordArchiveStatus(vault, item string) {
+	fmt.Fprintln(a.stdout, "\nPrivate archive:")
+
+	if _, err := exec.LookPath("op"); err != nil {
+		fmt.Fprintln(a.stdout, "  1Password CLI missing")
+
+		return
+	}
+
+	if out, err := a.runner.Run("op", "account", "list"); err != nil {
+		fmt.Fprintf(a.stdout, "  1Password account unavailable: %s\n", strings.TrimSpace(string(out)))
+
+		return
+	}
+
+	fmt.Fprintln(a.stdout, "  1Password account available")
+
+	if _, err := a.onePasswordFields(options{opVault: vault, opItem: item}); err != nil {
+		fmt.Fprintf(a.stdout, "  archive item missing or unreadable: %v\n", err)
+
+		return
+	}
+
+	fmt.Fprintf(a.stdout, "  archive item found: %s/%s\n", vault, item)
 }
 
 func macOSDefaults() []macSetting {
@@ -784,6 +943,8 @@ var devTools = []devTool{
 	{"codex", []string{"--version"}},
 	{"opencode", []string{"--version"}},
 	{"agent-browser", []string{"--version"}},
+	{"op", []string{"--version"}},
+	{"age", []string{"--version"}},
 }
 
 func adoptPlan(home, repo string) []captureItem {
@@ -827,6 +988,7 @@ var defaultsDomains = []string{
 func brewfileContent() string {
 	formulae := []string{
 		"1password-cli",
+		"age",
 		"agent-browser",
 		"autossh",
 		"bruno",

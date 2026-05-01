@@ -1,20 +1,17 @@
 .DS_Store
-/archives/
-/tmp/
-/dist/
-/mac-os
-/.gocache/
-/.gopath/
 *.log
 
-# Private machine snapshots belong outside the repo by default.
+# Private migration artifacts should stay outside git.
+*.tar.gz
+*.tar.gz.age
 macos-settings-archives/
+archives/
 
 # Secrets and generated local state.
 *.pem
 *.key
 id_*
-!.ssh/*.pub
+!*.pub
 .zsh_history
 .bash_history
 .mysql_history

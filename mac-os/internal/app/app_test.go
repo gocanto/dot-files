@@ -1,11 +1,20 @@
 package app
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+type stubRunner struct {
+	outputs map[string][]byte
+}
+
+func (r stubRunner) Run(name string, args ...string) ([]byte, error) {
+	return r.outputs[shellQuote(append([]string{name}, args...))], nil
+}
 
 func TestShouldSkipSensitive(t *testing.T) {
 	cases := map[string]bool{
@@ -31,6 +40,7 @@ func TestBrewfileIncludesDevToolsAndStow(t *testing.T) {
 
 	for _, want := range []string{
 		`brew "stow"`,
+		`brew "age"`,
 		`brew "agent-browser"`,
 		`brew "codex"`,
 		`brew "claude-code"`,
@@ -43,6 +53,59 @@ func TestBrewfileIncludesDevToolsAndStow(t *testing.T) {
 	} {
 		if !strings.Contains(content, want) {
 			t.Fatalf("Brewfile missing %s\n%s", want, content)
+		}
+	}
+}
+
+func TestOnePasswordFieldsParsesIDAndLabel(t *testing.T) {
+	a := app{
+		runner: stubRunner{outputs: map[string][]byte{
+			`op item get 'Mac Migration Archive' --vault Private --format json`: []byte(`{
+				"fields": [
+					{"id": "archive_root", "label": "archive_root", "value": "/Volumes/Migration"},
+					{"id": "archive_age_recipient", "label": "archive_age_recipient", "value": "age1example"}
+				]
+			}`),
+		}},
+	}
+
+	fields, err := a.onePasswordFields(options{opVault: defaultOPVault, opItem: defaultOPItem})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := fields["archive_root"]; got != "/Volumes/Migration" {
+		t.Fatalf("archive_root = %q", got)
+	}
+
+	if got := fields["archive_age_recipient"]; got != "age1example" {
+		t.Fatalf("archive_age_recipient = %q", got)
+	}
+}
+
+func TestCaptureDryRunShowsEncryptionPlan(t *testing.T) {
+	var stdout bytes.Buffer
+	a := app{
+		home:   "/Users/gus",
+		repo:   "/repo",
+		stdout: &stdout,
+		runner: stubRunner{},
+	}
+
+	if err := a.captureArchive(options{dryRun: true, encrypt: true, opVault: defaultOPVault, opItem: defaultOPItem}); err != nil {
+		t.Fatal(err)
+	}
+
+	got := stdout.String()
+
+	for _, want := range []string{
+		"would read 1Password item: Private/Mac Migration Archive",
+		"would encrypt archive with Age recipient from 1Password",
+		"would update 1Password latest_archive metadata",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("dry-run output missing %q\n%s", want, got)
 		}
 	}
 }
