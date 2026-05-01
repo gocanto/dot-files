@@ -114,9 +114,11 @@ func (a app) openEraseAssistant(dryRun bool) error {
 	fmt.Fprintln(a.stdout, "Use Apple's Erase Assistant: System Settings > General > Transfer or Reset > Erase All Content and Settings.")
 	fmt.Fprintln(a.stdout, "Factory install will stop now. Run this tool again after the Mac returns to setup or after you decide to proceed without erasing.")
 
+	sudoCmd := []string{"sudo", "-v"}
 	cmd := []string{"open", "x-apple.systempreferences:com.apple.Transfer-Reset-Settings.extension"}
 
 	if dryRun {
+		fmt.Fprintf(a.stdout, "would validate administrator access: %s\n", command.ShellQuote(sudoCmd))
 		fmt.Fprintf(a.stdout, "would open reset settings: %s\n", command.ShellQuote(cmd))
 
 		return nil
@@ -126,6 +128,12 @@ func (a app) openEraseAssistant(dryRun bool) error {
 		fmt.Fprintf(a.stdout, "skipped opening reset settings: current OS is %s\n", a.goos)
 
 		return nil
+	}
+
+	fmt.Fprintf(a.stdout, "validating administrator access: %s\n", command.ShellQuote(sudoCmd))
+
+	if err := command.RunInteractive(a.runner, a.stdout, sudoCmd[0], sudoCmd[1:]...); err != nil {
+		return fmt.Errorf("validate administrator access: %w", err)
 	}
 
 	fmt.Fprintf(a.stdout, "opening reset settings: %s\n", command.ShellQuote(cmd))

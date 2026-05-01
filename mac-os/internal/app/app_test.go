@@ -118,7 +118,11 @@ func TestFactoryInstallEraseFirstOpensResetSettingsOnDarwin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(calls) != 1 || !strings.Contains(calls[0], "x-apple.systempreferences") {
+	if len(calls) != 2 {
+		t.Fatalf("calls = %#v", calls)
+	}
+
+	if calls[0] != "sudo -v" || !strings.Contains(calls[1], "x-apple.systempreferences") {
 		t.Fatalf("calls = %#v", calls)
 	}
 }
@@ -144,8 +148,33 @@ func TestFactoryInstallDryRunDoesNotOpenResetSettings(t *testing.T) {
 		t.Fatalf("dry run should not open settings, calls = %#v", calls)
 	}
 
-	if !strings.Contains(stdout.String(), "would open reset settings") {
-		t.Fatalf("stdout = %s", stdout.String())
+	for _, want := range []string{"would validate administrator access", "would open reset settings"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout = %s", stdout.String())
+		}
+	}
+}
+
+func TestFactoryInstallEraseFirstStopsWhenAdminValidationFails(t *testing.T) {
+	var calls []string
+	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{
+		calls:  &calls,
+		errors: map[string]error{"sudo -v": os.ErrPermission},
+	})
+	a.goos = "darwin"
+
+	err := a.factoryInstallConfirmation(false).Options[0].Run(io.Discard)
+
+	if err == nil {
+		t.Fatal("expected admin validation error")
+	}
+
+	if len(calls) != 1 || calls[0] != "sudo -v" {
+		t.Fatalf("calls = %#v", calls)
+	}
+
+	if !strings.Contains(err.Error(), "validate administrator access") {
+		t.Fatalf("error = %v", err)
 	}
 }
 
