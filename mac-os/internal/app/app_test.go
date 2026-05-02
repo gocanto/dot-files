@@ -18,6 +18,10 @@ type stubRunner struct {
 	calls   *[]string
 }
 
+type errRunner struct {
+	err error
+}
+
 func (r stubRunner) Run(name string, args ...string) ([]byte, error) {
 	key := command.ShellQuote(append([]string{name}, args...))
 
@@ -225,10 +229,6 @@ func TestFindRepoRootWalksUp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(filepath.Join(dir, "Brewfile"), []byte("tap \"homebrew/bundle\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
 	if err := os.Mkdir(filepath.Join(dir, "stow"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -244,6 +244,257 @@ func TestFindRepoRootWalksUp(t *testing.T) {
 	}
 }
 
+func TestApplyStowDetectsStaleSymlinksFromAnotherTree(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	repo := filepath.Join(tmp, "repo")
+	otherRepo := filepath.Join(tmp, "other")
+
+	for _, dir := range []string{
+		filepath.Join(home, ".config"),
+		filepath.Join(repo, "stow", "shell"),
+		filepath.Join(repo, "stow", "git", ".config", "git"),
+		filepath.Join(otherRepo, "stow", "shell"),
+		filepath.Join(otherRepo, "stow", "git", ".config", "git"),
+	} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for _, file := range []string{
+		filepath.Join(repo, "stow", "shell", ".zshrc"),
+		filepath.Join(repo, "stow", "git", ".config", "git", "ignore"),
+		filepath.Join(otherRepo, "stow", "shell", ".zshrc"),
+		filepath.Join(otherRepo, "stow", "git", ".config", "git", "ignore"),
+	} {
+		if err := os.WriteFile(file, []byte("x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := os.Symlink(filepath.Join(otherRepo, "stow", "shell", ".zshrc"), filepath.Join(home, ".zshrc")); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Symlink(filepath.Join(otherRepo, "stow", "git", ".config", "git"), filepath.Join(home, ".config", "git")); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	a := newApp(home, repo, strings.NewReader(""), &stdout, io.Discard, stubRunner{})
+
+	err := a.applyStow(options{})
+
+	if err == nil {
+		t.Fatal("expected stale-link error, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "stale stow link") {
+		t.Fatalf("error = %v", err)
+	}
+
+	out := stdout.String()
+
+	for _, want := range []string{
+		filepath.Join(home, ".zshrc"),
+		filepath.Join(home, ".config", "git"),
+		filepath.Join(otherRepo, "stow", "shell", ".zshrc"),
+		filepath.Join(otherRepo, "stow", "git", ".config", "git"),
+		"unstowing from the old tree",
+		filepath.Join(otherRepo),
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("stdout missing %q\n%s", want, out)
+		}
+	}
+}
+
+func TestApplyStowAllowsLinksIntoCurrentTree(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	repo := filepath.Join(tmp, "repo")
+
+	for _, dir := range []string{
+		home,
+		filepath.Join(repo, "stow", "shell"),
+	} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := os.WriteFile(filepath.Join(repo, "stow", "shell", ".zshrc"), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Symlink(filepath.Join(repo, "stow", "shell", ".zshrc"), filepath.Join(home, ".zshrc")); err != nil {
+		t.Fatal(err)
+	}
+
+	var calls []string
+	a := newApp(home, repo, strings.NewReader(""), io.Discard, io.Discard, stubRunner{calls: &calls})
+
+	if err := a.applyStow(options{dryRun: true}); err != nil {
+		t.Fatalf("applyStow returned error: %v", err)
+	}
+
+	if len(calls) != 0 {
+		t.Fatalf("dry-run should not invoke runner, calls = %#v", calls)
+	}
+}
+
+func TestEnsureOhMyZshSkipsWhenInstalled(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+
+	if err := os.MkdirAll(filepath.Join(home, ".oh-my-zsh"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(home, ".oh-my-zsh", "oh-my-zsh.sh"), []byte("# oh-my-zsh\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var calls []string
+
+	var stdout bytes.Buffer
+	a := newApp(home, "/repo", strings.NewReader(""), &stdout, io.Discard, stubRunner{calls: &calls})
+
+	if err := a.ensureOhMyZsh(options{}); err != nil {
+		t.Fatalf("ensureOhMyZsh returned error: %v", err)
+	}
+
+	if len(calls) != 0 {
+		t.Fatalf("expected no runner calls when oh-my-zsh is installed, got %#v", calls)
+	}
+
+	if !strings.Contains(stdout.String(), "oh-my-zsh found") {
+		t.Fatalf("stdout = %s", stdout.String())
+	}
+}
+
+func TestEnsureOhMyZshDryRunPrintsCommand(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	var calls []string
+
+	var stdout bytes.Buffer
+	a := newApp(home, "/repo", strings.NewReader(""), &stdout, io.Discard, stubRunner{calls: &calls})
+
+	if err := a.ensureOhMyZsh(options{dryRun: true}); err != nil {
+		t.Fatalf("ensureOhMyZsh returned error: %v", err)
+	}
+
+	if len(calls) != 0 {
+		t.Fatalf("dry-run should not invoke runner, calls = %#v", calls)
+	}
+
+	for _, want := range []string{"would run:", "RUNZSH=no", "CHSH=no", "KEEP_ZSHRC=yes", "ohmyzsh/ohmyzsh"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout missing %q\n%s", want, stdout.String())
+		}
+	}
+}
+
+func TestEnsureOhMyZshInstallsWhenMissing(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	var calls []string
+	a := newApp(home, "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{calls: &calls})
+
+	if err := a.ensureOhMyZsh(options{}); err != nil {
+		t.Fatalf("ensureOhMyZsh returned error: %v", err)
+	}
+
+	if len(calls) != 1 {
+		t.Fatalf("expected one runner call, got %#v", calls)
+	}
+
+	if !strings.HasPrefix(calls[0], "sh -c ") {
+		t.Fatalf("call = %q, want sh -c ...", calls[0])
+	}
+
+	for _, want := range []string{"RUNZSH=no", "CHSH=no", "KEEP_ZSHRC=yes", "ohmyzsh/ohmyzsh"} {
+		if !strings.Contains(calls[0], want) {
+			t.Fatalf("call missing %q: %s", want, calls[0])
+		}
+	}
+}
+
+func TestEnsureOhMyZshSurfacesInstallError(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	a := newApp(home, "/repo", strings.NewReader(""), io.Discard, io.Discard, errRunner{err: os.ErrPermission})
+
+	err := a.ensureOhMyZsh(options{})
+
+	if err == nil {
+		t.Fatal("expected install error")
+	}
+
+	if !strings.Contains(err.Error(), "install oh-my-zsh") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func (r errRunner) Run(name string, args ...string) ([]byte, error) {
+	return nil, r.err
+}
+
+func TestBootstrapAndFactoryIncludeOhMyZshPhase(t *testing.T) {
+	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
+
+	for _, tc := range []struct {
+		name   string
+		phases []tui.Phase
+	}{
+		{"bootstrap", a.bootstrapPhases(options{dryRun: true})},
+		{"factoryInstall", a.factoryInstallPhases(options{dryRun: true, apps: true})},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var stowIdx, ohmyzshIdx = -1, -1
+
+			for i, phase := range tc.phases {
+				if phase.Name == "stow links" {
+					stowIdx = i
+				}
+
+				if phase.Name == "oh-my-zsh" {
+					ohmyzshIdx = i
+				}
+			}
+
+			if ohmyzshIdx < 0 {
+				t.Fatalf("missing oh-my-zsh phase: %#v", tc.phases)
+			}
+
+			if stowIdx < 0 {
+				t.Fatalf("missing stow links phase: %#v", tc.phases)
+			}
+
+			if ohmyzshIdx >= stowIdx {
+				t.Fatalf("oh-my-zsh phase (%d) must run before stow links (%d)", ohmyzshIdx, stowIdx)
+			}
+		})
+	}
+}
+
 func TestFindRepoRootFromOuterRepoUsesMacOSDir(t *testing.T) {
 	dir := t.TempDir()
 	macOSDir := filepath.Join(dir, "mac-os")
@@ -253,10 +504,6 @@ func TestFindRepoRootFromOuterRepoUsesMacOSDir(t *testing.T) {
 	}
 
 	if err := os.WriteFile(filepath.Join(macOSDir, "go.mod"), []byte("module test\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := os.WriteFile(filepath.Join(macOSDir, "Brewfile"), []byte("tap \"homebrew/bundle\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 

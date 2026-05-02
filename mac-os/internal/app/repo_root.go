@@ -50,10 +50,6 @@ func walkForRepoRoot(start string) (string, bool) {
 }
 
 func hasRepoMarkers(dir string) bool {
-	if _, err := os.Stat(filepath.Join(dir, "Brewfile")); err != nil {
-		return false
-	}
-
 	if info, err := os.Stat(filepath.Join(dir, "stow")); err != nil || !info.IsDir() {
 		return false
 	}

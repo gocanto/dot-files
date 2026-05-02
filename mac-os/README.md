@@ -72,10 +72,17 @@ failure, and returns a non-zero exit code on failure or `ctrl+c` cancellation.
 
 `Factory Install` is the one-pass setup path. It starts with an erase-state
 confirmation, then installs prerequisites, Homebrew packages, App Store apps,
-safe dotfiles, Stow links, macOS defaults, and doctor checks without walking
-through each workflow separately. Choosing `Erase first` validates
-administrator access, opens Apple's Erase Assistant settings, and stops before
-install phases run.
+restores private secrets from 1Password, links safe dotfiles via Stow, applies
+macOS defaults, and runs doctor checks without walking through each workflow
+separately. The private secrets restore step prompts for `op signin` when no
+1Password CLI session is active. Choosing `Erase first` validates administrator
+access, opens Apple's Erase Assistant settings, and stops before install phases
+run.
+
+The Stow phase scans `$HOME` for existing symlinks that point into a different
+stow tree (for example, leftover links from a previous run out of
+`~/Downloads/dot-files-main`) and refuses to proceed until they are removed,
+since Stow itself silently skips them.
 
 `Factory Install Dry Run` exercises the same confirmation and phase progress in
 a read-only mode. It prints what would happen, including the Erase Assistant
@@ -117,12 +124,13 @@ Item:  Mac Migration Archive
 Expected fields:
 
 ```text
-archive_age_identity   concealed Age private identity
-archive_age_recipient  Age public recipient
-archive_root           directory for encrypted archives
-gitconfig_plaintext    concealed private ~/.config/git/private.gitconfig contents
-latest_archive         last encrypted archive path, updated by capture
-restore_notes          short manual restore notes
+archive_age_identity        concealed Age private identity
+archive_age_recipient       Age public recipient
+archive_root                directory for encrypted archives
+gitconfig_plaintext         concealed private ~/.config/git/private.gitconfig contents
+allowed_signers_plaintext   concealed ~/.ssh/allowed_signers contents (one line per signer)
+latest_archive              last encrypted archive path, updated by capture
+restore_notes               short manual restore notes
 ```
 
 Create the Age identity once and store the private identity in 1Password:
@@ -144,13 +152,11 @@ repo.
 ## Private Git config
 
 Private dotfile overlays are declared in `secrets.yaml`. The tracked Stow Git
-config includes `~/.config/git/private.gitconfig`, but the plaintext private
-file is ignored by git. Store its contents in the `gitconfig_plaintext` field
-above and keep the encrypted repo copy in:
-
-```text
-mac-os/stow/git/.config/git/private.gitconfig.age
-```
+config includes `~/.config/git/private.gitconfig`, but the plaintext file is
+ignored by git and never committed. Each managed secret stores its value as a
+concealed field on the `Mac Migration Archive` 1Password item; the restore
+workflow reads the field and writes the file locally. No encrypted copies are
+kept in the repo.
 
 The public CLI no longer exposes standalone secret-management subcommands.
 
@@ -164,6 +170,28 @@ The Brewfile includes common CLI/dev tools, databases, AI tools, and app casks:
 - Runtimes/databases: `go`, `node@24`, `mysql`, `libpq`, `nginx`.
 - AI/dev CLIs: `agent-browser`, `codex`, `claude-code`, `opencode`.
 - Apps: Docker, VS Code, Ghostty, iTerm2, Raycast, Stats, 1Password, Bruno, Claude, Ice.
+
+## Formatter (one-time setup)
+
+`make format` runs the `ghcr.io/oullin/go-fmt` image via `go-fmt.compose.yaml`.
+The image is private, so Docker needs a `ghcr.io` credential before the first
+pull. From the repository root:
+
+1. Confirm `gh` is installed and signed in: `gh auth status`.
+2. If the listed scopes do not include `read:packages`, add it:
+
+   ```sh
+   gh auth refresh -h github.com -s read:packages
+   ```
+
+3. Log Docker into GHCR using the `gh` token:
+
+   ```sh
+   make format-login
+   ```
+
+After that, `make format` works from the repository root. Re-run
+`make format-login` only when the credential expires or is wiped.
 
 ## Code organization
 
