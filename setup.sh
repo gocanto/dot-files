@@ -56,6 +56,36 @@ ensure_macos() {
 	fi
 }
 
+ensure_canonical_location() {
+	local root
+	root="$(cd "$(dirname "$0")" && pwd)"
+
+	if [[ -d "$root/.git" ]]; then
+		return 0
+	fi
+
+	log "warning: setup is running from $root, which is not a git checkout"
+	log "if this is an unzipped download, edits to the repo and stow links will drift"
+	log "clone the repo instead, e.g. git clone https://github.com/gocanto/dot-files ~/Sites/dot-files"
+
+	if [[ "$DRY_RUN" -eq 1 ]]; then
+		return 0
+	fi
+
+	printf 'continue anyway? [y/N] '
+	local reply
+	read -r reply || reply=""
+
+	case "$reply" in
+		y|Y|yes|YES)
+			log "continuing from non-git location"
+			;;
+		*)
+			die "aborted; rerun from a git clone"
+			;;
+	esac
+}
+
 ensure_command_line_tools() {
 	if xcode-select -p >/dev/null 2>&1; then
 		log "Xcode Command Line Tools found"
@@ -156,6 +186,7 @@ run_tui() {
 }
 
 ensure_macos
+ensure_canonical_location
 start_sudo_keepalive
 ensure_command_line_tools
 ensure_homebrew

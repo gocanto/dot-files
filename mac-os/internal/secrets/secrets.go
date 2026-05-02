@@ -29,7 +29,6 @@ type ManagedSecret struct {
 	Name          string `mapstructure:"name" yaml:"name"`
 	OPField       string `mapstructure:"op_field" yaml:"op_field"`
 	PlaintextPath string `mapstructure:"plaintext_path" yaml:"plaintext_path"`
-	EncryptedPath string `mapstructure:"encrypted_path" yaml:"encrypted_path"`
 	Mode          string `mapstructure:"mode" yaml:"mode"`
 }
 
@@ -42,30 +41,8 @@ type Service struct {
 const (
 	GitconfigPlaintext = "gitconfig_plaintext"
 	GitconfigSecret    = "gitconfig"
-	ModeAgeFile        = "age-file"
+	ModePlaintext      = "plaintext"
 )
-
-func (s Service) Encrypt(opts Options) error {
-	secrets, err := s.targets(opts)
-
-	if err != nil {
-		return err
-	}
-
-	fields, err := command.OnePasswordFields(s.Runner, opts.OPVault, opts.OPItem)
-
-	if err != nil {
-		return err
-	}
-
-	for _, secret := range secrets {
-		if err := s.encryptSecret(opts, fields, secret); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
 
 func (s Service) Decrypt(opts Options) error {
 	secrets, err := s.targets(opts)
@@ -96,14 +73,8 @@ func (s Service) Sync(opts Options) error {
 		return err
 	}
 
-	fields, err := command.OnePasswordFields(s.Runner, opts.OPVault, opts.OPItem)
-
-	if err != nil {
-		return err
-	}
-
 	for _, secret := range secrets {
-		if err := s.syncSecret(opts, fields, secret); err != nil {
+		if err := s.syncSecret(opts, secret); err != nil {
 			return err
 		}
 	}
@@ -133,10 +104,6 @@ func (s Service) PrintStatus(opts Options) {
 
 		if strings.TrimSpace(fields[secret.OPField]) == "" {
 			status = "missing 1Password field"
-		} else if _, err := os.Stat(s.EncryptedPath(secret)); errors.Is(err, os.ErrNotExist) {
-			status = "missing encrypted file"
-		} else if err != nil {
-			status = "encrypted file unreadable"
 		}
 
 		fmt.Fprintf(s.Stdout, "  secret %-18s %s\n", secret.Name, status)
@@ -171,10 +138,18 @@ func (s Service) ConfigPath(path string) string {
 		return filepath.Join(s.Repo, "secrets.yaml")
 	}
 
-	if strings.HasPrefix(path, "~/") {
-		home, _ := os.UserHomeDir()
+	return s.resolveSecretPath(path)
+}
 
-		return filepath.Join(home, strings.TrimPrefix(path, "~/"))
+func (s Service) PlaintextPath(secret ManagedSecret) string {
+	return s.resolveSecretPath(secret.PlaintextPath)
+}
+
+func (s Service) resolveSecretPath(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, strings.TrimPrefix(path, "~/"))
+		}
 	}
 
 	if filepath.IsAbs(path) {
@@ -184,20 +159,8 @@ func (s Service) ConfigPath(path string) string {
 	return filepath.Join(s.Repo, path)
 }
 
-func (s Service) PlaintextPath(secret ManagedSecret) string {
-	return filepath.Join(s.Repo, secret.PlaintextPath)
-}
-
-func (s Service) EncryptedPath(secret ManagedSecret) string {
-	return filepath.Join(s.Repo, secret.EncryptedPath)
-}
-
 func (s Service) PrivateGitconfigPath() string {
 	return s.PlaintextPath(ManagedSecret{PlaintextPath: "stow/git/.config/git/private.gitconfig"})
-}
-
-func (s Service) EncryptedGitconfigPath() string {
-	return s.EncryptedPath(ManagedSecret{EncryptedPath: "stow/git/.config/git/private.gitconfig.age"})
 }
 
 func (s Service) targets(opts Options) ([]ManagedSecret, error) {
@@ -220,56 +183,7 @@ func (s Service) targets(opts Options) ([]ManagedSecret, error) {
 	return nil, fmt.Errorf("secret target %q not found in %s", opts.SecretTarget, s.ConfigPath(opts.SecretsPath))
 }
 
-func (s Service) encryptSecret(opts Options, fields map[string]string, secret ManagedSecret) error {
-	plaintext := fields[secret.OPField]
-
-	if strings.TrimSpace(plaintext) == "" {
-		return fmt.Errorf("missing %s in 1Password item %q", secret.OPField, opts.OPItem)
-	}
-
-	if opts.DryRun {
-		fmt.Fprintf(s.Stdout, "would read %s from 1Password item: %s/%s\n", secret.OPField, opts.OPVault, opts.OPItem)
-		fmt.Fprintf(s.Stdout, "would write ignored secret %s: %s\n", secret.Name, s.PlaintextPath(secret))
-		fmt.Fprintf(s.Stdout, "would encrypt secret %s with Age recipient from 1Password: %s\n", secret.Name, s.EncryptedPath(secret))
-
-		return nil
-	}
-
-	if err := safefs.WriteFile(s.PlaintextPath(secret), []byte(strings.TrimRight(plaintext, "\n")+"\n"), 0o600); err != nil {
-		return err
-	}
-
-	if err := s.encryptSecretFile(opts, fields, secret); err != nil {
-		return err
-	}
-
-	fmt.Fprintf(s.Stdout, "encrypted secret %s at %s\n", secret.Name, s.EncryptedPath(secret))
-
-	return nil
-}
-
 func (s Service) decryptSecret(opts Options, fields map[string]string, secret ManagedSecret) error {
-	encryptedPath := s.EncryptedPath(secret)
-
-	if _, err := os.Stat(encryptedPath); err == nil {
-		if opts.DryRun {
-			fmt.Fprintf(s.Stdout, "would decrypt secret %s with Age identity from 1Password: %s\n", secret.Name, encryptedPath)
-			fmt.Fprintf(s.Stdout, "would write ignored secret %s: %s\n", secret.Name, s.PlaintextPath(secret))
-
-			return nil
-		}
-
-		if err := s.decryptSecretFile(opts, fields, secret); err != nil {
-			return err
-		}
-
-		fmt.Fprintf(s.Stdout, "decrypted secret %s at %s\n", secret.Name, s.PlaintextPath(secret))
-
-		return nil
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-
 	plaintext := fields[secret.OPField]
 
 	if strings.TrimSpace(plaintext) == "" {
@@ -278,9 +192,13 @@ func (s Service) decryptSecret(opts Options, fields map[string]string, secret Ma
 
 	if opts.DryRun {
 		fmt.Fprintf(s.Stdout, "would read %s from 1Password item: %s/%s\n", secret.OPField, opts.OPVault, opts.OPItem)
-		fmt.Fprintf(s.Stdout, "would write ignored secret %s: %s\n", secret.Name, s.PlaintextPath(secret))
+		fmt.Fprintf(s.Stdout, "would write secret %s: %s\n", secret.Name, s.PlaintextPath(secret))
 
 		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(s.PlaintextPath(secret)), 0o700); err != nil {
+		return err
 	}
 
 	if err := safefs.WriteFile(s.PlaintextPath(secret), []byte(strings.TrimRight(plaintext, "\n")+"\n"), 0o600); err != nil {
@@ -292,7 +210,7 @@ func (s Service) decryptSecret(opts Options, fields map[string]string, secret Ma
 	return nil
 }
 
-func (s Service) syncSecret(opts Options, fields map[string]string, secret ManagedSecret) error {
+func (s Service) syncSecret(opts Options, secret ManagedSecret) error {
 	data, err := os.ReadFile(s.PlaintextPath(secret))
 
 	if err != nil {
@@ -301,7 +219,6 @@ func (s Service) syncSecret(opts Options, fields map[string]string, secret Manag
 
 	if opts.DryRun {
 		fmt.Fprintf(s.Stdout, "would update %s in 1Password item: %s/%s\n", secret.OPField, opts.OPVault, opts.OPItem)
-		fmt.Fprintf(s.Stdout, "would encrypt secret %s with Age recipient from 1Password: %s\n", secret.Name, s.EncryptedPath(secret))
 
 		return nil
 	}
@@ -322,85 +239,7 @@ func (s Service) syncSecret(opts Options, fields map[string]string, secret Manag
 		return fmt.Errorf("update 1Password secret %s: %w", secret.Name, err)
 	}
 
-	if err := s.encryptSecretFile(opts, fields, secret); err != nil {
-		return err
-	}
-
-	fmt.Fprintf(s.Stdout, "synced secret %s to 1Password and %s\n", secret.Name, s.EncryptedPath(secret))
-
-	return nil
-}
-
-func (s Service) encryptSecretFile(opts Options, fields map[string]string, secret ManagedSecret) error {
-	recipient := strings.TrimSpace(fields["archive_age_recipient"])
-
-	if recipient == "" {
-		return fmt.Errorf("missing archive_age_recipient in 1Password item %q", opts.OPItem)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(s.EncryptedPath(secret)), 0o700); err != nil {
-		return err
-	}
-
-	out, err := s.Runner.Run("age", "-r", recipient, "-o", s.EncryptedPath(secret), s.PlaintextPath(secret))
-
-	if len(out) > 0 {
-		fmt.Fprint(s.Stdout, string(out))
-	}
-
-	if err != nil {
-		return fmt.Errorf("encrypt secret %s: %w", secret.Name, err)
-	}
-
-	return nil
-}
-
-func (s Service) decryptSecretFile(opts Options, fields map[string]string, secret ManagedSecret) error {
-	identity := strings.TrimSpace(fields["archive_age_identity"])
-
-	if identity == "" {
-		return fmt.Errorf("missing archive_age_identity in 1Password item %q", opts.OPItem)
-	}
-
-	tmp, err := os.CreateTemp("", "mac-os-age-identity-*")
-
-	if err != nil {
-		return err
-	}
-
-	tmpPath := tmp.Name()
-
-	defer os.Remove(tmpPath)
-
-	if err := tmp.Chmod(0o600); err != nil {
-		tmp.Close()
-
-		return err
-	}
-
-	if _, err := tmp.WriteString(identity + "\n"); err != nil {
-		tmp.Close()
-
-		return err
-	}
-
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-
-	if err := os.MkdirAll(filepath.Dir(s.PlaintextPath(secret)), 0o700); err != nil {
-		return err
-	}
-
-	out, err := s.Runner.Run("age", "-d", "-i", tmpPath, "-o", s.PlaintextPath(secret), s.EncryptedPath(secret))
-
-	if len(out) > 0 {
-		fmt.Fprint(s.Stdout, string(out))
-	}
-
-	if err != nil {
-		return fmt.Errorf("decrypt secret %s: %w", secret.Name, err)
-	}
+	fmt.Fprintf(s.Stdout, "synced secret %s to 1Password\n", secret.Name)
 
 	return nil
 }
@@ -433,29 +272,21 @@ func Validate(cfg Config) error {
 			return fmt.Errorf("%s.plaintext_path is required", prefix)
 		}
 
-		if strings.TrimSpace(secret.EncryptedPath) == "" {
-			return fmt.Errorf("%s.encrypted_path is required", prefix)
+		if secret.Mode != ModePlaintext {
+			return fmt.Errorf("%s.mode must be %q", prefix, ModePlaintext)
 		}
 
-		if err := validateRepoRelativePath(secret.PlaintextPath); err != nil {
+		if err := validateSafePath(secret.PlaintextPath); err != nil {
 			return fmt.Errorf("%s.plaintext_path: %w", prefix, err)
-		}
-
-		if err := validateRepoRelativePath(secret.EncryptedPath); err != nil {
-			return fmt.Errorf("%s.encrypted_path: %w", prefix, err)
-		}
-
-		if secret.Mode != ModeAgeFile {
-			return fmt.Errorf("%s.mode must be %q", prefix, ModeAgeFile)
 		}
 	}
 
 	return nil
 }
 
-func validateRepoRelativePath(path string) error {
-	if filepath.IsAbs(path) || strings.HasPrefix(path, "..") || strings.Contains(filepath.Clean(path), "../") {
-		return errors.New("must be repo-relative")
+func validateSafePath(path string) error {
+	if strings.HasPrefix(path, "..") || strings.Contains(filepath.Clean(path), "../") {
+		return errors.New("must not traverse parent directories")
 	}
 
 	return nil

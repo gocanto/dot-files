@@ -14,6 +14,7 @@ type app struct {
 	home      string
 	repo      string
 	goos      string
+	goarch    string
 	stdout    io.Writer
 	stderr    io.Writer
 	stdin     io.Reader
@@ -64,6 +65,7 @@ func newApp(home, repo string, stdin io.Reader, stdout, stderr io.Writer, runner
 		home:      home,
 		repo:      repo,
 		goos:      runtime.GOOS,
+		goarch:    runtime.GOARCH,
 		stdout:    stdout,
 		stderr:    stderr,
 		stdin:     stdin,

@@ -5,7 +5,7 @@ GO_FMT_COMPOSE := docker compose -f $(GO_FMT_COMPOSE_FILE)
 GO_FMT_BIN := /usr/local/bin/go-fmt
 GO_FMT_EXEC := $(GO_FMT_COMPOSE) exec -T $(GO_FMT_SERVICE) $(GO_FMT_BIN)
 
-.PHONY: format format-start format-stop
+.PHONY: format format-start format-stop format-login
 
 format: format-start
 	@echo "go-fmt format in $(ROOT_PATH)"; \
@@ -16,3 +16,6 @@ format-start:
 
 format-stop:
 	@$(GO_FMT_COMPOSE) stop $(GO_FMT_SERVICE)
+
+format-login:
+	@gh auth token | docker login ghcr.io -u $$(gh api user -q .login) --password-stdin
