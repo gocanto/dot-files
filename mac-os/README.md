@@ -17,8 +17,13 @@ For a new Mac, start from the repository root:
 
 The setup script requires macOS, network access, administrator/sudo access, and
 completion of any Apple Command Line Tools installer or license prompts. It
-installs or enables Xcode Command Line Tools, installs Homebrew and Go when
-missing, then opens the Go TUI.
+installs or enables Xcode Command Line Tools, installs Homebrew, Git, and Go
+when missing, then opens the Go TUI.
+
+If setup is launched from an unzipped download instead of a git checkout, it
+prompts for the canonical destination path, clones this repo there, and re-runs
+setup from the clone. This keeps later dotfile, Stow, and documentation changes
+anchored to the same checkout.
 
 After bootstrap, or when developing this tool, open the TUI directly:
 
@@ -56,41 +61,40 @@ runs through the TUI.
 `mac-os` uses Bubble Tea v2 (`charm.land/bubbletea/v2`) to present a terminal
 dashboard for common workflows:
 
-- Factory Install
-- Factory Install Dry Run
-- Bootstrap
-- Capture Archive
-- Restore App Configs
-- Apply macOS Defaults
-- Doctor
-- Brewfile Preview
+- Set Up This Mac
+- Save App Settings Snapshot
+- Restore App Settings
+- Apply macOS Settings
+- Check Setup
+- Show Homebrew Packages
 
 Use arrow keys or `j`/`k` to move, `enter` to open or run, `space` to toggle
 phases in a workflow, and `q`/`esc` to exit before execution. The run screen
 executes enabled phases in order, shows each phase status, stops on first
 failure, and returns a non-zero exit code on failure or `ctrl+c` cancellation.
 
-`Factory Install` is the one-pass setup path. It starts with an erase-state
-confirmation, then installs prerequisites, Homebrew packages, App Store apps,
-restores private secrets from 1Password, links safe dotfiles via Stow, applies
-macOS defaults, and runs doctor checks without walking through each workflow
-separately. The private secrets restore step prompts for `op signin` when no
-1Password CLI session is active. Choosing `Erase first` validates administrator
-access, opens Apple's Erase Assistant settings, and stops before install phases
-run.
+Each workflow opens with a confirmation page that explains what will happen,
+whether it changes the Mac, and which steps will run. Workflows that can change
+files or settings offer `Preview only` before `Run now`; preview mode prints the
+plan without installing packages or applying settings.
+
+`Set Up This Mac` is the one-pass setup path. It starts with an explanation and
+erase-state choices, then installs prerequisites, Homebrew packages, GitHub
+access and signing keys, App Store apps, restores private secrets from
+1Password, links safe dotfiles via Stow, applies macOS settings, and runs health
+checks without walking through each workflow separately. The GitHub and private
+secrets steps prompt for `op signin` when no 1Password CLI session is active.
+Choosing `Erase first` validates administrator access, opens Apple's Erase
+Assistant settings, and stops before install phases run.
 
 The Stow phase scans `$HOME` for existing symlinks that point into a different
 stow tree (for example, leftover links from a previous run out of
 `~/Downloads/dot-files-main`) and refuses to proceed until they are removed,
 since Stow itself silently skips them.
 
-`Factory Install Dry Run` exercises the same confirmation and phase progress in
-a read-only mode. It prints what would happen, including the Erase Assistant
-handoff and administrator validation, without asking for a password, opening
-reset settings, or installing packages.
-
-The current TUI defaults to dry-run-oriented workflows so it is safe as an
-interactive front door.
+`Save App Settings Snapshot` collects supported app settings and setup reference
+files so they can be reviewed or restored later. It is selective and is not a
+full Mac backup.
 
 ## App restore policy
 
@@ -129,6 +133,9 @@ archive_age_recipient       Age public recipient
 archive_root                directory for encrypted archives
 gitconfig_plaintext         concealed private ~/.config/git/private.gitconfig contents
 allowed_signers_plaintext   concealed ~/.ssh/allowed_signers contents (one line per signer)
+github_username             GitHub username
+github_email                Git commit/GitHub email
+git_author_name             Git commit author name
 latest_archive              last encrypted archive path, updated by capture
 restore_notes               short manual restore notes
 ```
@@ -157,6 +164,13 @@ ignored by git and never committed. Each managed secret stores its value as a
 concealed field on the `Mac Migration Archive` 1Password item; the restore
 workflow reads the field and writes the file locally. No encrypted copies are
 kept in the repo.
+
+The GitHub setup step reads `github_username`, `github_email`, and
+`git_author_name` from 1Password when available, and prompts for any missing
+value. It creates machine-local SSH and GPG keys, uploads only their public keys
+to GitHub with `gh`, and writes the resolved Git identity plus GPG signing key
+to the private Git config. SSH and GPG private keys are never stored in the repo
+or 1Password.
 
 The public CLI no longer exposes standalone secret-management subcommands.
 

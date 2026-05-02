@@ -13,14 +13,18 @@ import (
 func testWorkflow(err error) []Workflow {
 	return []Workflow{
 		{
-			Name: "Bootstrap",
+			Name:        "Set Up This Mac",
+			Description: "Run setup.",
+			ChangesMac:  "Yes",
 			Phases: []Phase{
 				{Name: "one", Enabled: true, Run: func(io.Writer) error { return err }},
 				{Name: "two", Enabled: true, Run: func(io.Writer) error { return nil }},
 			},
 		},
 		{
-			Name: "Doctor",
+			Name:        "Check Setup",
+			Description: "Run health checks.",
+			ChangesMac:  "No",
 			Phases: []Phase{
 				{Name: "doctor", Enabled: true, Run: func(io.Writer) error { return nil }},
 			},
@@ -53,7 +57,151 @@ func ctrl(code rune) tea.KeyPressMsg {
 func TestInitialMenuState(t *testing.T) {
 	m := New(testWorkflow(nil))
 
-	if !strings.Contains(viewString(m), "Bootstrap") || !strings.Contains(viewString(m), "Doctor") {
+	for _, want := range []string{"Set Up This Mac", "Check Setup", "Run setup.", "Yes"} {
+		if !strings.Contains(viewString(m), want) {
+			t.Fatalf("initial view missing %q:\n%s", want, viewString(m))
+		}
+	}
+}
+
+func TestConfirmationCanReplacePhasesForPreview(t *testing.T) {
+	var liveRan bool
+
+	var previewRan bool
+	workflows := []Workflow{
+		{
+			Name:       "Set Up This Mac",
+			ChangesMac: "Yes",
+			Phases: []Phase{{Name: "live", Enabled: true, Run: func(io.Writer) error {
+				liveRan = true
+
+				return nil
+			}}},
+			Confirmation: &Confirmation{
+				Title:   "Set Up This Mac",
+				Message: "Choose how to proceed.",
+				Options: []ConfirmationOption{
+					{
+						Label:    "Preview only",
+						Continue: true,
+						Phases: []Phase{{Name: "preview", Enabled: true, Run: func(io.Writer) error {
+							previewRan = true
+
+							return nil
+						}}},
+					},
+				},
+			},
+		},
+	}
+
+	m := New(workflows)
+	model, _ := m.Update(key(tea.KeyEnter))
+	m = model.(Model)
+	model, _ = m.Update(key(tea.KeyEnter))
+	m = model.(Model)
+
+	if m.screen != "confirm" {
+		t.Fatalf("screen = %q, want confirm", m.screen)
+	}
+
+	model, cmd := m.Update(key(tea.KeyEnter))
+	m = model.(Model)
+	msg := cmd().(confirmationDoneMsg)
+	model, cmd = m.Update(msg)
+	m = model.(Model)
+
+	if cmd == nil || !m.running || m.workflows[0].Phases[0].Name != "preview" {
+		t.Fatalf("expected preview phase to run, running = %v phase = %#v cmd nil = %v", m.running, m.workflows[0].Phases[0], cmd == nil)
+	}
+
+	msg2 := cmd().(phaseDoneMsg)
+	model, _ = m.Update(msg2)
+	m = model.(Model)
+
+	if !previewRan || liveRan {
+		t.Fatalf("previewRan = %v liveRan = %v", previewRan, liveRan)
+	}
+}
+
+func TestConfirmationBackReturnsHome(t *testing.T) {
+	workflows := []Workflow{
+		{
+			Name: "Set Up This Mac",
+			Confirmation: &Confirmation{
+				Title:   "Set Up This Mac",
+				Message: "Choose how to proceed.",
+				Options: []ConfirmationOption{{Label: "Back", Back: true}},
+			},
+			Phases: []Phase{{Name: "one", Enabled: true, Run: func(io.Writer) error { return nil }}},
+		},
+	}
+
+	m := New(workflows)
+	model, _ := m.Update(key(tea.KeyEnter))
+	m = model.(Model)
+	model, _ = m.Update(key(tea.KeyEnter))
+	m = model.(Model)
+	model, cmd := m.Update(key(tea.KeyEnter))
+	m = model.(Model)
+
+	if cmd != nil || m.screen != "home" {
+		t.Fatalf("screen = %q cmd nil = %v, want home and no command", m.screen, cmd == nil)
+	}
+}
+
+func TestConfirmationViewExplainsWorkflow(t *testing.T) {
+	m := New([]Workflow{
+		{
+			Name:        "Set Up This Mac",
+			Description: "Run setup.",
+			ChangesMac:  "Yes",
+			Confirmation: &Confirmation{
+				Title:   "Set Up This Mac",
+				Message: "Choose how to proceed.",
+				Options: []ConfirmationOption{{Label: "Preview only", Continue: true}},
+			},
+			Phases: []Phase{{Name: "Check/install prerequisites", Enabled: true, Run: func(io.Writer) error { return nil }}},
+		},
+	})
+	model, _ := m.Update(key(tea.KeyEnter))
+	m = model.(Model)
+	model, _ = m.Update(key(tea.KeyEnter))
+	m = model.(Model)
+
+	view := stripANSI(viewString(m))
+
+	for _, want := range []string{"Changes this Mac: Yes", "Steps", "Check/install prerequisites", "Preview only"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("confirmation view missing %q:\n%s", want, view)
+		}
+	}
+}
+
+func TestWorkflowViewUsesPlainPhaseStates(t *testing.T) {
+	m := New(testWorkflow(nil))
+	model, _ := m.Update(key(tea.KeyEnter))
+	m = model.(Model)
+
+	view := stripANSI(viewString(m))
+
+	if !strings.Contains(view, "will run") {
+		t.Fatalf("workflow view missing will run:\n%s", view)
+	}
+
+	model, _ = m.Update(key(tea.KeySpace))
+	m = model.(Model)
+	view = stripANSI(viewString(m))
+
+	if !strings.Contains(view, "skipped") {
+		t.Fatalf("workflow view missing skipped:\n%s", view)
+	}
+}
+
+func TestInitialMenuStateIncludesBothWorkflows(t *testing.T) {
+	m := New(testWorkflow(nil))
+
+	if !strings.Contains(viewString(m), "Set Up This Mac") || !strings.Contains(viewString(m), "Check Setup") {
 		t.Fatalf("initial view missing workflows:\n%s", viewString(m))
 	}
 }

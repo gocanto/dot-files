@@ -50,7 +50,7 @@ func TestNoArgsLaunchesTUI(t *testing.T) {
 	}
 }
 
-func TestTUIWorkflowsStartWithFactoryInstall(t *testing.T) {
+func TestTUIWorkflowsUsePlainMenuLabels(t *testing.T) {
 	var workflows []tui.Workflow
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
 	a.tuiRunner = func(_ io.Reader, _ io.Writer, got []tui.Workflow) (tui.Result, error) {
@@ -63,44 +63,61 @@ func TestTUIWorkflowsStartWithFactoryInstall(t *testing.T) {
 		t.Fatalf("exit = %d, want 0", got)
 	}
 
-	if len(workflows) == 0 || workflows[0].Name != "Factory Install" {
-		t.Fatalf("first workflow = %#v, want Factory Install", workflows)
+	wantNames := []string{
+		"Set Up This Mac",
+		"Save App Settings Snapshot",
+		"Restore App Settings",
+		"Apply macOS Settings",
+		"Check Setup",
+		"Show Homebrew Packages",
 	}
 
-	if len(workflows[0].Phases) < 8 {
-		t.Fatalf("factory phases = %#v", workflows[0].Phases)
+	if len(workflows) != len(wantNames) {
+		t.Fatalf("workflow count = %d, want %d: %#v", len(workflows), len(wantNames), workflows)
 	}
 
-	if workflows[0].Phases[0].Name != "prerequisites" || workflows[0].Phases[1].Name != "homebrew bundle" {
-		t.Fatalf("factory phases = %#v", workflows[0].Phases)
+	for i, want := range wantNames {
+		if workflows[i].Name != want {
+			t.Fatalf("workflow[%d] = %q, want %q", i, workflows[i].Name, want)
+		}
 	}
 
-	if workflows[0].Confirmation == nil || len(workflows[0].Confirmation.Options) != 3 {
-		t.Fatalf("factory confirmation = %#v", workflows[0].Confirmation)
+	for _, workflow := range workflows {
+		if strings.Contains(workflow.Name, "Dry Run") || workflow.Name == "Bootstrap" {
+			t.Fatalf("unexpected technical workflow name: %#v", workflow)
+		}
+
+		if workflow.Description == "" || workflow.ChangesMac == "" || workflow.Confirmation == nil {
+			t.Fatalf("workflow missing explanation metadata: %#v", workflow)
+		}
 	}
 }
 
-func TestFactoryInstallEraseConfirmationOptions(t *testing.T) {
+func TestSetUpThisMacConfirmationOptions(t *testing.T) {
 	var calls []string
 
 	var stdout bytes.Buffer
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), &stdout, io.Discard, stubRunner{calls: &calls})
 	a.goos = "linux"
-	confirmation := a.factoryInstallConfirmation(false)
+	confirmation := a.setupConfirmation(options{dryRun: true, apps: true}, options{apps: true})
 
-	if confirmation == nil || len(confirmation.Options) != 3 {
+	if confirmation == nil || len(confirmation.Options) != 5 {
 		t.Fatalf("confirmation = %#v", confirmation)
 	}
 
-	if !confirmation.Options[1].Continue || !confirmation.Options[2].Continue {
-		t.Fatalf("expected already-erased and proceed-without-erase options to continue: %#v", confirmation.Options)
+	if !confirmation.Options[0].Continue || !confirmation.Options[2].Continue || !confirmation.Options[3].Continue {
+		t.Fatalf("expected preview and run options to continue: %#v", confirmation.Options)
 	}
 
-	if confirmation.Options[0].Continue {
+	if confirmation.Options[1].Continue {
 		t.Fatal("expected erase-first option to stop before install phases")
 	}
 
-	if err := confirmation.Options[0].Run(&stdout); err != nil {
+	if !confirmation.Options[4].Back {
+		t.Fatalf("expected final option to go back: %#v", confirmation.Options)
+	}
+
+	if err := confirmation.Options[1].Run(&stdout); err != nil {
 		t.Fatal(err)
 	}
 
@@ -118,7 +135,7 @@ func TestFactoryInstallEraseFirstOpensResetSettingsOnDarwin(t *testing.T) {
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{calls: &calls})
 	a.goos = "darwin"
 
-	if err := a.factoryInstallConfirmation(false).Options[0].Run(io.Discard); err != nil {
+	if err := a.setupConfirmation(options{dryRun: true, apps: true}, options{apps: true}).Options[1].Run(io.Discard); err != nil {
 		t.Fatal(err)
 	}
 
@@ -131,7 +148,7 @@ func TestFactoryInstallEraseFirstOpensResetSettingsOnDarwin(t *testing.T) {
 	}
 }
 
-func TestFactoryInstallDryRunDoesNotOpenResetSettings(t *testing.T) {
+func TestSetUpThisMacPreviewDoesNotOpenResetSettings(t *testing.T) {
 	var calls []string
 
 	var stdout bytes.Buffer
@@ -140,22 +157,30 @@ func TestFactoryInstallDryRunDoesNotOpenResetSettings(t *testing.T) {
 
 	workflows := a.tuiWorkflows()
 
-	if len(workflows) < 2 || workflows[1].Name != "Factory Install Dry Run" {
+	if len(workflows) == 0 || workflows[0].Name != "Set Up This Mac" {
 		t.Fatalf("workflows = %#v", workflows)
 	}
 
-	if err := workflows[1].Confirmation.Options[0].Run(&stdout); err != nil {
+	if err := workflows[0].Confirmation.Options[0].Run(&stdout); err != nil {
 		t.Fatal(err)
 	}
 
 	if len(calls) != 0 {
-		t.Fatalf("dry run should not open settings, calls = %#v", calls)
+		t.Fatalf("preview should not open settings, calls = %#v", calls)
 	}
 
-	for _, want := range []string{"would validate administrator access", "would open reset settings"} {
+	for _, want := range []string{"preview selected"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("stdout = %s", stdout.String())
 		}
+	}
+
+	if workflows[0].Confirmation.Options[0].Phases[0].Name != "Check/install prerequisites" {
+		t.Fatalf("preview phases = %#v", workflows[0].Confirmation.Options[0].Phases)
+	}
+
+	if workflows[0].Confirmation.Options[0].Phases[2].Name != "Set up GitHub access and signing" {
+		t.Fatalf("preview phases = %#v", workflows[0].Confirmation.Options[0].Phases)
 	}
 }
 
@@ -167,7 +192,7 @@ func TestFactoryInstallEraseFirstStopsWhenAdminValidationFails(t *testing.T) {
 	})
 	a.goos = "darwin"
 
-	err := a.factoryInstallConfirmation(false).Options[0].Run(io.Discard)
+	err := a.setupConfirmation(options{dryRun: true, apps: true}, options{apps: true}).Options[1].Run(io.Discard)
 
 	if err == nil {
 		t.Fatal("expected admin validation error")
@@ -457,41 +482,32 @@ func (r errRunner) Run(name string, args ...string) ([]byte, error) {
 	return nil, r.err
 }
 
-func TestBootstrapAndFactoryIncludeOhMyZshPhase(t *testing.T) {
+func TestFactoryInstallIncludesOhMyZshBeforeStow(t *testing.T) {
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
+	phases := a.factoryInstallPhases(options{dryRun: true, apps: true})
 
-	for _, tc := range []struct {
-		name   string
-		phases []tui.Phase
-	}{
-		{"bootstrap", a.bootstrapPhases(options{dryRun: true})},
-		{"factoryInstall", a.factoryInstallPhases(options{dryRun: true, apps: true})},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			var stowIdx, ohmyzshIdx = -1, -1
+	var stowIdx, ohmyzshIdx = -1, -1
 
-			for i, phase := range tc.phases {
-				if phase.Name == "stow links" {
-					stowIdx = i
-				}
+	for i, phase := range phases {
+		if phase.Name == "Link dotfiles" {
+			stowIdx = i
+		}
 
-				if phase.Name == "oh-my-zsh" {
-					ohmyzshIdx = i
-				}
-			}
+		if phase.Name == "Install oh-my-zsh" {
+			ohmyzshIdx = i
+		}
+	}
 
-			if ohmyzshIdx < 0 {
-				t.Fatalf("missing oh-my-zsh phase: %#v", tc.phases)
-			}
+	if ohmyzshIdx < 0 {
+		t.Fatalf("missing oh-my-zsh phase: %#v", phases)
+	}
 
-			if stowIdx < 0 {
-				t.Fatalf("missing stow links phase: %#v", tc.phases)
-			}
+	if stowIdx < 0 {
+		t.Fatalf("missing stow links phase: %#v", phases)
+	}
 
-			if ohmyzshIdx >= stowIdx {
-				t.Fatalf("oh-my-zsh phase (%d) must run before stow links (%d)", ohmyzshIdx, stowIdx)
-			}
-		})
+	if ohmyzshIdx >= stowIdx {
+		t.Fatalf("oh-my-zsh phase (%d) must run before stow links (%d)", ohmyzshIdx, stowIdx)
 	}
 }
 
