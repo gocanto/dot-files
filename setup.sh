@@ -3,6 +3,8 @@
 set -euo pipefail
 
 DRY_RUN=0
+REPO_URL="https://github.com/gocanto/dot-files"
+DEFAULT_REPO_DEST="$HOME/Sites/dot-files"
 
 for arg in "$@"; do
 	case "$arg" in
@@ -66,24 +68,45 @@ ensure_canonical_location() {
 
 	log "warning: setup is running from $root, which is not a git checkout"
 	log "if this is an unzipped download, edits to the repo and stow links will drift"
-	log "clone the repo instead, e.g. git clone https://github.com/gocanto/dot-files ~/Sites/dot-files"
+	log "setup must continue from a canonical git clone"
 
 	if [[ "$DRY_RUN" -eq 1 ]]; then
+		log "would prompt for destination repo path, defaulting to $DEFAULT_REPO_DEST"
+		log "would clone $REPO_URL into the selected destination if needed"
+		log "would re-run setup from the selected destination"
 		return 0
 	fi
 
-	printf 'continue anyway? [y/N] '
-	local reply
-	read -r reply || reply=""
+	printf 'Destination repo path [%s]: ' "$DEFAULT_REPO_DEST"
+	local destination
+	read -r destination || destination=""
 
-	case "$reply" in
-		y|Y|yes|YES)
-			log "continuing from non-git location"
-			;;
-		*)
-			die "aborted; rerun from a git clone"
-			;;
-	esac
+	if [[ -z "$destination" ]]; then
+		destination="$DEFAULT_REPO_DEST"
+	fi
+
+	destination="${destination/#\~/$HOME}"
+
+	if [[ -e "$destination" ]]; then
+		if [[ ! -d "$destination/.git" ]]; then
+			die "$destination exists but is not a git checkout"
+		fi
+
+		local origin
+		origin="$(git -C "$destination" remote get-url origin 2>/dev/null || true)"
+
+		if [[ "$origin" != "$REPO_URL" && "$origin" != "git@github.com:gocanto/dot-files.git" ]]; then
+			die "$destination is a git checkout but origin is $origin, expected $REPO_URL"
+		fi
+	else
+		log "cloning $REPO_URL into $destination"
+		mkdir -p "$(dirname "$destination")"
+		run git clone "$REPO_URL" "$destination"
+	fi
+
+	log "re-running setup from $destination"
+	cd "$destination"
+	exec ./setup.sh "$@"
 }
 
 ensure_command_line_tools() {
@@ -170,6 +193,16 @@ ensure_go() {
 	run brew install go
 }
 
+ensure_git() {
+	if command -v git >/dev/null 2>&1; then
+		log "Git found"
+		return 0
+	fi
+
+	log "Git is missing"
+	run brew install git
+}
+
 run_tui() {
 	local root
 	root="$(cd "$(dirname "$0")" && pwd)"
@@ -186,9 +219,10 @@ run_tui() {
 }
 
 ensure_macos
-ensure_canonical_location
-start_sudo_keepalive
 ensure_command_line_tools
 ensure_homebrew
+ensure_git
+ensure_canonical_location "$@"
+start_sudo_keepalive
 ensure_go
 run_tui "$@"

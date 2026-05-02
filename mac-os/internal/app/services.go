@@ -15,6 +15,7 @@ import (
 	"github.com/gocanto/mac-os/internal/command"
 	"github.com/gocanto/mac-os/internal/doctor"
 	"github.com/gocanto/mac-os/internal/dotfiles"
+	"github.com/gocanto/mac-os/internal/githubsetup"
 	"github.com/gocanto/mac-os/internal/macosdefaults"
 	"github.com/gocanto/mac-os/internal/secrets"
 )
@@ -76,6 +77,26 @@ func (a app) applyAppStoreApps(opts options) error {
 
 func (a app) reportManualApps(opts options) error {
 	return a.apps().ReportManual(apps.Options{DryRun: opts.dryRun, Apps: opts.apps, ConfigPath: opts.configPath})
+}
+
+func (a app) setupGitHub(opts options) error {
+	if opts.dryRun {
+		fmt.Fprintf(a.stdout, "would validate 1Password CLI session: op whoami (and op signin if needed)\n")
+	} else if err := a.ensureOpSession(); err != nil {
+		return err
+	}
+
+	return githubsetup.Service{
+		Home:   a.home,
+		Repo:   a.repo,
+		Stdin:  a.stdin,
+		Stdout: a.stdout,
+		Runner: a.runner,
+	}.Setup(githubsetup.Options{
+		DryRun:  opts.dryRun,
+		OPVault: opts.opVault,
+		OPItem:  opts.opItem,
+	})
 }
 
 func (a app) applyStow(opts options) error {

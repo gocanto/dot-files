@@ -18,6 +18,8 @@ type Phase struct {
 
 type Workflow struct {
 	Name         string
+	Description  string
+	ChangesMac   string
 	Phases       []Phase
 	Confirmation *Confirmation
 }
@@ -32,6 +34,8 @@ type ConfirmationOption struct {
 	Label       string
 	Description string
 	Continue    bool
+	Back        bool
+	Phases      []Phase
 	Run         func(io.Writer) error
 }
 
@@ -215,6 +219,18 @@ func (m Model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.choice = 0
 		case key.Code == tea.KeyEnter:
 			option := confirmation.Options[m.choice]
+
+			if option.Back {
+				m.screen = "home"
+				m.choice = 0
+
+				return m, nil
+			}
+
+			if option.Phases != nil {
+				m.workflows[m.cursor].Phases = option.Phases
+			}
+
 			m.screen = "run"
 			m.log = ""
 			m.phase = -1
@@ -400,8 +416,13 @@ func (m Model) homeView() string {
 	fmt.Fprintln(&b)
 
 	for i, workflow := range m.workflows {
-		phaseCount := enabledPhaseCount(workflow)
-		summary := fmt.Sprintf("%d/%d phases enabled", phaseCount, len(workflow.Phases))
+		summary := workflow.ChangesMac
+
+		if summary == "" {
+			phaseCount := enabledPhaseCount(workflow)
+			summary = fmt.Sprintf("%d/%d phases enabled", phaseCount, len(workflow.Phases))
+		}
+
 		row := menuRow("  ", workflow.Name, summary, false)
 
 		if i == m.cursor {
@@ -409,6 +430,14 @@ func (m Model) homeView() string {
 		}
 
 		fmt.Fprintln(&b, inset(row))
+	}
+
+	if len(m.workflows) > 0 {
+		fmt.Fprintln(&b)
+
+		for _, line := range wrapLines(m.workflows[m.cursor].Description, rowWidth) {
+			fmt.Fprintln(&b, inset(muted(line)))
+		}
 	}
 
 	padToLine(&b, footerLine)
@@ -441,6 +470,20 @@ func (m Model) confirmView() string {
 
 	for _, line := range wrapLines(confirmation.Message, rowWidth-6) {
 		fmt.Fprintln(&b, inset(muted(line)))
+	}
+
+	if workflow.ChangesMac != "" {
+		fmt.Fprintln(&b)
+		fmt.Fprintln(&b, inset(muted("Changes this Mac: ")+accent(workflow.ChangesMac)))
+	}
+
+	if len(workflow.Phases) > 0 {
+		fmt.Fprintln(&b)
+		fmt.Fprintln(&b, inset(accent("Steps")))
+
+		for i, phase := range workflow.Phases {
+			fmt.Fprintln(&b, inset(muted(fmt.Sprintf("%2d. %s", i+1, phase.Name))))
+		}
 	}
 
 	fmt.Fprintln(&b)
@@ -596,10 +639,10 @@ func enabledPhaseCount(workflow Workflow) int {
 
 func phaseState(phase Phase) string {
 	if phase.Enabled {
-		return "armed"
+		return "will run"
 	}
 
-	return "off"
+	return "skipped"
 }
 
 func runSummary(workflow Workflow, running bool, err error) string {
