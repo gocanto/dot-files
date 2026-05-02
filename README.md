@@ -1,14 +1,29 @@
 # Mac Migration Manual
 
-This repository is my repeatable path back to a working Mac. It keeps the
-setup I care about in one place so a rebuild is not based on memory, scattered
-notes, or whatever happens to be installed on the old machine.
+> A repeatable restore path for my Mac: tools, apps, safe dotfiles, curated
+> macOS settings, and private recovery metadata without committing secrets.
 
-The goal is practical recovery: install the tools and apps I use, restore safe
-dotfiles, apply known macOS defaults, capture reference settings, and keep
-private machine data out of git. Secrets, private keys, browser sessions,
-keychains, database data, Docker VM data, and token-like files are deliberately
-excluded from the repo and from automatic replay.
+This repository is the path back to a working Mac when I rebuild, replace, or
+erase a machine. It keeps the setup I care about in one place so the restore is
+based on deliberate policy instead of memory, scattered notes, or whatever
+happens to still exist on the old laptop.
+
+The goal is practical recovery. This repo installs the tools and apps I use,
+restores safe dotfiles, applies known macOS defaults, captures reference
+settings, and keeps private machine data out of git. Secrets, private keys,
+browser sessions, keychains, database data, Docker VM data, and token-like files
+are deliberately excluded from the repo and from automatic replay.
+
+## Quick Links
+
+| Need | Start here |
+| --- | --- |
+| Set up a fresh Mac | [`./setup.sh`](#fresh-mac-setup) |
+| Run the terminal dashboard | [Using The TUI](#using-the-tui) |
+| Understand what gets installed | [App Restore Policy](#app-restore-policy) |
+| Restore private settings | [Private Archives](#private-archives) |
+| Work on the tool | [Developer Notes](#developer-notes) |
+| Know what is intentionally skipped | [Safety Rules](#safety-rules) |
 
 ## What This Repo Does
 
@@ -26,27 +41,29 @@ excluded from the repo and from automatic replay.
 - Captures supported app settings and machine reference files into private
   archives outside the repo.
 
-This is not a full Mac backup. It does not clone every app, account, browser
-profile, keychain, database, container, cache, or private credential. Use a real
-backup strategy for personal files and app data that must be preserved exactly.
+> [!IMPORTANT]
+> This is not a full Mac backup. It does not clone every app, account, browser
+> profile, keychain, database, container, cache, or private credential. Use a
+> real backup strategy for personal files and app data that must be preserved
+> exactly.
 
 ## Fresh Mac Setup
 
-Start from the repository root:
+Start from the repository root.
 
 ```sh
 ./setup.sh
 ```
 
-The setup script expects:
+### Requirements
 
-- macOS.
-- Network access.
-- Administrator access for `sudo`.
-- Any Apple Xcode Command Line Tools installer or license prompts to be
-  completed.
-- Access to the 1Password account and vault used by this repo when restoring
-  private fields or archive metadata.
+| Requirement | Why it matters |
+| --- | --- |
+| macOS | The setup flow applies Mac-specific tools and defaults. |
+| Network access | Homebrew, GitHub, 1Password, and package installs need it. |
+| Administrator access | The bootstrap validates `sudo` and may install system tooling. |
+| Xcode Command Line Tools prompts | Apple installer and license prompts must be completed before setup continues. |
+| 1Password access | Private fields and archive metadata are restored from the configured vault. |
 
 The script checks macOS, installs or enables Xcode Command Line Tools, installs
 Homebrew and Git when missing, confirms it is running from the canonical git
@@ -79,28 +96,30 @@ From inside the `mac-os` directory, this shorter form also works:
 go run ./cmd/mac-os
 ```
 
-Keyboard controls:
+### Controls
 
-- Move with arrow keys or `j`/`k`.
-- Press `enter` to open or run a workflow.
-- Press `space` to toggle workflow phases.
-- Press `q` or `esc` to exit before execution.
-- Press `ctrl+c` to cancel a running workflow.
+| Key | Action |
+| --- | --- |
+| Arrow keys or `j`/`k` | Move through choices. |
+| `enter` | Open or run a workflow. |
+| `space` | Toggle workflow phases. |
+| `q` or `esc` | Exit before execution. |
+| `ctrl+c` | Cancel a running workflow. |
 
 Most workflows start with a confirmation screen that explains what will happen,
 whether the workflow changes the Mac, and which phases will run. Workflows that
 can change files or settings offer `Preview only` before `Run now`.
 
-Available workflows:
+### Workflows
 
-- `Set Up This Mac`: the one-pass restore path for a new machine.
-- `Save App Settings Snapshot`: captures supported app settings for review or
-  later restore.
-- `Restore App Settings`: restores allowlisted app settings from a private
-  archive.
-- `Apply macOS Settings`: applies curated macOS defaults.
-- `Check Setup`: verifies prerequisites and developer tools.
-- `Show Homebrew Packages`: prints the generated Homebrew package plan.
+| Workflow | Purpose |
+| --- | --- |
+| `Set Up This Mac` | One-pass restore path for a new machine. |
+| `Save App Settings Snapshot` | Captures supported app settings for review or later restore. |
+| `Restore App Settings` | Restores allowlisted app settings from a private archive. |
+| `Apply macOS Settings` | Applies curated macOS defaults. |
+| `Check Setup` | Verifies prerequisites and developer tools. |
+| `Show Homebrew Packages` | Prints the generated Homebrew package plan. |
 
 `Set Up This Mac` installs prerequisites, Homebrew packages, GitHub access and
 signing keys, App Store apps, private secrets from 1Password, safe dotfiles via
@@ -128,18 +147,22 @@ restored locally from 1Password.
 
 `mac-os/apps.yaml` is the source of truth for app install and restore behavior.
 
-Install methods:
+### Install Methods
 
-- `brew`: installed by the generated Homebrew plan.
-- `mas`: installed with the Mac App Store CLI.
-- `manual`: reported with download or restore notes.
-- `system`: expected to ship with macOS.
+| Method | Behavior |
+| --- | --- |
+| `brew` | Installed by the generated Homebrew plan. |
+| `mas` | Installed with the Mac App Store CLI. |
+| `manual` | Reported with download or restore notes. |
+| `system` | Expected to ship with macOS. |
 
-Config modes:
+### Config Modes
 
-- `auto`: allowlisted paths can be captured and restored automatically.
-- `reference`: paths are captured for review but not replayed.
-- `manual`: restore depends on app sync, login, export/import, or manual notes.
+| Mode | Behavior |
+| --- | --- |
+| `auto` | Allowlisted paths can be captured and restored automatically. |
+| `reference` | Paths are captured for review but not replayed. |
+| `manual` | Restore depends on app sync, login, export/import, or manual notes. |
 
 Even when a directory is allowlisted, the capture flow skips secrets, sessions,
 browser profiles, keychains, SSH and GPG private keys, database data, Docker VM
@@ -170,20 +193,20 @@ Vault: Private
 Item:  Mac Migration Archive
 ```
 
-Expected fields:
+### Expected 1Password Fields
 
-```text
-archive_age_identity        concealed Age private identity
-archive_age_recipient       Age public recipient
-archive_root                directory for encrypted archives
-gitconfig_plaintext         concealed private ~/.config/git/private.gitconfig contents
-allowed_signers_plaintext   concealed ~/.ssh/allowed_signers contents
-github_username             GitHub username
-github_email                Git commit/GitHub email
-git_author_name             Git commit author name
-latest_archive              last encrypted archive path, updated by capture
-restore_notes               short manual restore notes
-```
+| Field | Contents |
+| --- | --- |
+| `archive_age_identity` | Concealed Age private identity. |
+| `archive_age_recipient` | Age public recipient. |
+| `archive_root` | Directory for encrypted archives. |
+| `gitconfig_plaintext` | Concealed private `~/.config/git/private.gitconfig` contents. |
+| `allowed_signers_plaintext` | Concealed `~/.ssh/allowed_signers` contents. |
+| `github_username` | GitHub username. |
+| `github_email` | Git commit/GitHub email. |
+| `git_author_name` | Git commit author name. |
+| `latest_archive` | Last encrypted archive path, updated by capture. |
+| `restore_notes` | Short manual restore notes. |
 
 Create the Age identity once:
 
