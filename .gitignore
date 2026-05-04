@@ -1,7 +1,7 @@
 .DS_Store
 *.log
 node_modules/
-.turbo/
+.turbo
 .idea/
 
 # Private migration artifacts should stay outside git.

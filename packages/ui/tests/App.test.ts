@@ -16,6 +16,18 @@ const workflows: Workflow[] = [
       options: [{ id: "run-now", label: "Run now", description: "continue", continue: true, back: false }],
     },
   },
+  {
+    id: "install-apps",
+    name: "Install Apps",
+    description: "Install configured applications.",
+    changesMac: "Yes",
+    phases: [{ id: "install-homebrew-apps", name: "Install Homebrew apps", enabled: true }],
+    confirmation: {
+      title: "Install Apps",
+      message: "Install configured applications.",
+      options: [{ id: "install-now", label: "Install now", description: "continue", continue: true, back: false }],
+    },
+  },
 ];
 
 function installApi(overrides: Partial<MacOSApi> = {}) {
@@ -61,9 +73,14 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
   return api;
 }
 
+function findDocumentButton(text: string) {
+  return [...document.body.querySelectorAll("button")].find((button) => button.textContent?.includes(text));
+}
+
 describe("App", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    document.body.innerHTML = "";
   });
 
   it("renders workflow navigation and details", async () => {
@@ -77,6 +94,22 @@ describe("App", () => {
     expect(wrapper.text()).toContain("Run health checks");
   });
 
+  it("filters workflow list with search and workflow tabs", async () => {
+    installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper.find('[data-testid="app-search"]').setValue("does-not-exist");
+    expect(wrapper.text()).toContain("No workflows match this view.");
+
+    await wrapper.find('[data-testid="app-search"]').setValue("");
+    await wrapper.findAll("button").find((button) => button.text().includes("Changes"))?.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.findAll("button").some((button) => button.text().includes("Install Apps"))).toBe(true);
+  });
+
   it("runs a workflow and appends streamed output", async () => {
     const api = installApi();
 
@@ -84,7 +117,7 @@ describe("App", () => {
     await flushPromises();
 
     await wrapper.findAll("button").find((button) => button.text().includes("Run now"))?.trigger("click");
-    await wrapper.findAll("button").find((button) => button.text().includes("Continue"))?.trigger("click");
+    findDocumentButton("Continue")?.click();
     await flushPromises();
 
     expect(api.runWorkflow).toHaveBeenCalledWith(

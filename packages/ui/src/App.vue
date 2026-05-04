@@ -1,30 +1,105 @@
 <script setup lang="ts">
 import {
+  Activity,
   AlertTriangle,
+  Apple,
   CheckCircle2,
-  ChevronRight,
   Circle,
+  ClipboardList,
+  HardDrive,
+  History,
+  Inbox,
   Loader2,
+  MoreVertical,
   Play,
+  RefreshCw,
   RotateCcw,
+  Search,
+  Send,
+  Settings,
+  ShieldCheck,
+  TerminalSquare,
 } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
-import AppSidebar from "./components/AppSidebar.vue";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge, type BadgeVariants } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import type { ConfirmationOption, Phase, RunEvent, RunLog, RunSummary, Workflow } from "./types/api";
 
-const section = ref("workflows");
+type SectionId = "workflows" | "logs" | "this-mac" | "snapshots" | "health" | "settings";
+
+const section = ref<SectionId>("workflows");
+const profile = ref("current-mac");
 const workflows = ref<Workflow[]>([]);
 const runs = ref<RunSummary[]>([]);
 const selectedWorkflowId = ref("");
+const selectedRunId = ref("");
+const selectedRunLog = ref<RunLog | null>(null);
 const enabledPhaseIds = ref<Set<string>>(new Set());
 const pendingOption = ref<ConfirmationOption | null>(null);
 const runEvents = ref<RunEvent[]>([]);
 const running = ref(false);
+const initialLoading = ref(true);
 const loadError = ref("");
-const selectedRunId = ref("");
-const selectedRunLog = ref<RunLog | null>(null);
+const navCollapsed = ref(false);
+const searchQuery = ref("");
+const workflowTab = ref("all");
+const logTab = ref("all");
+const mutedNotes = ref(false);
+const noteText = ref("");
+
+const primaryNavItems = computed(() => [
+  { id: "workflows" as const, label: "Workflows", icon: Inbox, count: workflows.value.length },
+  { id: "logs" as const, label: "Logs", icon: History, count: runs.value.length },
+]);
+
+const secondaryNavItems = computed(() => [
+  { id: "this-mac" as const, label: "This Mac", icon: Apple },
+  { id: "snapshots" as const, label: "Snapshots", icon: HardDrive },
+  { id: "health" as const, label: "Health Checks", icon: Activity },
+  { id: "settings" as const, label: "Settings", icon: Settings },
+]);
 
 const selectedWorkflow = computed(() => workflows.value.find((workflow) => workflow.id === selectedWorkflowId.value));
+const selectedRun = computed(() => runs.value.find((run) => run.id === selectedRunId.value));
 
 const displayPhases = computed(() => {
   if (!selectedWorkflow.value) {
@@ -37,11 +112,77 @@ const displayPhases = computed(() => {
   }));
 });
 
+const normalizedSearch = computed(() => searchQuery.value.trim().toLowerCase());
+
+const matchingWorkflows = computed(() => {
+  const query = normalizedSearch.value;
+  const filtered = query
+    ? workflows.value.filter((workflow) =>
+        [workflow.name, workflow.description, workflow.changesMac]
+          .join(" ")
+          .toLowerCase()
+          .includes(query),
+      )
+    : workflows.value;
+
+  if (workflowTab.value === "safe") {
+    return filtered.filter((workflow) => workflow.changesMac === "No");
+  }
+
+  if (workflowTab.value === "changes") {
+    return filtered.filter((workflow) => workflow.changesMac !== "No");
+  }
+
+  return filtered;
+});
+
+const matchingRuns = computed(() => {
+  const query = normalizedSearch.value;
+  const filtered = query
+    ? runs.value.filter((run) =>
+        [
+          run.workflowName,
+          run.status,
+          run.mode,
+          run.confirmationOptionLabel,
+          run.errorMessage ?? "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query),
+      )
+    : runs.value;
+
+  if (logTab.value === "failed") {
+    return filtered.filter((run) => run.status === "failed");
+  }
+
+  if (logTab.value === "active") {
+    return filtered.filter((run) => ["running", "pending"].includes(run.status));
+  }
+
+  return filtered;
+});
+
 const runStatus = computed(() => {
   const last = [...runEvents.value].reverse().find((event) => event.type.startsWith("run_"));
 
   return last?.status ?? (running.value ? "running" : "idle");
 });
+
+const outputText = computed(() =>
+  runEvents.value
+    .map((event) => event.message || `${event.type} ${event.status || ""}`.trim())
+    .filter(Boolean)
+    .join("\n"),
+);
+
+const selectedRunOutput = computed(() =>
+  selectedRunLog.value?.events
+    .map((event) => event.message || `${event.type} ${event.status || ""}`.trim())
+    .filter(Boolean)
+    .join("\n") ?? "",
+);
 
 onMounted(async () => {
   await loadAll();
@@ -49,17 +190,25 @@ onMounted(async () => {
 
 async function loadAll() {
   try {
+    loadError.value = "";
     workflows.value = await window.macOS.workflows();
     runs.value = await window.macOS.runs(25);
-    selectedWorkflowId.value = workflows.value[0]?.id ?? "";
+
+    if (!selectedWorkflowId.value || !workflows.value.some((workflow) => workflow.id === selectedWorkflowId.value)) {
+      selectedWorkflowId.value = workflows.value[0]?.id ?? "";
+    }
+
     resetEnabledPhases();
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : String(error);
+  } finally {
+    initialLoading.value = false;
   }
 }
 
-function selectSection(next: string) {
+function selectSection(next: SectionId) {
   section.value = next;
+  searchQuery.value = "";
 
   if (next === "logs") {
     void refreshRuns();
@@ -94,6 +243,12 @@ function openConfirmation(option?: ConfirmationOption) {
   }
 
   pendingOption.value = option ?? selectedWorkflow.value.confirmation.options[0] ?? null;
+}
+
+function updateConfirmationOpen(open: boolean) {
+  if (!open) {
+    pendingOption.value = null;
+  }
 }
 
 async function runSelected(option: ConfirmationOption) {
@@ -141,217 +296,643 @@ function phaseStatus(phase: Phase) {
   return finish?.status ?? events.at(-1)?.status ?? (enabledPhaseIds.value.has(phase.id) ? "pending" : "skipped");
 }
 
-function badgeClass(status: string) {
-  if (["completed", "ok"].includes(status)) {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+function badgeVariant(status: string): BadgeVariants["variant"] {
+  if (status === "failed" || status === "Yes") {
+    return "destructive";
   }
 
-  if (["failed"].includes(status)) {
-    return "border-red-200 bg-red-50 text-red-700";
+  if (["running", "completed", "ok", "No"].includes(status)) {
+    return "default";
   }
 
-  if (["running"].includes(status)) {
-    return "border-cyan-200 bg-cyan-50 text-cyan-700";
+  if (["stopped", "skipped", "pending"].includes(status)) {
+    return "secondary";
   }
 
-  if (["stopped", "skipped"].includes(status)) {
-    return "border-zinc-200 bg-zinc-100 text-zinc-500";
+  return "outline";
+}
+
+function formatDate(value?: string) {
+  if (!value) {
+    return "Not recorded";
   }
 
-  return "border-zinc-200 bg-white text-zinc-500";
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function timeAgo(value?: string) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const seconds = Math.max(1, Math.round((Date.now() - date.getTime()) / 1000));
+  const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+    ["year", 60 * 60 * 24 * 365],
+    ["month", 60 * 60 * 24 * 30],
+    ["week", 60 * 60 * 24 * 7],
+    ["day", 60 * 60 * 24],
+    ["hour", 60 * 60],
+    ["minute", 60],
+  ];
+  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const match = units.find(([, unitSeconds]) => seconds >= unitSeconds);
+
+  if (!match) {
+    return "just now";
+  }
+
+  const [unit, unitSeconds] = match;
+
+  return formatter.format(-Math.floor(seconds / unitSeconds), unit);
+}
+
+function initials(value: string) {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((chunk) => chunk[0]?.toUpperCase())
+    .join("");
 }
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-white text-zinc-950">
-    <AppSidebar
-      :active="section"
-      :workflow-count="workflows.length"
-      :run-count="runs.length"
-      @select="selectSection"
-    />
-
-    <main class="flex min-w-0 flex-1 flex-col">
-      <header class="flex h-14 items-center gap-2 border-b border-zinc-200 px-5">
-        <span class="text-sm font-medium text-zinc-500">Mac OS Manager</span>
-        <ChevronRight class="size-4 text-zinc-400" />
-        <span class="text-sm font-semibold capitalize text-zinc-950">{{ section.replace('-', ' ') }}</span>
-      </header>
-
-      <div v-if="loadError" class="m-5 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-        {{ loadError }}
-      </div>
-
-      <section v-else-if="section === 'workflows'" class="grid min-h-0 flex-1 grid-cols-[360px_1fr]">
-        <div class="border-r border-zinc-200 bg-zinc-50/70 p-4">
-          <div class="mb-3 flex items-center justify-between">
-            <h1 class="text-base font-semibold">Workflows</h1>
-            <button
-              class="inline-flex h-8 items-center gap-2 rounded-md border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-700 shadow-sm"
-              @click="loadAll"
-            >
-              <RotateCcw class="size-3.5" />
-              Refresh
-            </button>
+  <TooltipProvider :delay-duration="0">
+    <div class="h-screen overflow-hidden bg-background text-foreground">
+      <ResizablePanelGroup direction="horizontal" class="h-screen max-h-screen items-stretch">
+        <ResizablePanel
+          id="mac-nav"
+          :default-size="18"
+          :collapsed-size="4"
+          collapsible
+          :min-size="14"
+          :max-size="22"
+          :class="cn(navCollapsed && 'min-w-[52px] transition-all duration-300 ease-in-out')"
+          @collapse="navCollapsed = true"
+          @expand="navCollapsed = false"
+        >
+          <div :class="cn('flex h-[52px] items-center justify-center', navCollapsed ? 'px-2' : 'px-3')">
+            <Select v-model="profile">
+              <SelectTrigger
+                aria-label="Select Mac profile"
+                :class="cn(
+                  'flex items-center gap-2 [&>span]:line-clamp-1 [&>span]:flex [&>span]:w-full [&>span]:items-center [&>span]:gap-2 [&>span]:truncate [&_svg]:size-4 [&_svg]:shrink-0',
+                  navCollapsed && 'flex size-9 shrink-0 items-center justify-center p-0 [&>span]:w-auto [&>svg]:hidden',
+                )"
+              >
+                <SelectValue placeholder="Select Mac profile">
+                  <div class="flex items-center gap-2">
+                    <Apple class="size-4" />
+                    <span v-if="!navCollapsed">Current Mac</span>
+                  </div>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="current-mac">Current Mac</SelectItem>
+                <SelectItem value="local-profile">Local Profile</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          <div class="space-y-2">
-            <button
-              v-for="workflow in workflows"
-              :key="workflow.id"
-              class="w-full rounded-md border p-3 text-left transition"
-              :class="
-                workflow.id === selectedWorkflowId
-                  ? 'border-zinc-300 bg-white shadow-sm'
-                  : 'border-transparent bg-transparent hover:border-zinc-200 hover:bg-white'
-              "
-              @click="selectWorkflow(workflow)"
-            >
-              <div class="flex items-center justify-between gap-3">
-                <p class="truncate text-sm font-medium text-zinc-950">{{ workflow.name }}</p>
-                <span class="rounded border px-2 py-0.5 text-[11px]" :class="badgeClass(workflow.changesMac === 'No' ? 'ok' : 'running')">
-                  {{ workflow.changesMac }}
-                </span>
-              </div>
-              <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">{{ workflow.description }}</p>
-            </button>
-          </div>
-        </div>
+          <Separator />
 
-        <div v-if="selectedWorkflow" class="min-w-0 overflow-y-auto p-6">
-          <div class="mb-5 flex items-start justify-between gap-6">
-            <div>
-              <h2 class="text-xl font-semibold">{{ selectedWorkflow.name }}</h2>
-              <p class="mt-1 max-w-3xl text-sm leading-6 text-zinc-500">{{ selectedWorkflow.description }}</p>
-            </div>
-            <span class="rounded-md border px-2.5 py-1 text-xs font-medium" :class="badgeClass(runStatus)">
-              {{ runStatus }}
-            </span>
-          </div>
+          <div :data-collapsed="navCollapsed" class="group flex flex-col gap-4 py-2 data-[collapsed=true]:py-2">
+            <nav class="grid gap-1 px-2 group-[[data-collapsed=true]]:justify-center group-[[data-collapsed=true]]:px-2">
+              <template v-for="item in primaryNavItems" :key="item.id">
+                <Tooltip v-if="navCollapsed">
+                  <TooltipTrigger as-child>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      :class="cn(section === item.id && 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground')"
+                      @click="selectSection(item.id)"
+                    >
+                      <component :is="item.icon" class="size-4" />
+                      <span class="sr-only">{{ item.label }}</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" class="flex items-center gap-4">
+                    {{ item.label }}
+                    <span class="ml-auto text-muted-foreground">{{ item.count }}</span>
+                  </TooltipContent>
+                </Tooltip>
 
-          <div class="grid grid-cols-[minmax(0,1fr)_360px] gap-6">
-            <div>
-              <div class="mb-3 flex items-center justify-between">
-                <h3 class="text-sm font-semibold">Phases</h3>
-                <button class="text-xs font-medium text-zinc-500 hover:text-zinc-950" @click="resetEnabledPhases">
-                  Reset
-                </button>
-              </div>
-
-              <div class="overflow-hidden rounded-md border border-zinc-200">
-                <button
-                  v-for="phase in displayPhases"
-                  :key="phase.id"
-                  class="flex w-full items-center gap-3 border-b border-zinc-200 px-3 py-3 text-left last:border-b-0 hover:bg-zinc-50"
-                  @click="togglePhase(phase)"
+                <Button
+                  v-else
+                  variant="ghost"
+                  size="sm"
+                  :class="cn('justify-start', section === item.id && 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground')"
+                  @click="selectSection(item.id)"
                 >
-                  <CheckCircle2 v-if="enabledPhaseIds.has(phase.id)" class="size-4 text-emerald-600" />
-                  <Circle v-else class="size-4 text-zinc-300" />
-                  <span class="min-w-0 flex-1 truncate text-sm">{{ phase.name }}</span>
-                  <span class="rounded border px-2 py-0.5 text-[11px]" :class="badgeClass(phaseStatus(phase))">
-                    {{ phaseStatus(phase) }}
-                  </span>
-                </button>
-              </div>
-            </div>
+                  <component :is="item.icon" class="mr-2 size-4" />
+                  {{ item.label }}
+                  <span class="ml-auto">{{ item.count }}</span>
+                </Button>
+              </template>
+            </nav>
+          </div>
 
-            <div>
-              <h3 class="mb-3 text-sm font-semibold">Confirmation</h3>
-              <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-                <p class="text-sm font-medium">{{ selectedWorkflow.confirmation?.title }}</p>
-                <p class="mt-1 text-xs leading-5 text-zinc-500">{{ selectedWorkflow.confirmation?.message }}</p>
-                <div class="mt-3 space-y-2">
-                  <button
-                    v-for="option in selectedWorkflow.confirmation?.options"
-                    :key="option.id"
-                    class="flex w-full items-center justify-between gap-3 rounded-md border border-zinc-200 bg-white px-3 py-2 text-left text-sm shadow-sm hover:border-zinc-300"
-                    @click="openConfirmation(option)"
-                  >
-                    <span>
-                      <span class="block font-medium">{{ option.label }}</span>
-                      <span class="block text-xs text-zinc-500">{{ option.description }}</span>
-                    </span>
-                    <Play v-if="option.continue" class="size-4 text-zinc-500" />
-                  </button>
+          <Separator />
+
+          <div :data-collapsed="navCollapsed" class="group flex flex-col gap-4 py-2 data-[collapsed=true]:py-2">
+            <nav class="grid gap-1 px-2 group-[[data-collapsed=true]]:justify-center group-[[data-collapsed=true]]:px-2">
+              <template v-for="item in secondaryNavItems" :key="item.id">
+                <Tooltip v-if="navCollapsed">
+                  <TooltipTrigger as-child>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      :class="cn(section === item.id && 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground')"
+                      @click="selectSection(item.id)"
+                    >
+                      <component :is="item.icon" class="size-4" />
+                      <span class="sr-only">{{ item.label }}</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{{ item.label }}</TooltipContent>
+                </Tooltip>
+
+                <Button
+                  v-else
+                  variant="ghost"
+                  size="sm"
+                  :class="cn('justify-start', section === item.id && 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground')"
+                  @click="selectSection(item.id)"
+                >
+                  <component :is="item.icon" class="mr-2 size-4" />
+                  {{ item.label }}
+                </Button>
+              </template>
+            </nav>
+          </div>
+        </ResizablePanel>
+
+        <ResizableHandle with-handle />
+
+        <ResizablePanel id="mac-list" :default-size="32" :min-size="28">
+          <div class="flex h-full min-h-0 flex-col">
+            <template v-if="initialLoading">
+              <div class="flex items-center px-4 py-2">
+                <Skeleton class="h-7 w-32" />
+                <div class="ml-auto flex gap-2">
+                  <Skeleton class="h-8 w-16" />
+                  <Skeleton class="h-8 w-16" />
                 </div>
               </div>
-            </div>
-          </div>
-
-          <div class="mt-6">
-            <h3 class="mb-3 text-sm font-semibold">Output</h3>
-            <pre class="h-72 overflow-auto rounded-md border border-zinc-200 bg-zinc-950 p-4 text-xs leading-5 text-zinc-100">{{ runEvents.map((event) => event.message || `${event.type} ${event.status || ''}`).filter(Boolean).join('\n') }}</pre>
-          </div>
-        </div>
-      </section>
-
-      <section v-else-if="section === 'logs'" class="grid min-h-0 flex-1 grid-cols-[420px_1fr]">
-        <div class="border-r border-zinc-200 bg-zinc-50/70 p-4">
-          <div class="mb-3 flex items-center justify-between">
-            <h1 class="text-base font-semibold">Logs</h1>
-            <button class="rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-medium shadow-sm" @click="refreshRuns">
-              Refresh
-            </button>
-          </div>
-          <div class="space-y-2">
-            <button
-              v-for="run in runs"
-              :key="run.id"
-              class="w-full rounded-md border p-3 text-left transition"
-              :class="run.id === selectedRunId ? 'border-zinc-300 bg-white shadow-sm' : 'border-transparent hover:border-zinc-200 hover:bg-white'"
-              @click="openRun(run)"
-            >
-              <div class="flex items-center justify-between gap-3">
-                <p class="truncate text-sm font-medium">{{ run.workflowName }}</p>
-                <span class="rounded border px-2 py-0.5 text-[11px]" :class="badgeClass(run.status)">
-                  {{ run.status }}
-                </span>
+              <Separator />
+              <div class="p-4">
+                <Skeleton class="h-9 w-full" />
               </div>
-              <p class="mt-1 text-xs text-zinc-500">{{ run.startedAt }}</p>
-            </button>
-          </div>
-        </div>
+              <div class="flex flex-col gap-2 p-4 pt-0">
+                <div v-for="index in 6" :key="index" class="rounded-lg border p-3">
+                  <div class="flex items-center gap-3">
+                    <Skeleton class="h-4 w-40" />
+                    <Skeleton class="ml-auto h-5 w-12 rounded-full" />
+                  </div>
+                  <Skeleton class="mt-3 h-3 w-24" />
+                  <Skeleton class="mt-3 h-3 w-full" />
+                  <Skeleton class="mt-2 h-3 w-4/5" />
+                </div>
+              </div>
+            </template>
 
-        <div class="overflow-y-auto p-6">
-          <template v-if="selectedRunLog">
-            <div class="mb-5">
-              <h2 class="text-xl font-semibold">{{ selectedRunLog.run.workflowName }}</h2>
-              <p class="mt-1 text-sm text-zinc-500">{{ selectedRunLog.run.mode }} · {{ selectedRunLog.run.status }}</p>
+            <template v-else-if="section === 'workflows'">
+              <Tabs v-model="workflowTab" class="flex h-full min-h-0 flex-col">
+                <div class="flex items-center px-4 py-2">
+                  <h1 class="text-xl font-bold">Workflows</h1>
+                  <TabsList class="ml-auto">
+                    <TabsTrigger value="all">All</TabsTrigger>
+                    <TabsTrigger value="safe">Safe</TabsTrigger>
+                    <TabsTrigger value="changes">Changes</TabsTrigger>
+                  </TabsList>
+                </div>
+                <Separator />
+                <div class="bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                  <form @submit.prevent>
+                    <div class="relative">
+                      <Search class="absolute left-2 top-2.5 size-4 text-muted-foreground" />
+                      <Input v-model="searchQuery" data-testid="app-search" placeholder="Search workflows" class="pl-8" />
+                    </div>
+                  </form>
+                </div>
+                <ScrollArea class="min-h-0 flex-1">
+                  <div class="flex flex-col gap-2 p-4 pt-0">
+                    <button
+                      v-for="workflow in matchingWorkflows"
+                      :key="workflow.id"
+                      :class="cn(
+                        'flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-all hover:bg-accent',
+                        selectedWorkflowId === workflow.id && 'bg-muted',
+                      )"
+                      @click="selectWorkflow(workflow)"
+                    >
+                      <div class="flex w-full flex-col gap-1">
+                        <div class="flex min-w-0 items-center gap-2">
+                          <div class="truncate font-semibold">{{ workflow.name }}</div>
+                          <span v-if="workflow.id === selectedWorkflowId" class="flex size-2 rounded-full bg-primary" />
+                          <Badge class="ml-auto" :variant="badgeVariant(workflow.changesMac)">
+                            {{ workflow.changesMac }}
+                          </Badge>
+                        </div>
+                        <div class="text-xs font-medium text-muted-foreground">
+                          {{ workflow.phases.length }} phases
+                        </div>
+                      </div>
+                      <div class="line-clamp-2 text-xs leading-5 text-muted-foreground">
+                        {{ workflow.description }}
+                      </div>
+                    </button>
+
+                    <div v-if="matchingWorkflows.length === 0" class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                      No workflows match this view.
+                    </div>
+                  </div>
+                </ScrollArea>
+              </Tabs>
+            </template>
+
+            <template v-else-if="section === 'logs'">
+              <Tabs v-model="logTab" class="flex h-full min-h-0 flex-col">
+                <div class="flex items-center px-4 py-2">
+                  <h1 class="text-xl font-bold">Logs</h1>
+                  <TabsList class="ml-auto">
+                    <TabsTrigger value="all">All</TabsTrigger>
+                    <TabsTrigger value="failed">Failed</TabsTrigger>
+                    <TabsTrigger value="active">Active</TabsTrigger>
+                  </TabsList>
+                </div>
+                <Separator />
+                <div class="bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                  <form @submit.prevent>
+                    <div class="relative">
+                      <Search class="absolute left-2 top-2.5 size-4 text-muted-foreground" />
+                      <Input v-model="searchQuery" data-testid="app-search" placeholder="Search logs" class="pl-8" />
+                    </div>
+                  </form>
+                </div>
+                <ScrollArea class="min-h-0 flex-1">
+                  <div class="flex flex-col gap-2 p-4 pt-0">
+                    <button
+                      v-for="run in matchingRuns"
+                      :key="run.id"
+                      :class="cn(
+                        'flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-all hover:bg-accent',
+                        selectedRunId === run.id && 'bg-muted',
+                      )"
+                      @click="openRun(run)"
+                    >
+                      <div class="flex w-full flex-col gap-1">
+                        <div class="flex min-w-0 items-center gap-2">
+                          <div class="truncate font-semibold">{{ run.workflowName }}</div>
+                          <Badge class="ml-auto" :variant="badgeVariant(run.status)">
+                            {{ run.status }}
+                          </Badge>
+                        </div>
+                        <div class="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                          <span class="truncate">{{ run.mode }} - {{ run.confirmationOptionLabel }}</span>
+                          <span class="shrink-0">{{ timeAgo(run.startedAt) }}</span>
+                        </div>
+                      </div>
+                    </button>
+
+                    <div v-if="matchingRuns.length === 0" class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                      No logs match this view.
+                    </div>
+                  </div>
+                </ScrollArea>
+              </Tabs>
+            </template>
+
+            <template v-else>
+              <div class="flex items-center px-4 py-2">
+                <h1 class="text-xl font-bold capitalize">{{ section.replace("-", " ") }}</h1>
+              </div>
+              <Separator />
+              <div class="bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                <div class="relative">
+                  <Search class="absolute left-2 top-2.5 size-4 text-muted-foreground" />
+                  <Input v-model="searchQuery" placeholder="Search" class="pl-8" />
+                </div>
+              </div>
+              <div class="grid min-h-0 flex-1 place-items-center p-8 text-center text-sm text-muted-foreground">
+                Select Workflows or Logs to manage live app data.
+              </div>
+            </template>
+          </div>
+        </ResizablePanel>
+
+        <ResizableHandle with-handle />
+
+        <ResizablePanel id="mac-detail" :default-size="50" :min-size="35">
+          <div class="flex h-full min-h-0 flex-col">
+            <div class="flex items-center p-2">
+              <div class="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger as-child>
+                    <Button variant="ghost" size="icon" :disabled="section === 'logs'" @click="loadAll">
+                      <RefreshCw class="size-4" />
+                      <span class="sr-only">Refresh</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Refresh</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger as-child>
+                    <Button variant="ghost" size="icon" :disabled="section !== 'workflows' || !selectedWorkflow" @click="resetEnabledPhases">
+                      <RotateCcw class="size-4" />
+                      <span class="sr-only">Reset phases</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Reset phases</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger as-child>
+                    <Button variant="ghost" size="icon" :disabled="section !== 'workflows' || !selectedWorkflow?.confirmation || running" @click="openConfirmation()">
+                      <Play class="size-4" />
+                      <span class="sr-only">Run workflow</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Run workflow</TooltipContent>
+                </Tooltip>
+              </div>
+
+              <div class="ml-auto flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger as-child>
+                    <Button variant="ghost" size="icon" :disabled="section !== 'logs'" @click="refreshRuns">
+                      <History class="size-4" />
+                      <span class="sr-only">Refresh logs</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Refresh logs</TooltipContent>
+                </Tooltip>
+              </div>
+
+              <Separator orientation="vertical" class="mx-2 h-6" />
+
+              <DropdownMenu>
+                <DropdownMenuTrigger as-child>
+                  <Button variant="ghost" size="icon">
+                    <MoreVertical class="size-4" />
+                    <span class="sr-only">More</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem @click="loadAll">Refresh all data</DropdownMenuItem>
+                  <DropdownMenuItem :disabled="section !== 'workflows' || !selectedWorkflow" @click="resetEnabledPhases">
+                    Reset selected workflow
+                  </DropdownMenuItem>
+                  <DropdownMenuItem :disabled="section !== 'logs'" @click="refreshRuns">
+                    Refresh logs
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-            <pre class="h-[calc(100vh-180px)] overflow-auto rounded-md border border-zinc-200 bg-zinc-950 p-4 text-xs leading-5 text-zinc-100">{{ selectedRunLog.events.map((event) => event.message || `${event.type} ${event.status || ''}`).filter(Boolean).join('\n') }}</pre>
-          </template>
-          <div v-else class="grid h-full place-items-center text-sm text-zinc-500">Select a run</div>
-        </div>
-      </section>
 
-      <section v-else class="flex flex-1 items-center justify-center text-sm text-zinc-500">
-        {{ section.replace('-', ' ') }}
-      </section>
-    </main>
+            <Separator />
 
-    <div v-if="pendingOption" class="fixed inset-0 grid place-items-center bg-black/30 p-6">
-      <div class="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
-        <div class="mb-4 flex items-start gap-3">
-          <AlertTriangle class="mt-0.5 size-5 text-amber-600" />
-          <div>
-            <h2 class="text-base font-semibold">{{ pendingOption.label }}</h2>
-            <p class="mt-1 text-sm leading-6 text-zinc-500">{{ pendingOption.description }}</p>
+            <div v-if="initialLoading" class="flex min-h-0 flex-1 flex-col">
+              <div class="flex items-start p-4">
+                <Skeleton class="size-10 rounded-full" />
+                <div class="ml-4 grid flex-1 gap-2">
+                  <Skeleton class="h-4 w-48" />
+                  <Skeleton class="h-3 w-72" />
+                  <Skeleton class="h-3 w-40" />
+                </div>
+                <Skeleton class="h-5 w-20 rounded-full" />
+              </div>
+              <Separator />
+              <div class="grid gap-5 p-4">
+                <section>
+                  <div class="mb-2 flex items-center justify-between">
+                    <Skeleton class="h-4 w-20" />
+                    <Skeleton class="h-8 w-16" />
+                  </div>
+                  <div class="overflow-hidden rounded-lg border">
+                    <div v-for="index in 4" :key="index" class="flex items-center gap-3 border-b px-3 py-3 last:border-b-0">
+                      <Skeleton class="size-4 rounded-full" />
+                      <Skeleton class="h-4 flex-1" />
+                      <Skeleton class="h-5 w-16 rounded-full" />
+                    </div>
+                  </div>
+                </section>
+                <section>
+                  <Skeleton class="mb-2 h-4 w-28" />
+                  <Skeleton class="h-72 w-full rounded-lg" />
+                </section>
+              </div>
+            </div>
+
+            <div v-else-if="loadError" class="grid flex-1 place-items-center p-8">
+              <div class="max-w-xl rounded-lg border border-destructive/40 p-5">
+                <div class="flex items-center gap-2 font-semibold text-destructive">
+                  <AlertTriangle class="size-5" />
+                  Load failed
+                </div>
+                <p class="mt-2 text-sm text-muted-foreground">{{ loadError }}</p>
+              </div>
+            </div>
+
+            <template v-else-if="section === 'workflows' && selectedWorkflow">
+              <div class="flex items-start p-4">
+                <div class="flex items-start gap-4 text-sm">
+                  <Avatar size="sm">
+                    <AvatarFallback>{{ initials(selectedWorkflow.name) }}</AvatarFallback>
+                  </Avatar>
+                  <div class="grid gap-1">
+                    <div class="font-semibold">{{ selectedWorkflow.name }}</div>
+                    <div class="line-clamp-1 text-xs">{{ selectedWorkflow.description }}</div>
+                    <div class="line-clamp-1 text-xs">
+                      <span class="font-medium">Changes Mac:</span> {{ selectedWorkflow.changesMac }}
+                    </div>
+                  </div>
+                </div>
+                <Badge class="ml-auto" :variant="badgeVariant(runStatus)">{{ runStatus }}</Badge>
+              </div>
+
+              <Separator />
+
+              <ScrollArea class="min-h-0 flex-1">
+                <div class="grid gap-5 p-4">
+                  <section>
+                    <div class="mb-2 flex items-center justify-between gap-3">
+                      <h2 class="text-sm font-semibold">Phases</h2>
+                      <Button variant="ghost" size="sm" @click="resetEnabledPhases">Reset</Button>
+                    </div>
+                    <div class="overflow-hidden rounded-lg border">
+                      <button
+                        v-for="phase in displayPhases"
+                        :key="phase.id"
+                        class="flex w-full items-center gap-3 border-b px-3 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-accent"
+                        @click="togglePhase(phase)"
+                      >
+                        <CheckCircle2 v-if="enabledPhaseIds.has(phase.id)" class="size-4 text-primary" />
+                        <Circle v-else class="size-4 text-muted-foreground" />
+                        <span class="min-w-0 flex-1 truncate">{{ phase.name }}</span>
+                        <Badge :variant="badgeVariant(phaseStatus(phase))">{{ phaseStatus(phase) }}</Badge>
+                      </button>
+                    </div>
+                  </section>
+
+                  <section v-if="selectedWorkflow.confirmation">
+                    <h2 class="mb-2 text-sm font-semibold">{{ selectedWorkflow.confirmation.title }}</h2>
+                    <p class="mb-3 text-sm leading-6 text-muted-foreground">{{ selectedWorkflow.confirmation.message }}</p>
+                    <div class="grid gap-2">
+                      <Button
+                        v-for="option in selectedWorkflow.confirmation.options"
+                        :key="option.id"
+                        variant="outline"
+                        class="h-auto justify-between gap-3 whitespace-normal px-3 py-2 text-left"
+                        @click="openConfirmation(option)"
+                      >
+                        <span class="min-w-0">
+                          <span class="block font-medium">{{ option.label }}</span>
+                          <span class="block text-xs text-muted-foreground">{{ option.description }}</span>
+                        </span>
+                        <Play v-if="option.continue" class="size-4 text-muted-foreground" />
+                      </Button>
+                    </div>
+                  </section>
+
+                  <section>
+                    <h2 class="mb-2 text-sm font-semibold">Output</h2>
+                    <ScrollArea class="h-72 rounded-lg border bg-primary text-primary-foreground">
+                      <pre class="min-h-full whitespace-pre-wrap p-4 text-xs leading-5">{{ outputText || "No workflow output yet." }}</pre>
+                    </ScrollArea>
+                  </section>
+                </div>
+              </ScrollArea>
+
+              <Separator />
+
+              <div class="p-4">
+                <div class="grid gap-4">
+                  <Textarea v-model="noteText" class="p-4" :placeholder="`Add a note for ${selectedWorkflow.name}...`" />
+                  <div class="flex items-center">
+                    <Label html-for="mute-notes" class="flex items-center gap-2 text-xs font-normal">
+                      <Switch id="mute-notes" v-model="mutedNotes" aria-label="Mute workflow notes" />
+                      Mute workflow notes
+                    </Label>
+                    <Button type="button" size="sm" class="ml-auto" :disabled="!noteText.trim()">
+                      <Send class="size-4" />
+                      Send
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <template v-else-if="section === 'logs'">
+              <div v-if="selectedRunLog" class="flex min-h-0 flex-1 flex-col">
+                <div class="flex items-start p-4">
+                  <div class="flex items-start gap-4 text-sm">
+                    <Avatar size="sm">
+                      <AvatarFallback>{{ initials(selectedRunLog.run.workflowName) }}</AvatarFallback>
+                    </Avatar>
+                    <div class="grid gap-1">
+                      <div class="font-semibold">{{ selectedRunLog.run.workflowName }}</div>
+                      <div class="line-clamp-1 text-xs">{{ selectedRunLog.run.mode }} - {{ selectedRunLog.run.confirmationOptionLabel }}</div>
+                      <div class="line-clamp-1 text-xs">
+                        <span class="font-medium">Started:</span> {{ formatDate(selectedRunLog.run.startedAt) }}
+                      </div>
+                    </div>
+                  </div>
+                  <Badge class="ml-auto" :variant="badgeVariant(selectedRunLog.run.status)">
+                    {{ selectedRunLog.run.status }}
+                  </Badge>
+                </div>
+                <Separator />
+                <ScrollArea class="min-h-0 flex-1">
+                  <pre class="whitespace-pre-wrap p-4 text-sm leading-6">{{ selectedRunOutput || "No log output recorded." }}</pre>
+                </ScrollArea>
+                <Separator />
+                <div class="p-4">
+                  <div class="grid gap-4">
+                    <Textarea class="p-4" :placeholder="`Add a note for ${selectedRunLog.run.workflowName}...`" />
+                    <div class="flex items-center">
+                      <Label html-for="mute-run-notes" class="flex items-center gap-2 text-xs font-normal">
+                        <Switch id="mute-run-notes" aria-label="Mute run notes" />
+                        Mute run notes
+                      </Label>
+                      <Button type="button" size="sm" class="ml-auto" disabled>
+                        <Send class="size-4" />
+                        Send
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else class="grid flex-1 place-items-center p-8 text-center text-sm text-muted-foreground">
+                <div>
+                  <TerminalSquare class="mx-auto mb-3 size-8" />
+                  <p>Select a run to inspect its persisted output.</p>
+                </div>
+              </div>
+            </template>
+
+            <template v-else>
+              <div class="flex items-start p-4">
+                <div class="flex items-start gap-4 text-sm">
+                  <Avatar size="sm">
+                    <AvatarFallback>{{ initials(section.replace("-", " ")) }}</AvatarFallback>
+                  </Avatar>
+                  <div class="grid gap-1">
+                    <div class="font-semibold capitalize">{{ section.replace("-", " ") }}</div>
+                    <div class="line-clamp-1 text-xs">This area is available from the mail-style navigation.</div>
+                    <div class="line-clamp-1 text-xs">
+                      <span class="font-medium">Profile:</span> Current Mac
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <Separator />
+              <div class="grid flex-1 place-items-center p-8 text-center text-sm text-muted-foreground">
+                <div>
+                  <ShieldCheck class="mx-auto mb-3 size-8" />
+                  <p>Workflow execution and log inspection are available from Workflows and Logs.</p>
+                </div>
+              </div>
+            </template>
           </div>
-        </div>
-        <div class="flex justify-end gap-2">
-          <button class="rounded-md border border-zinc-200 px-3 py-2 text-sm font-medium" @click="pendingOption = null">
-            Cancel
-          </button>
-          <button
-            class="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-            :disabled="running"
-            @click="runSelected(pendingOption)"
-          >
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    </div>
+
+    <AlertDialog :open="pendingOption !== null" @update:open="updateConfirmationOpen">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle class="flex items-center gap-2">
+            <AlertTriangle class="size-5 text-destructive" />
+            {{ pendingOption?.label }}
+          </AlertDialogTitle>
+          <AlertDialogDescription>{{ pendingOption?.description }}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <Button :disabled="running || !pendingOption" @click="pendingOption && runSelected(pendingOption)">
             <Loader2 v-if="running" class="size-4 animate-spin" />
             Continue
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </TooltipProvider>
 </template>

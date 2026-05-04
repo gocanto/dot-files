@@ -1,6 +1,7 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "stream",
+  "cacheDir": "storage/.cache/turbo",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

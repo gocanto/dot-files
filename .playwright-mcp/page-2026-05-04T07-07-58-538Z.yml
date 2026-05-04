@@ -1,0 +1,258 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - link "Made with love by Vercel" [ref=e5] [cursor=pointer]:
+          - /url: https://vercel.com
+          - img [ref=e6]
+        - img [ref=e9]
+        - link "agent-browser" [ref=e11] [cursor=pointer]:
+          - /url: /
+      - navigation [ref=e12]:
+        - button "Search docs ⌘ K" [ref=e13] [cursor=pointer]:
+          - img [ref=e14]
+          - text: Search docs
+          - generic:
+            - generic: ⌘
+            - text: K
+        - link "32k" [ref=e17] [cursor=pointer]:
+          - /url: https://github.com/vercel-labs/agent-browser
+          - img [ref=e18]
+          - generic [ref=e20]: 32k
+        - link "npm" [ref=e21] [cursor=pointer]:
+          - /url: https://www.npmjs.com/package/agent-browser
+        - button "Toggle theme" [ref=e22] [cursor=pointer]:
+          - img [ref=e23]
+  - generic [ref=e29]:
+    - complementary [ref=e30]:
+      - navigation [ref=e31]:
+        - list [ref=e33]:
+          - listitem [ref=e34]:
+            - link "Introduction" [ref=e35] [cursor=pointer]:
+              - /url: /
+          - listitem [ref=e36]:
+            - link "Installation" [ref=e37] [cursor=pointer]:
+              - /url: /installation
+          - listitem [ref=e38]:
+            - link "Quick Start" [ref=e39] [cursor=pointer]:
+              - /url: /quick-start
+          - listitem [ref=e40]:
+            - link "Skills" [ref=e41] [cursor=pointer]:
+              - /url: /skills
+        - generic [ref=e42]:
+          - heading "Reference" [level=4] [ref=e43]
+          - list [ref=e44]:
+            - listitem [ref=e45]:
+              - link "Commands" [ref=e46] [cursor=pointer]:
+                - /url: /commands
+            - listitem [ref=e47]:
+              - link "Configuration" [ref=e48] [cursor=pointer]:
+                - /url: /configuration
+            - listitem [ref=e49]:
+              - link "Selectors" [ref=e50] [cursor=pointer]:
+                - /url: /selectors
+            - listitem [ref=e51]:
+              - link "Snapshots" [ref=e52] [cursor=pointer]:
+                - /url: /snapshots
+        - generic [ref=e53]:
+          - heading "Features" [level=4] [ref=e54]
+          - list [ref=e55]:
+            - listitem [ref=e56]:
+              - link "Sessions" [ref=e57] [cursor=pointer]:
+                - /url: /sessions
+            - listitem [ref=e58]:
+              - link "Dashboard" [ref=e59] [cursor=pointer]:
+                - /url: /dashboard
+            - listitem [ref=e60]:
+              - link "Diffing" [ref=e61] [cursor=pointer]:
+                - /url: /diffing
+            - listitem [ref=e62]:
+              - link "CDP Mode" [ref=e63] [cursor=pointer]:
+                - /url: /cdp-mode
+            - listitem [ref=e64]:
+              - link "Streaming" [ref=e65] [cursor=pointer]:
+                - /url: /streaming
+            - listitem [ref=e66]:
+              - link "Profiler" [ref=e67] [cursor=pointer]:
+                - /url: /profiler
+            - listitem [ref=e68]:
+              - link "iOS Simulator" [ref=e69] [cursor=pointer]:
+                - /url: /ios
+            - listitem [ref=e70]:
+              - link "Security" [ref=e71] [cursor=pointer]:
+                - /url: /security
+            - listitem [ref=e72]:
+              - link "Next.js + Vercel" [ref=e73] [cursor=pointer]:
+                - /url: /next
+            - listitem [ref=e74]:
+              - link "Native Mode" [ref=e75] [cursor=pointer]:
+                - /url: /native-mode
+        - generic [ref=e76]:
+          - heading "Providers" [level=4] [ref=e77]
+          - list [ref=e78]:
+            - listitem [ref=e79]:
+              - link "AgentCore" [ref=e80] [cursor=pointer]:
+                - /url: /providers/agentcore
+            - listitem [ref=e81]:
+              - link "Browser Use" [ref=e82] [cursor=pointer]:
+                - /url: /providers/browser-use
+            - listitem [ref=e83]:
+              - link "Browserbase" [ref=e84] [cursor=pointer]:
+                - /url: /providers/browserbase
+            - listitem [ref=e85]:
+              - link "Browserless" [ref=e86] [cursor=pointer]:
+                - /url: /providers/browserless
+            - listitem [ref=e87]:
+              - link "Kernel" [ref=e88] [cursor=pointer]:
+                - /url: /providers/kernel
+        - generic [ref=e89]:
+          - heading "Engines" [level=4] [ref=e90]
+          - list [ref=e91]:
+            - listitem [ref=e92]:
+              - link "Chrome" [ref=e93] [cursor=pointer]:
+                - /url: /engines/chrome
+            - listitem [ref=e94]:
+              - link "Lightpanda" [ref=e95] [cursor=pointer]:
+                - /url: /engines/lightpanda
+        - list [ref=e97]:
+          - listitem [ref=e98]:
+            - link "Changelog" [ref=e99] [cursor=pointer]:
+              - /url: /changelog
+    - generic [ref=e100]:
+      - button "Copy page as Markdown" [ref=e102] [cursor=pointer]:
+        - img [ref=e103]
+        - text: Copy Page
+      - article [ref=e106]:
+        - heading "agent-browserLink to this section" [level=1] [ref=e107]:
+          - text: agent-browser
+          - link "Link to this section" [ref=e108] [cursor=pointer]:
+            - /url: "#agent-browser"
+            - text: "#"
+        - paragraph [ref=e109]: Browser automation CLI designed for AI agents. Compact text output minimizes context usage. 100% native Rust.
+        - generic [ref=e110]:
+          - button "Copy code" [ref=e111] [cursor=pointer]:
+            - img [ref=e112]
+          - code [ref=e116]:
+            - generic [ref=e117]: "npm install -g agent-browser # all platforms"
+            - generic [ref=e118]: "brew install agent-browser # macOS"
+            - generic [ref=e119]: "agent-browser install # Download Chrome (first time)"
+            - generic [ref=e120]: "# or try without installing"
+            - generic [ref=e121]: npx agent-browser open example.com
+        - heading "FeaturesLink to this section" [level=2] [ref=e122]:
+          - text: Features
+          - link "Link to this section" [ref=e123] [cursor=pointer]:
+            - /url: "#features"
+            - text: "#"
+        - list [ref=e124]:
+          - listitem [ref=e125]:
+            - strong [ref=e126]: Agent-first
+            - text: "- Compact text output uses fewer tokens than JSON, designed for AI context efficiency"
+          - listitem [ref=e127]:
+            - strong [ref=e128]: Ref-based
+            - text: "- Snapshot returns accessibility tree with refs for deterministic element selection"
+          - listitem [ref=e129]:
+            - strong [ref=e130]: Fast
+            - text: "- Native Rust CLI for instant command parsing"
+          - listitem [ref=e131]:
+            - strong [ref=e132]: Complete
+            - text: "- 50+ commands for navigation, forms, screenshots, network, storage"
+          - listitem [ref=e133]:
+            - strong [ref=e134]: Sessions
+            - text: "- Multiple isolated browser instances with separate auth"
+          - listitem [ref=e135]:
+            - strong [ref=e136]: Cross-platform
+            - text: "- macOS, Linux, Windows with native binaries"
+        - heading "Works withLink to this section" [level=2] [ref=e137]:
+          - text: Works with
+          - link "Link to this section" [ref=e138] [cursor=pointer]:
+            - /url: "#works-with"
+            - text: "#"
+        - paragraph [ref=e139]: Claude Code, Cursor, GitHub Copilot, OpenAI Codex, Google Gemini, opencode, and any agent that can run shell commands.
+        - heading "ExampleLink to this section" [level=2] [ref=e140]:
+          - text: Example
+          - link "Link to this section" [ref=e141] [cursor=pointer]:
+            - /url: "#example"
+            - text: "#"
+        - generic [ref=e142]:
+          - button "Copy code" [ref=e143] [cursor=pointer]:
+            - img [ref=e144]
+          - code [ref=e148]:
+            - generic [ref=e149]: "# Navigate and get snapshot"
+            - generic [ref=e150]: agent-browser open example.com
+            - generic [ref=e151]: agent-browser snapshot -i
+            - generic [ref=e152]: "# Output:"
+            - generic [ref=e153]: "# - heading \"Example Domain\" [ref=e1]"
+            - generic [ref=e154]: "# - link \"More information...\" [ref=e2]"
+            - generic [ref=e155]: "# Interact using refs"
+            - generic [ref=e156]: agent-browser click @e2
+            - generic [ref=e157]: agent-browser screenshot page.png
+            - generic [ref=e158]: agent-browser close
+        - heading "Why refs?Link to this section" [level=2] [ref=e159]:
+          - text: Why refs?
+          - link "Link to this section" [ref=e160] [cursor=pointer]:
+            - /url: "#why-refs"
+            - text: "#"
+        - paragraph [ref=e161]:
+          - text: The
+          - code [ref=e162]: snapshot
+          - text: command returns a compact accessibility tree where each element has a unique ref like
+          - code [ref=e163]: "@e1"
+          - text: ","
+          - code [ref=e164]: "@e2"
+          - text: ". This provides:"
+        - list [ref=e165]:
+          - listitem [ref=e166]:
+            - strong [ref=e167]: Context-efficient
+            - text: "- Text output uses ~200-400 tokens vs ~3000-5000 for full DOM"
+          - listitem [ref=e168]:
+            - strong [ref=e169]: Deterministic
+            - text: "- Ref points to exact element from snapshot"
+          - listitem [ref=e170]:
+            - strong [ref=e171]: Fast
+            - text: "- No DOM re-query needed"
+          - listitem [ref=e172]:
+            - strong [ref=e173]: AI-friendly
+            - text: "- LLMs parse text output naturally"
+        - heading "ArchitectureLink to this section" [level=2] [ref=e174]:
+          - text: Architecture
+          - link "Link to this section" [ref=e175] [cursor=pointer]:
+            - /url: "#architecture"
+            - text: "#"
+        - paragraph [ref=e176]: "Client-daemon architecture for optimal performance:"
+        - list [ref=e177]:
+          - listitem [ref=e178]:
+            - strong [ref=e179]: Rust CLI
+            - text: "- Parses commands, communicates with daemon"
+          - listitem [ref=e180]:
+            - strong [ref=e181]: Native Daemon
+            - text: "- Pure Rust daemon using direct CDP, manages Chrome via Chrome DevTools Protocol"
+        - paragraph [ref=e182]: Daemon starts automatically and persists between commands.
+        - heading "PlatformsLink to this section" [level=2] [ref=e183]:
+          - text: Platforms
+          - link "Link to this section" [ref=e184] [cursor=pointer]:
+            - /url: "#platforms"
+            - text: "#"
+        - paragraph [ref=e185]: Native Rust binaries for macOS (ARM64, x64), Linux (ARM64, x64), and Windows (x64).
+  - button "Ask AI" [ref=e186] [cursor=pointer]:
+    - text: Ask AI
+    - generic [ref=e187]:
+      - generic [ref=e188]: ⌘
+      - text: I
+  - complementary [ref=e189]:
+    - generic [ref=e191]:
+      - generic [ref=e192]:
+        - generic [ref=e193]: agent-browser Docs
+        - button [ref=e195] [cursor=pointer]:
+          - img [ref=e196]
+      - generic [ref=e200]:
+        - button [ref=e201] [cursor=pointer]: What is agent-browser?
+        - button [ref=e202] [cursor=pointer]: How do I install it?
+        - button [ref=e203] [cursor=pointer]: What commands are available?
+        - button [ref=e204] [cursor=pointer]: How do snapshots work?
+        - button [ref=e205] [cursor=pointer]: How do I use CDP mode?
+      - generic [ref=e206]:
+        - textbox [ref=e207]:
+          - /placeholder: Ask a question...
+        - button [disabled] [ref=e208] [cursor=pointer]:
+          - img [ref=e209]
+  - alert [ref=e211]

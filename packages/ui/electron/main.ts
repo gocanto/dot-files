@@ -17,10 +17,10 @@ let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: 1040,
-    minHeight: 700,
+    width: 2000,
+    height: 1500,
+    minWidth: 1024,
+    minHeight: 800,
     title: "Mac OS Manager",
     webPreferences: {
       preload: join(__dirname, "preload.cjs"),
@@ -33,6 +33,7 @@ function createWindow() {
 
   if (devServer) {
     void mainWindow.loadURL(devServer);
+    mainWindow.webContents.openDevTools();
   } else {
     void mainWindow.loadFile(join(repoRoot, "packages", "ui", "dist", "index.html"));
   }

@@ -1,0 +1,114 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic: OS
+            - generic:
+              - paragraph: Mac OS Manager
+              - paragraph: Current Mac
+        - generic:
+          - generic:
+            - generic: Computer
+            - generic:
+              - list:
+                - listitem:
+                  - button:
+                    - img
+                    - generic: This Mac
+                - listitem:
+                  - button:
+                    - img
+                    - generic: Workflows
+                  - generic: "2"
+                - listitem:
+                  - button:
+                    - img
+                    - generic: Snapshots
+                - listitem:
+                  - button:
+                    - img
+                    - generic: Health Checks
+                - listitem:
+                  - button:
+                    - img
+                    - generic: Logs
+                  - generic: "0"
+                - listitem:
+                  - button:
+                    - img
+                    - generic: Settings
+        - generic:
+          - paragraph: Local
+      - main:
+        - generic:
+          - generic: Mac OS Manager
+          - img
+          - generic: workflows
+        - main:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: Workflows
+                - button:
+                  - img
+                  - text: Refresh
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - button:
+                        - generic:
+                          - generic:
+                            - generic: Set Up This Mac
+                            - generic: "Yes"
+                          - generic: Run the complete setup flow for this Mac.
+                      - button:
+                        - generic:
+                          - generic:
+                            - generic: Check Setup
+                            - generic: "No"
+                          - generic: Check whether prerequisites, tools, and expected setup state look correct.
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=2]: Check Setup
+                        - paragraph: Check whether prerequisites, tools, and expected setup state look correct.
+                      - generic: idle
+                    - generic:
+                      - generic:
+                        - generic:
+                          - heading [level=3]: Phases
+                          - button: Reset
+                        - generic:
+                          - generic:
+                            - button:
+                              - img
+                              - generic: pending
+                      - generic:
+                        - generic:
+                          - heading [level=3]: Confirmation
+                          - paragraph: Run health checks only.
+                        - generic:
+                          - generic:
+                            - button:
+                              - generic:
+                                - generic: Run now
+                                - generic: continue
+                              - img
+                    - generic:
+                      - generic:
+                        - heading [level=3]: Output
+  - alertdialog "Run now" [ref=e128]:
+    - generic [ref=e129]:
+      - heading "Run now" [level=2] [ref=e130]:
+        - img [ref=e131]
+        - text: Run now
+      - paragraph [ref=e133]: continue
+    - generic [ref=e134]:
+      - button "Cancel" [active] [ref=e135]
+      - button "Continue" [ref=e136]

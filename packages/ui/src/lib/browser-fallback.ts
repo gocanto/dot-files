@@ -1,4 +1,4 @@
-import type { MacOSApi, RunEvent, Workflow } from "../types/api";
+import type { MacOSApi, RunEvent, RunLog, RunSummary, Workflow } from "../types/api";
 
 const fallbackWorkflows: Workflow[] = [
   {
@@ -39,31 +39,34 @@ export function installBrowserFallback() {
     return;
   }
 
+  const fallbackRuns: RunLog[] = [];
+
   const api: MacOSApi = {
     workflows: async () => fallbackWorkflows,
-    runs: async () => [],
-    runLog: async (runId) => ({
-      run: {
-        id: runId,
-        workflowId: "check-setup",
-        workflowName: "Check Setup",
-        confirmationOptionId: "run-now",
-        confirmationOptionLabel: "Run now",
-        mode: "preview",
-        status: "completed",
-        startedAt: new Date().toISOString(),
-      },
-      events: [],
-    }),
+    runs: async (limit = 25) => fallbackRuns.map((run) => run.run).slice(0, limit),
+    runLog: async (runId) => {
+      const run = fallbackRuns.find((entry) => entry.run.id === runId);
+
+      if (!run) {
+        throw new Error(`Run not found: ${runId}`);
+      }
+
+      return run;
+    },
     runWorkflow: async (request, onEvent) => {
       const runId = crypto.randomUUID();
+      const startedAt = new Date().toISOString();
+      const workflow = fallbackWorkflows.find((entry) => entry.id === request.workflowId);
+      const option = workflow?.confirmation?.options.find((entry) => entry.id === request.confirmationOptionId);
       let seq = 1;
       const events: RunEvent[] = [{ runId, seq: seq++, type: "run_started", status: "running", message: request.workflowId }];
 
       for (const phaseId of request.enabledPhaseIds) {
-        events.push({ runId, seq: seq++, type: "phase_started", phaseId, status: "running" });
-        events.push({ runId, seq: seq++, type: "phase_output", phaseId, message: "preview complete" });
-        events.push({ runId, seq: seq++, type: "phase_finished", phaseId, status: "ok" });
+        const phaseName = workflow?.phases.find((phase) => phase.id === phaseId)?.name;
+
+        events.push({ runId, seq: seq++, type: "phase_started", phaseId, phaseName, status: "running" });
+        events.push({ runId, seq: seq++, type: "phase_output", phaseId, phaseName, message: "preview complete" });
+        events.push({ runId, seq: seq++, type: "phase_finished", phaseId, phaseName, status: "ok" });
       }
 
       events.push({ runId, seq: seq++, type: "run_finished", status: "completed" });
@@ -71,6 +74,28 @@ export function installBrowserFallback() {
       for (const event of events) {
         onEvent(event);
       }
+
+      const completedAt = new Date().toISOString();
+      const run: RunSummary = {
+        id: runId,
+        workflowId: request.workflowId,
+        workflowName: workflow?.name ?? request.workflowId,
+        confirmationOptionId: request.confirmationOptionId,
+        confirmationOptionLabel: option?.label ?? request.confirmationOptionId,
+        mode: option?.id === "run-now" ? "live" : "preview",
+        status: "completed",
+        startedAt,
+        completedAt,
+      };
+
+      fallbackRuns.unshift({
+        run,
+        events: events.map((event, index) => ({
+          ...event,
+          id: index + 1,
+          createdAt: completedAt,
+        })),
+      });
 
       return { exitCode: 0 };
     },
