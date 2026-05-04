@@ -18,7 +18,7 @@ func TestRestoreDryRunShowsAppConfigPlan(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "apps.yaml")
 	archive := filepath.Join(dir, "archive")
-	source := filepath.Join(archive, "apps/ghostty/config")
+	source := filepath.Join(archive, "ghostty/config")
 	content := []byte(`
 apps:
   - name: Ghostty
@@ -27,7 +27,7 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/.config/ghostty/config
-        target: apps/ghostty/config
+        target: ghostty/config
 `)
 
 	if err := os.WriteFile(configPath, content, 0o600); err != nil {

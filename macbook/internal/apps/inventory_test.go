@@ -89,7 +89,7 @@ func TestMergeAppsPreservesExistingMetadataAndAddsDetectedApps(t *testing.T) {
 			Package:       "ghostty",
 			ConfigMode:    "auto",
 			ConfigPaths: []appconfig.ConfigPath{
-				{Source: "~/.config/ghostty/config", Target: "apps/ghostty/config"},
+				{Source: "~/.config/ghostty/config", Target: "ghostty/config"},
 			},
 		},
 		{Name: "Missing App", InstallMethod: "manual", ConfigMode: "manual"},

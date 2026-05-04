@@ -6,7 +6,10 @@ func (a app) usage() {
 	fmt.Fprintln(a.stdout, `mac-os manages this machine's dotfiles, developer tools, and macOS settings.
 
 Usage:
-  mac-os
+  mac-os ui workflows
+  mac-os ui run
+  mac-os ui runs
+  mac-os ui run-log --run-id <id>
 
-Running mac-os opens the interactive Bubble Tea workflow dashboard.`)
+The Electron app uses these JSON commands to display workflows, execute runs, and read persisted logs.`)
 }

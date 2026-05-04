@@ -19,7 +19,7 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/.config/ghostty/config
-        target: apps/ghostty/config
+        target: ghostty/config
 `)
 
 	if err := os.WriteFile(path, content, 0o600); err != nil {
@@ -51,7 +51,7 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/.config/broken
-        target: apps/broken
+        target: broken
 `)
 
 	if err := os.WriteFile(path, content, 0o600); err != nil {
@@ -77,7 +77,7 @@ func TestCapturePlanSkipsManualConfig(t *testing.T) {
 			Package:       "ghostty",
 			ConfigMode:    "auto",
 			ConfigPaths: []ConfigPath{
-				{Source: "~/.config/ghostty/config", Target: "apps/ghostty/config"},
+				{Source: "~/.config/ghostty/config", Target: "ghostty/config"},
 			},
 		},
 		{
@@ -86,7 +86,7 @@ func TestCapturePlanSkipsManualConfig(t *testing.T) {
 			Package:       "803453959",
 			ConfigMode:    "manual",
 			ConfigPaths: []ConfigPath{
-				{Source: "~/Library/Application Support/Slack", Target: "apps/slack"},
+				{Source: "~/Library/Application Support/Slack", Target: "slack"},
 			},
 		},
 	}}
@@ -97,7 +97,7 @@ func TestCapturePlanSkipsManualConfig(t *testing.T) {
 		t.Fatalf("CapturePlan returned %d items, want 1", len(got))
 	}
 
-	if got[0].Target != "apps/ghostty/config" {
+	if got[0].Target != "ghostty/config" {
 		t.Fatalf("target = %q", got[0].Target)
 	}
 }

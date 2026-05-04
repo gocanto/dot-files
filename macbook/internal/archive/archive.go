@@ -152,7 +152,7 @@ func (s Service) Capture(opts Options) error {
 		fmt.Fprintf(s.Stderr, "warning: brew bundle dump failed: %v\n", err)
 	}
 
-	if err := s.writeCommandOutput(dest, "apps/applications.txt", "find", "/Applications", "-maxdepth", "2", "-name", "*.app", "-print"); err != nil {
+	if err := s.writeCommandOutput(dest, "applications.txt", "find", "/Applications", "-maxdepth", "2", "-name", "*.app", "-print"); err != nil {
 		fmt.Fprintf(s.Stderr, "warning: application inventory failed: %v\n", err)
 	}
 

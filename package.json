@@ -5,7 +5,7 @@
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",
-    "dev": "turbo run dev --filter=macbook",
+    "dev": "turbo run dev --filter=ui",
     "format": "turbo run format",
     "check": "turbo run build test"
   },

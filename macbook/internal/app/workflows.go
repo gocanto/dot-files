@@ -5,11 +5,11 @@ import (
 	"io"
 
 	"github.com/gocanto/mac-os/internal/brewfile"
-	"github.com/gocanto/mac-os/internal/tui"
+	"github.com/gocanto/mac-os/internal/workflowdomain"
 )
 
-func (a app) factoryInstallPhases(opts options) []tui.Phase {
-	return []tui.Phase{
+func (a app) factoryInstallPhases(opts options) []workflowdomain.Phase {
+	return []workflowdomain.Phase{
 		{Name: "Check/install prerequisites", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).ensurePrerequisites(opts) }},
 		{Name: "Install Homebrew packages", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).applyHomebrewBundle(opts) }},
 		{Name: "Set up GitHub access and signing", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).setupGitHub(opts) }},
@@ -24,8 +24,8 @@ func (a app) factoryInstallPhases(opts options) []tui.Phase {
 	}
 }
 
-func (a app) hostUpdatePhases(opts options) []tui.Phase {
-	return []tui.Phase{
+func (a app) hostUpdatePhases(opts options) []workflowdomain.Phase {
+	return []workflowdomain.Phase{
 		{Name: "Check/install prerequisites", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).ensurePrerequisites(opts) }},
 		{Name: "Install Homebrew packages", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).applyHomebrewBundle(opts) }},
 		{Name: "Set up GitHub access and signing", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).setupGitHub(opts) }},
@@ -40,7 +40,7 @@ func (a app) hostUpdatePhases(opts options) []tui.Phase {
 	}
 }
 
-func (a app) tuiWorkflows() []tui.Workflow {
+func (a app) workflows() []workflowdomain.Workflow {
 	dryRunOpts := options{dryRun: true, opVault: defaultOPVault, opItem: defaultOPItem}
 	factoryOpts := options{apps: true, opVault: defaultOPVault, opItem: defaultOPItem}
 	factoryDryRunOpts := options{dryRun: true, apps: true, opVault: defaultOPVault, opItem: defaultOPItem}
@@ -53,7 +53,7 @@ func (a app) tuiWorkflows() []tui.Workflow {
 	captureDryRunOpts := options{dryRun: true, apps: true, opVault: defaultOPVault, opItem: defaultOPItem}
 	captureOpts := options{apps: true, opVault: defaultOPVault, opItem: defaultOPItem}
 
-	return []tui.Workflow{
+	return workflowdomain.Normalize([]workflowdomain.Workflow{
 		{
 			Name:         "Set Up This Mac",
 			Description:  "Run the complete setup flow for this Mac: tools, apps, private secrets, dotfiles, macOS settings, and health checks.",
@@ -135,38 +135,38 @@ func (a app) tuiWorkflows() []tui.Workflow {
 			Phases:       brewfilePreviewPhases(),
 			Confirmation: safeWorkflowConfirmation("Show Homebrew Packages", "Print the generated Homebrew package list. This does not install anything.", brewfilePreviewPhases()),
 		},
-	}
+	})
 }
 
-func capturePhases(a app, opts options) []tui.Phase {
-	return []tui.Phase{{Name: "Save supported app settings snapshot", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).captureArchive(opts) }}}
+func capturePhases(a app, opts options) []workflowdomain.Phase {
+	return []workflowdomain.Phase{{Name: "Save supported app settings snapshot", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).captureArchive(opts) }}}
 }
 
-func restoreAppSettingsPhases(a app, opts options) []tui.Phase {
-	return []tui.Phase{{Name: "Restore supported app settings", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).restoreAppConfigs(opts) }}}
+func restoreAppSettingsPhases(a app, opts options) []workflowdomain.Phase {
+	return []workflowdomain.Phase{{Name: "Restore supported app settings", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).restoreAppConfigs(opts) }}}
 }
 
-func updateInstalledAppListPhases(a app, opts options) []tui.Phase {
-	return []tui.Phase{{Name: "Generate installed app list candidate", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).updateInstalledAppList(opts) }}}
+func updateInstalledAppListPhases(a app, opts options) []workflowdomain.Phase {
+	return []workflowdomain.Phase{{Name: "Generate installed app list candidate", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).updateInstalledAppList(opts) }}}
 }
 
-func macOSSettingsPhases(a app, opts options) []tui.Phase {
-	return []tui.Phase{{Name: "Apply tracked macOS settings", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).applyMacOSDefaults(opts) }}}
+func macOSSettingsPhases(a app, opts options) []workflowdomain.Phase {
+	return []workflowdomain.Phase{{Name: "Apply tracked macOS settings", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).applyMacOSDefaults(opts) }}}
 }
 
-func doctorPhases(a app, opts options) []tui.Phase {
-	return []tui.Phase{{Name: "Run health checks", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).runDoctor(opts) }}}
+func doctorPhases(a app, opts options) []workflowdomain.Phase {
+	return []workflowdomain.Phase{{Name: "Run health checks", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).runDoctor(opts) }}}
 }
 
-func brewfilePreviewPhases() []tui.Phase {
-	return []tui.Phase{{Name: "Print generated Homebrew package list", Enabled: true, Run: func(w io.Writer) error { fmt.Fprint(w, brewfile.Content()); return nil }}}
+func brewfilePreviewPhases() []workflowdomain.Phase {
+	return []workflowdomain.Phase{{Name: "Print generated Homebrew package list", Enabled: true, Run: func(w io.Writer) error { fmt.Fprint(w, brewfile.Content()); return nil }}}
 }
 
-func workflowConfirmation(title, message string, previewPhases, livePhases []tui.Phase) *tui.Confirmation {
-	return &tui.Confirmation{
+func workflowConfirmation(title, message string, previewPhases, livePhases []workflowdomain.Phase) *workflowdomain.Confirmation {
+	return &workflowdomain.Confirmation{
 		Title:   title,
 		Message: message,
-		Options: []tui.ConfirmationOption{
+		Options: []workflowdomain.ConfirmationOption{
 			{Label: "Preview only", Description: "show what would happen", Continue: true, Phases: previewPhases},
 			{Label: "Run now", Description: "make the described changes", Continue: true, Phases: livePhases},
 			{Label: "Back", Description: "return to workflow menu", Back: true},
@@ -174,22 +174,22 @@ func workflowConfirmation(title, message string, previewPhases, livePhases []tui
 	}
 }
 
-func safeWorkflowConfirmation(title, message string, phases []tui.Phase) *tui.Confirmation {
-	return &tui.Confirmation{
+func safeWorkflowConfirmation(title, message string, phases []workflowdomain.Phase) *workflowdomain.Confirmation {
+	return &workflowdomain.Confirmation{
 		Title:   title,
 		Message: message,
-		Options: []tui.ConfirmationOption{
+		Options: []workflowdomain.ConfirmationOption{
 			{Label: "Run now", Description: "continue", Continue: true, Phases: phases},
 			{Label: "Back", Description: "return to workflow menu", Back: true},
 		},
 	}
 }
 
-func (a app) setupConfirmation(previewOpts, liveOpts options) *tui.Confirmation {
-	return &tui.Confirmation{
+func (a app) setupConfirmation(previewOpts, liveOpts options) *workflowdomain.Confirmation {
+	return &workflowdomain.Confirmation{
 		Title:   "Set Up This Mac",
 		Message: "Run the complete setup flow for a clean or intentionally reconfigured Mac. Preview shows the full plan without installing packages, opening reset settings, or changing files.",
-		Options: []tui.ConfirmationOption{
+		Options: []workflowdomain.ConfirmationOption{
 			{
 				Label:       "Preview only",
 				Description: "show what would happen",

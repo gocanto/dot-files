@@ -2,9 +2,9 @@
   "name": "macbook",
   "private": true,
   "scripts": {
-    "build": "go build -o dist/mac-os ./cmd/mac-os",
+    "build": "go build -o dist/mac-os ./cmd",
     "test": "go test ./...",
-    "dev": "go run ./cmd/mac-os",
+    "dev": "go run ./cmd ui workflows",
     "format": "make -C .. format"
   }
 }

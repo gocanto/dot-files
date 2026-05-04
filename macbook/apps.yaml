@@ -20,7 +20,7 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/Library/Preferences/com.usebruno.app.plist
-        target: apps/bruno/Preferences/com.usebruno.app.plist
+        target: bruno/Preferences/com.usebruno.app.plist
 
   - name: Caffeine
     bundle_id: net.domzilla.caffeine
@@ -29,7 +29,7 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/Library/Preferences/net.domzilla.caffeine.plist
-        target: apps/caffeine/Preferences/net.domzilla.caffeine.plist
+        target: caffeine/Preferences/net.domzilla.caffeine.plist
 
   - name: Claude
     bundle_id: com.anthropic.claudefordesktop
@@ -38,7 +38,7 @@ apps:
     config_mode: reference
     config_paths:
       - source: ~/Library/Preferences/com.anthropic.claudefordesktop.plist
-        target: apps/claude/Preferences/com.anthropic.claudefordesktop.plist
+        target: claude/Preferences/com.anthropic.claudefordesktop.plist
 
   - name: Clop
     bundle_id: com.lowtechguys.Clop
@@ -47,7 +47,7 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/Library/Preferences/com.lowtechguys.Clop.plist
-        target: apps/clop/Preferences/com.lowtechguys.Clop.plist
+        target: clop/Preferences/com.lowtechguys.Clop.plist
 
   - name: Codex
     bundle_id: com.openai.codex
@@ -56,7 +56,7 @@ apps:
     config_mode: reference
     config_paths:
       - source: ~/Library/Preferences/com.openai.codex.plist
-        target: apps/codex/Preferences/com.openai.codex.plist
+        target: codex/Preferences/com.openai.codex.plist
 
   - name: CodexBar
     bundle_id: com.steipete.codexbar
@@ -65,7 +65,7 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/Library/Preferences/com.steipete.codexbar.plist
-        target: apps/codexbar/Preferences/com.steipete.codexbar.plist
+        target: codexbar/Preferences/com.steipete.codexbar.plist
 
   - name: DBeaver
     bundle_id: org.jkiss.dbeaver.core.product
@@ -74,7 +74,7 @@ apps:
     config_mode: reference
     config_paths:
       - source: ~/Library/Preferences/org.jkiss.dbeaver.core.product.plist
-        target: apps/dbeaver/Preferences/org.jkiss.dbeaver.core.product.plist
+        target: dbeaver/Preferences/org.jkiss.dbeaver.core.product.plist
 
   - name: Discord
     bundle_id: com.hnc.Discord
@@ -89,7 +89,7 @@ apps:
     config_mode: reference
     config_paths:
       - source: ~/Library/Preferences/com.electron.dockerdesktop.plist
-        target: apps/docker/Preferences/com.electron.dockerdesktop.plist
+        target: docker/Preferences/com.electron.dockerdesktop.plist
 
   - name: Gemini
     bundle_id: com.google.GeminiMacOS
@@ -98,7 +98,7 @@ apps:
     config_mode: reference
     config_paths:
       - source: ~/Library/Preferences/com.google.GeminiMacOS.plist
-        target: apps/gemini/Preferences/com.google.GeminiMacOS.plist
+        target: gemini/Preferences/com.google.GeminiMacOS.plist
 
   - name: Ghostty
     bundle_id: com.mitchellh.ghostty
@@ -107,9 +107,9 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/.config/ghostty/config
-        target: apps/ghostty/config
+        target: ghostty/config
       - source: ~/Library/Preferences/com.mitchellh.ghostty.plist
-        target: apps/ghostty/Preferences/com.mitchellh.ghostty.plist
+        target: ghostty/Preferences/com.mitchellh.ghostty.plist
 
   - name: Google Chrome
     bundle_id: com.google.Chrome
@@ -124,7 +124,7 @@ apps:
     config_mode: reference
     config_paths:
       - source: ~/Library/Preferences/com.grammarly.ProjectLlama.plist
-        target: apps/grammarly/Preferences/com.grammarly.ProjectLlama.plist
+        target: grammarly/Preferences/com.grammarly.ProjectLlama.plist
 
   - name: Hand Mirror
     bundle_id: net.rafaelconde.Hand-Mirror
@@ -139,7 +139,7 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/Library/Preferences/net.imput.helium.plist
-        target: apps/helium/Preferences/net.imput.helium.plist
+        target: helium/Preferences/net.imput.helium.plist
 
   - name: Herd
     bundle_id: de.beyondco.herd
@@ -148,7 +148,7 @@ apps:
     config_mode: reference
     config_paths:
       - source: ~/Library/Preferences/de.beyondco.herd.plist
-        target: apps/herd/Preferences/de.beyondco.herd.plist
+        target: herd/Preferences/de.beyondco.herd.plist
 
   - name: Ice
     bundle_id: com.jordanbaird.Ice
@@ -157,7 +157,7 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/Library/Preferences/com.jordanbaird.Ice.plist
-        target: apps/ice/Preferences/com.jordanbaird.Ice.plist
+        target: ice/Preferences/com.jordanbaird.Ice.plist
 
   - name: Insta360 Link Controller
     bundle_id: com.insta360.linkcontroller
@@ -172,7 +172,7 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/Library/Preferences/com.googlecode.iterm2.plist
-        target: apps/iterm2/Preferences/com.googlecode.iterm2.plist
+        target: iterm2/Preferences/com.googlecode.iterm2.plist
 
   - name: JetBrains Toolbox
     bundle_id: com.jetbrains.toolbox
@@ -181,7 +181,7 @@ apps:
     config_mode: reference
     config_paths:
       - source: ~/Library/Application Support/JetBrains
-        target: apps/jetbrains/Application Support/JetBrains
+        target: jetbrains/Application Support/JetBrains
 
   - name: Latest
     bundle_id: com.max-langer.Latest
@@ -196,7 +196,7 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/Library/Preferences/com.lujjjh.LinearMouse.plist
-        target: apps/linearmouse/Preferences/com.lujjjh.LinearMouse.plist
+        target: linearmouse/Preferences/com.lujjjh.LinearMouse.plist
 
   - name: Magnet
     bundle_id: com.crowdcafe.windowmagnet
@@ -205,7 +205,7 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/Library/Preferences/com.crowdcafe.windowmagnet.plist
-        target: apps/magnet/Preferences/com.crowdcafe.windowmagnet.plist
+        target: magnet/Preferences/com.crowdcafe.windowmagnet.plist
 
   - name: MarkEdit
     bundle_id: app.cyan.markedit
@@ -238,7 +238,7 @@ apps:
     config_mode: reference
     config_paths:
       - source: ~/Library/Preferences/notion.id.plist
-        target: apps/notion/Preferences/notion.id.plist
+        target: notion/Preferences/notion.id.plist
 
   - name: Pixelmator Pro
     bundle_id: com.pixelmatorteam.pixelmator.x
@@ -253,7 +253,7 @@ apps:
     config_mode: reference
     config_paths:
       - source: ~/Library/Preferences/com.postmanlabs.mac.plist
-        target: apps/postman/Preferences/com.postmanlabs.mac.plist
+        target: postman/Preferences/com.postmanlabs.mac.plist
 
   - name: Raycast
     bundle_id: com.raycast.macos
@@ -262,7 +262,7 @@ apps:
     config_mode: reference
     config_paths:
       - source: ~/Library/Preferences/com.raycast.macos.plist
-        target: apps/raycast/Preferences/com.raycast.macos.plist
+        target: raycast/Preferences/com.raycast.macos.plist
 
   - name: Safari
     bundle_id: com.apple.Safari
@@ -288,7 +288,7 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/Library/Preferences/eu.exelban.Stats.plist
-        target: apps/stats/Preferences/eu.exelban.Stats.plist
+        target: stats/Preferences/eu.exelban.Stats.plist
 
   - name: Sublime Text
     bundle_id: com.sublimetext.4
@@ -297,9 +297,9 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/Library/Application Support/Sublime Text/Packages/User
-        target: apps/sublime-text/Packages/User
+        target: sublime-text/Packages/User
       - source: ~/Library/Preferences/com.sublimetext.4.plist
-        target: apps/sublime-text/Preferences/com.sublimetext.4.plist
+        target: sublime-text/Preferences/com.sublimetext.4.plist
 
   - name: T3 Code Alpha
     bundle_id: com.t3tools.t3code
@@ -308,7 +308,7 @@ apps:
     config_mode: reference
     config_paths:
       - source: ~/Library/Preferences/com.t3tools.t3code.plist
-        target: apps/t3-code/Preferences/com.t3tools.t3code.plist
+        target: t3-code/Preferences/com.t3tools.t3code.plist
 
   - name: Telegram
     bundle_id: ru.keepcoder.Telegram
@@ -323,7 +323,7 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/Library/Preferences/com.jibapps.TrashMe.plist
-        target: apps/trashme/Preferences/com.jibapps.TrashMe.plist
+        target: trashme/Preferences/com.jibapps.TrashMe.plist
 
   - name: TrashMe 3
     bundle_id: com.jibapps.TrashMe3

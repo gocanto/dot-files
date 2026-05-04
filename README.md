@@ -19,7 +19,7 @@ are deliberately excluded from the repo and from automatic replay.
 | Need | Start here |
 | --- | --- |
 | Set up a fresh Mac | [`./setup.sh`](#fresh-mac-setup) |
-| Run the terminal dashboard | [Using The TUI](#using-the-tui) |
+| Run the desktop interface | [Using The Electron UI](#using-the-electron-ui) |
 | Understand what gets installed | [App Restore Policy](#app-restore-policy) |
 | Restore private settings | [Private Archives](#private-archives) |
 | Work on the tool | [Developer Notes](#developer-notes) |
@@ -30,7 +30,7 @@ are deliberately excluded from the repo and from automatic replay.
 - Bootstraps a new macOS machine from the repository root with `./setup.sh`.
 - Installs or enables Xcode Command Line Tools, Homebrew, Git, and Go when
   needed.
-- Opens a terminal dashboard for setup, app restore, app snapshots, macOS
+- Provides an Electron interface for setup, app restore, app snapshots, macOS
   defaults, health checks, and package review.
 - Installs command-line tools, Homebrew casks, and App Store apps from tracked
   policy.
@@ -68,7 +68,7 @@ Start from the repository root.
 The script checks macOS, installs or enables Xcode Command Line Tools, installs
 Homebrew and Git when missing, confirms it is running from the canonical git
 checkout, starts a `sudo` keepalive, installs Go when missing, and then opens
-the Go TUI.
+the Go workflow bridge used by the Electron UI.
 
 If setup is launched from an unzipped download instead of a git checkout, it
 prompts for a destination path, clones the repository there, and re-runs setup
@@ -81,30 +81,31 @@ $HOME/Sites/dot-files
 This matters because Stow links and later repo updates should point to one
 stable checkout, not a temporary download directory.
 
-## Using The TUI
+## Using The Electron UI
 
-After bootstrap, the setup flow runs through a Bubble Tea terminal dashboard.
-You can also open it directly:
-
-```sh
-go run ./macbook/cmd/mac-os
-```
-
-From inside the `macbook` directory, this shorter form also works:
+The workflow interface lives in `packages/ui` and talks to the Go process
+through JSON commands.
 
 ```sh
-go run ./cmd/mac-os
+pnpm install
+pnpm --filter ui build
+pnpm --filter ui start
 ```
 
-### Controls
+The Go command bridge can be inspected directly:
 
-| Key | Action |
+```sh
+go run ./macbook/cmd ui workflows
+```
+
+### Command Bridge
+
+| Command | Purpose |
 | --- | --- |
-| Arrow keys or `j`/`k` | Move through choices. |
-| `enter` | Open or run a workflow. |
-| `space` | Toggle workflow phases. |
-| `q` or `esc` | Exit before execution. |
-| `ctrl+c` | Cancel a running workflow. |
+| `mac-os ui workflows` | Prints workflow metadata as JSON. |
+| `mac-os ui run` | Runs a workflow from a JSON request on stdin and streams NDJSON events. |
+| `mac-os ui runs` | Lists persisted workflow runs from SQLite. |
+| `mac-os ui run-log --run-id <id>` | Prints one persisted run and its events. |
 
 Most workflows start with a confirmation screen that explains what will happen,
 whether the workflow changes the Mac, and which phases will run. Workflows that
@@ -270,10 +271,11 @@ pnpm turbo run test
 pnpm check
 ```
 
-Run the TUI directly from the repository root:
+Build and open the Electron UI from the repository root:
 
 ```sh
-go run ./macbook/cmd/mac-os
+pnpm --filter ui build
+pnpm --filter ui start
 ```
 
 Run Go tests from the repository root:
@@ -308,7 +310,7 @@ Re-run `make format-login` only when the Docker credential expires or is wiped.
 - Keep Age identity files outside the repository.
 - Keep private Git config plaintext ignored by git.
 - Review captured app settings before restoring them to a different machine.
-- Use the TUI preview mode when you want to inspect a workflow before changing
+- Use the preview option when you want to inspect a workflow before changing
   the Mac.
 - Treat this repo as setup automation, not as a substitute for full backups.
 

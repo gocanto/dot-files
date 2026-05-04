@@ -203,19 +203,25 @@ ensure_git() {
 	run brew install git
 }
 
-run_tui() {
+prepare_workflow_ui() {
 	local root
 	root="$(cd "$(dirname "$0")" && pwd)"
 
-	log "opening mac-os TUI"
+	log "preparing mac-os workflow UI"
 
 	if [[ "$DRY_RUN" -eq 1 ]]; then
-		printf 'would run: go run ./macbook/cmd/mac-os\n'
+		printf 'would run: go run ./macbook/cmd ui workflows\n'
 		return 0
 	fi
 
 	cd "$root"
-	go run ./macbook/cmd/mac-os
+	go run ./macbook/cmd ui workflows >/dev/null
+
+	if command -v pnpm >/dev/null 2>&1; then
+		log "Electron UI available: pnpm --filter ui build && pnpm --filter ui start"
+	else
+		log "Electron UI requires pnpm; enable Corepack after Node is installed"
+	fi
 }
 
 ensure_macos
@@ -225,4 +231,4 @@ ensure_git
 ensure_canonical_location "$@"
 start_sudo_keepalive
 ensure_go
-run_tui "$@"
+prepare_workflow_ui "$@"

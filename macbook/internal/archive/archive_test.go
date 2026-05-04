@@ -51,7 +51,7 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/.config/ghostty/config
-        target: apps/ghostty/config
+        target: ghostty/config
 `)
 
 	if err := os.WriteFile(configPath, content, 0o600); err != nil {
@@ -72,7 +72,7 @@ apps:
 
 	got := stdout.String()
 
-	if !strings.Contains(got, "would capture app config: ~/.config/ghostty/config -> apps/ghostty/config") {
+	if !strings.Contains(got, "would capture app config: ~/.config/ghostty/config -> ghostty/config") {
 		t.Fatalf("dry-run output missing app config plan\n%s", got)
 	}
 }

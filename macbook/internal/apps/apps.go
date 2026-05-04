@@ -106,7 +106,7 @@ func (s Service) CaptureConfigs(root string, opts Options) error {
 		return err
 	}
 
-	if err := safefs.CopyFile(s.loader().Path(opts.ConfigPath), filepath.Join(root, "apps/apps.yaml")); err != nil {
+	if err := safefs.CopyFile(s.loader().Path(opts.ConfigPath), filepath.Join(root, "apps.yaml")); err != nil {
 		return err
 	}
 

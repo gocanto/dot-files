@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/gocanto/mac-os/internal/command"
-	"github.com/gocanto/mac-os/internal/tui"
+	"github.com/gocanto/mac-os/internal/workflowdomain"
 )
 
 type stubRunner struct {
@@ -32,36 +32,23 @@ func (r stubRunner) Run(name string, args ...string) ([]byte, error) {
 	return r.outputs[key], r.errors[key]
 }
 
-func TestNoArgsLaunchesTUI(t *testing.T) {
-	var launched bool
+func TestNoArgsShowsUsage(t *testing.T) {
+	var stdout bytes.Buffer
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
-	a.tuiRunner = func(io.Reader, io.Writer, []tui.Workflow) (tui.Result, error) {
-		launched = true
-
-		return tui.Result{ExitCode: 0}, nil
-	}
+	a.stdout = &stdout
 
 	if got := a.run(nil); got != 0 {
 		t.Fatalf("exit = %d, want 0", got)
 	}
 
-	if !launched {
-		t.Fatal("expected TUI launch")
+	if !strings.Contains(stdout.String(), "mac-os ui workflows") {
+		t.Fatalf("usage = %s", stdout.String())
 	}
 }
 
-func TestTUIWorkflowsUsePlainMenuLabels(t *testing.T) {
-	var workflows []tui.Workflow
+func TestWorkflowsUsePlainMenuLabels(t *testing.T) {
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
-	a.tuiRunner = func(_ io.Reader, _ io.Writer, got []tui.Workflow) (tui.Result, error) {
-		workflows = got
-
-		return tui.Result{ExitCode: 0}, nil
-	}
-
-	if got := a.run(nil); got != 0 {
-		t.Fatalf("exit = %d, want 0", got)
-	}
+	workflows := a.workflows()
 
 	wantNames := []string{
 		"Set Up This Mac",
@@ -97,9 +84,9 @@ func TestTUIWorkflowsUsePlainMenuLabels(t *testing.T) {
 
 func TestUpdateThisMacWorkflowUsesFullHostUpdatePhases(t *testing.T) {
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
-	workflows := a.tuiWorkflows()
+	workflows := a.workflows()
 
-	var workflow *tui.Workflow
+	var workflow *workflowdomain.Workflow
 
 	for i := range workflows {
 		if workflows[i].Name == "Update This Mac" {
@@ -214,7 +201,7 @@ func TestSetUpThisMacPreviewDoesNotOpenResetSettings(t *testing.T) {
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), &stdout, io.Discard, stubRunner{calls: &calls})
 	a.goos = "darwin"
 
-	workflows := a.tuiWorkflows()
+	workflows := a.workflows()
 
 	if len(workflows) == 0 || workflows[0].Name != "Set Up This Mac" {
 		t.Fatalf("workflows = %#v", workflows)
@@ -283,7 +270,7 @@ func TestCommandsAreRejected(t *testing.T) {
 	}
 }
 
-func TestHelpOnlyShowsTUIUsage(t *testing.T) {
+func TestHelpOnlyShowsElectronCommandUsage(t *testing.T) {
 	var stdout bytes.Buffer
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), &stdout, io.Discard, stubRunner{})
 
@@ -293,13 +280,13 @@ func TestHelpOnlyShowsTUIUsage(t *testing.T) {
 
 	output := stdout.String()
 
-	for _, want := range []string{"mac-os", "interactive Bubble Tea workflow dashboard"} {
+	for _, want := range []string{"mac-os", "mac-os ui workflows", "Electron app"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("help output = %s, want %q", output, want)
 		}
 	}
 
-	for _, old := range []string{"mac-os tui", "bootstrap", "adopt", "capture", "restore", "secrets", "doctor", "brewfile", "macos"} {
+	for _, old := range []string{"mac-os tui", "interactive Bubble Tea", "bootstrap", "adopt", "capture", "restore", "secrets", "doctor", "brewfile", "macos"} {
 		if strings.Contains(output, old) {
 			t.Fatalf("help output = %s, did not expect old command %q", output, old)
 		}
@@ -308,9 +295,9 @@ func TestHelpOnlyShowsTUIUsage(t *testing.T) {
 
 func TestUpdateInstalledAppListWorkflowUsesPreviewCandidate(t *testing.T) {
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
-	workflows := a.tuiWorkflows()
+	workflows := a.workflows()
 
-	var workflow *tui.Workflow
+	var workflow *workflowdomain.Workflow
 
 	for i := range workflows {
 		if workflows[i].Name == "Update Installed App List" {
@@ -346,8 +333,8 @@ func TestRestoreAppConfigsUsesLatestLocalSnapshot(t *testing.T) {
 
 	for _, dir := range []string{
 		repo,
-		filepath.Join(oldSnapshot, "apps", "ghostty"),
-		filepath.Join(latestSnapshot, "apps", "ghostty"),
+		filepath.Join(oldSnapshot, "ghostty"),
+		filepath.Join(latestSnapshot, "ghostty"),
 	} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			t.Fatal(err)
@@ -362,18 +349,18 @@ apps:
     config_mode: auto
     config_paths:
       - source: ~/.config/ghostty/config
-        target: apps/ghostty/config
+        target: ghostty/config
 `)
 
 	if err := os.WriteFile(filepath.Join(repo, "apps.yaml"), config, 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(filepath.Join(oldSnapshot, "apps", "ghostty", "config"), []byte("old\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(oldSnapshot, "ghostty", "config"), []byte("old\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(filepath.Join(latestSnapshot, "apps", "ghostty", "config"), []byte("latest\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(latestSnapshot, "ghostty", "config"), []byte("latest\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -388,7 +375,7 @@ apps:
 
 	for _, want := range []string{
 		"using latest local app settings snapshot: " + latestSnapshot,
-		"would restore app config: " + filepath.Join(latestSnapshot, "apps", "ghostty", "config"),
+		"would restore app config: " + filepath.Join(latestSnapshot, "ghostty", "config"),
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("stdout missing %q\n%s", want, got)

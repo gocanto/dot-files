@@ -7,19 +7,17 @@ import (
 	"runtime"
 
 	"github.com/gocanto/mac-os/internal/command"
-	"github.com/gocanto/mac-os/internal/tui"
 )
 
 type app struct {
-	home      string
-	repo      string
-	goos      string
-	goarch    string
-	stdout    io.Writer
-	stderr    io.Writer
-	stdin     io.Reader
-	runner    command.Runner
-	tuiRunner func(io.Reader, io.Writer, []tui.Workflow) (tui.Result, error)
+	home   string
+	repo   string
+	goos   string
+	goarch string
+	stdout io.Writer
+	stderr io.Writer
+	stdin  io.Reader
+	runner command.Runner
 }
 
 type options struct {
@@ -64,21 +62,22 @@ func Run(args []string) int {
 
 func newApp(home, repo string, stdin io.Reader, stdout, stderr io.Writer, runner command.Runner) app {
 	return app{
-		home:      home,
-		repo:      repo,
-		goos:      runtime.GOOS,
-		goarch:    runtime.GOARCH,
-		stdout:    stdout,
-		stderr:    stderr,
-		stdin:     stdin,
-		runner:    runner,
-		tuiRunner: tui.Run,
+		home:   home,
+		repo:   repo,
+		goos:   runtime.GOOS,
+		goarch: runtime.GOARCH,
+		stdout: stdout,
+		stderr: stderr,
+		stdin:  stdin,
+		runner: runner,
 	}
 }
 
 func (a app) run(args []string) int {
 	if len(args) == 0 {
-		return a.tui(nil)
+		a.usage()
+
+		return 0
 	}
 
 	switch args[0] {
@@ -86,6 +85,8 @@ func (a app) run(args []string) int {
 		a.usage()
 
 		return 0
+	case "ui":
+		return a.ui(args[1:])
 	default:
 		fmt.Fprintf(a.stderr, "unknown command %q\n\n", args[0])
 		a.usage()
