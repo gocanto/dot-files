@@ -41,7 +41,7 @@ func TestNoArgsShowsUsage(t *testing.T) {
 		t.Fatalf("exit = %d, want 0", got)
 	}
 
-	if !strings.Contains(stdout.String(), "mac-os serve-grpc --socket") {
+	if !strings.Contains(stdout.String(), "mac-os serve-http --socket") {
 		t.Fatalf("usage = %s", stdout.String())
 	}
 }
@@ -280,7 +280,7 @@ func TestHelpOnlyShowsElectronCommandUsage(t *testing.T) {
 
 	output := stdout.String()
 
-	for _, want := range []string{"mac-os", "mac-os serve-grpc --socket", "gRPC backend"} {
+	for _, want := range []string{"mac-os", "mac-os serve-http --socket", "HTTP backend"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("help output = %s, want %q", output, want)
 		}

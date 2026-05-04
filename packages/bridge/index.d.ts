@@ -1,4 +1,4 @@
-import type { Client, ClientReadableStream, ServiceError } from "@grpc/grpc-js";
+import type { EventEmitter } from "node:events";
 
 export interface Phase {
   id: string;
@@ -94,33 +94,30 @@ export interface UserPreferencesResponse {
   updatedAt: string;
 }
 
-export interface WorkflowBridgeClient extends Client {
-  listWorkflows(
-    request: Record<string, never>,
-    callback: (error: ServiceError | null, response: { workflows: Workflow[] }) => void,
-  ): void;
-  runWorkflow(request: RunWorkflowRequest): ClientReadableStream<WorkflowEvent>;
-  listRuns(request: { limit: number }, callback: (error: ServiceError | null, response: { runs: RunSummary[] }) => void): void;
-  runLog(request: { runId: string }, callback: (error: ServiceError | null, response: RunLog) => void): void;
-  getSettings(
-    request: Record<string, never>,
-    callback: (error: ServiceError | null, response: SettingsResponse) => void,
-  ): void;
-  validateSettings(
-    request: { settings: RuntimeSettings },
-    callback: (error: ServiceError | null, response: SettingsResponse) => void,
-  ): void;
-  getUserPreferences(
-    request: Record<string, never>,
-    callback: (error: ServiceError | null, response: UserPreferencesResponse) => void,
-  ): void;
-  saveUserPreferences(
-    request: { theme: string },
-    callback: (error: ServiceError | null, response: UserPreferencesResponse) => void,
-  ): void;
+export interface UnixTarget {
+  socketPath: string;
 }
 
-export const workflowProtoPath: string;
-export function unixTarget(socketPath: string): string;
-export function createWorkflowBridgeClient(target: string): WorkflowBridgeClient;
-export function waitForReady(client: Client, timeoutMs?: number): Promise<void>;
+export interface WorkflowRunStream extends EventEmitter {
+  on(event: "data", listener: (event: WorkflowEvent) => void): this;
+  on(event: "end", listener: () => void): this;
+  on(event: "end-info", listener: (info: { exitCode: number; status: string; message?: string }) => void): this;
+  on(event: "error", listener: (error: Error) => void): this;
+}
+
+export interface WorkflowBridgeClient {
+  close(): void;
+  healthz(): Promise<void>;
+  listWorkflows(): Promise<{ workflows: Workflow[] }>;
+  listRuns(request: { limit: number }): Promise<{ runs: RunSummary[] }>;
+  runLog(request: { runId: string }): Promise<RunLog>;
+  getSettings(): Promise<SettingsResponse>;
+  validateSettings(request: { settings: RuntimeSettings }): Promise<SettingsResponse>;
+  getUserPreferences(): Promise<UserPreferencesResponse>;
+  saveUserPreferences(request: { theme: string }): Promise<UserPreferencesResponse>;
+  runWorkflow(request: RunWorkflowRequest): WorkflowRunStream;
+}
+
+export function unixTarget(socketPath: string): UnixTarget;
+export function createWorkflowBridgeClient(target: UnixTarget): WorkflowBridgeClient;
+export function waitForReady(client: WorkflowBridgeClient, timeoutMs?: number): Promise<void>;

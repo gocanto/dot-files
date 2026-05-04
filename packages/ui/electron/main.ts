@@ -3,7 +3,6 @@ import {
   createWorkflowBridgeClient,
   type RuntimeSettings,
   type SettingsResponse,
-  type UserPreferencesResponse,
   unixTarget,
   waitForReady,
   type RunWorkflowRequest,
@@ -78,34 +77,28 @@ app.on("activate", () => {
 app.on("before-quit", stopWorkflowBridge);
 
 ipcMain.handle("workflows:list", async () => {
-  const response = await unary<{ workflows?: unknown[] }>((callback) => client().listWorkflows({}, callback));
+  const response = await client().listWorkflows();
 
   return response.workflows ?? [];
 });
 
 ipcMain.handle("runs:list", async (_event, limit: number) => {
-  const response = await unary<{ runs?: unknown[] }>((callback) => client().listRuns({ limit }, callback));
+  const response = await client().listRuns({ limit });
 
   return response.runs ?? [];
 });
 
-ipcMain.handle("runs:log", (_event, runId: string) => unary((callback) => client().runLog({ runId }, callback)));
+ipcMain.handle("runs:log", (_event, runId: string) => client().runLog({ runId }));
 
-ipcMain.handle("settings:get", async () => unary<SettingsResponse>((callback) => client().getSettings({}, callback)));
+ipcMain.handle("settings:get", async () => client().getSettings());
 
-ipcMain.handle("settings:validate", async (_event, settings: RuntimeSettings) =>
-  unary<SettingsResponse>((callback) => client().validateSettings({ settings }, callback)),
-);
+ipcMain.handle("settings:validate", async (_event, settings: RuntimeSettings) => client().validateSettings({ settings }));
 
 ipcMain.handle("settings:save", async (_event, settings: RuntimeSettings) => saveSettings(settings));
 
-ipcMain.handle("preferences:get", async () =>
-  unary<UserPreferencesResponse>((callback) => client().getUserPreferences({}, callback)),
-);
+ipcMain.handle("preferences:get", async () => client().getUserPreferences());
 
-ipcMain.handle("preferences:save", async (_event, theme: string) =>
-  unary<UserPreferencesResponse>((callback) => client().saveUserPreferences({ theme }, callback)),
-);
+ipcMain.handle("preferences:save", async (_event, theme: string) => client().saveUserPreferences({ theme }));
 
 ipcMain.handle("settings:choose-directory", async (_event, defaultPath?: string) => {
   const options: OpenDialogOptions = {
@@ -173,7 +166,7 @@ async function startWorkflowBridge() {
   const command = goCommand();
   bridgeSocketPath = join(tmpdir(), `mac-os-${process.pid}-${Date.now()}.sock`);
 
-  const child = spawn(command.command, [...command.args, "serve-grpc", "--socket", bridgeSocketPath, ...settingsArgs(savedSettings)], {
+  const child = spawn(command.command, [...command.args, "serve-http", "--socket", bridgeSocketPath, ...settingsArgs(savedSettings)], {
     cwd: macbookDir,
     env: process.env,
     stdio: ["ignore", "pipe", "pipe"],
@@ -188,7 +181,7 @@ async function startWorkflowBridge() {
 
   child.on("exit", (code, signal) => {
     if (bridgeClient) {
-      console.error(`mac-os gRPC bridge exited with ${code ?? signal ?? "unknown status"}`);
+      console.error(`mac-os HTTP bridge exited with ${code ?? signal ?? "unknown status"}`);
     }
 
     bridgeClient?.close();
@@ -196,13 +189,13 @@ async function startWorkflowBridge() {
     bridgeProcess = null;
   });
 
-  const grpcClient = createWorkflowBridgeClient(unixTarget(bridgeSocketPath));
+  const httpClient = createWorkflowBridgeClient(unixTarget(bridgeSocketPath));
 
   try {
-    await waitForReady(grpcClient);
-    bridgeClient = grpcClient;
+    await waitForReady(httpClient);
+    bridgeClient = httpClient;
   } catch (error) {
-    grpcClient.close();
+    httpClient.close();
     child.kill();
     throw new Error(stderr || (error instanceof Error ? error.message : String(error)));
   }
@@ -223,33 +216,20 @@ function stopWorkflowBridge() {
 
 function client() {
   if (!bridgeClient) {
-    throw new Error("mac-os gRPC bridge is not running");
+    throw new Error("mac-os HTTP bridge is not running");
   }
 
   return bridgeClient;
 }
 
-function unary<T>(call: (callback: (error: Error | null, response: T) => void) => void) {
-  return new Promise<T>((resolveResult, reject) => {
-    call((error, response) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-
-      resolveResult(response);
-    });
-  });
-}
-
 async function saveSettings(settings: RuntimeSettings): Promise<SettingsResponse> {
-  const validation = await unary<SettingsResponse>((callback) => client().validateSettings({ settings }, callback));
+  const validation = await client().validateSettings({ settings });
 
   if (!validation.valid || !validation.settings) {
     return validation;
   }
 
-  const current = await unary<SettingsResponse>((callback) => client().getSettings({}, callback));
+  const current = await client().getSettings();
   const previousSettings = savedSettings;
   const nextSettings = validation.settings;
   let rollbackDatabaseMove = () => {};
@@ -262,7 +242,7 @@ async function saveSettings(settings: RuntimeSettings): Promise<SettingsResponse
     writeSavedSettings(nextSettings);
     await startWorkflowBridge();
 
-    return unary<SettingsResponse>((callback) => client().getSettings({}, callback));
+    return client().getSettings();
   } catch (error) {
     rollbackDatabaseMove();
     savedSettings = previousSettings;

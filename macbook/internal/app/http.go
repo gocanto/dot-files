@@ -5,21 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
-
-	"google.golang.org/grpc"
-
-	"github.com/gocanto/mac-os/internal/bridgepb"
 )
 
-type workflowBridgeServer struct {
-	bridgepb.UnimplementedWorkflowBridgeServer
-
-	app app
-}
-
-func (a app) serveGRPC(args []string) int {
-	fs := flag.NewFlagSet("serve-grpc", flag.ContinueOnError)
+func (a app) serveHTTP(args []string) int {
+	fs := flag.NewFlagSet("serve-http", flag.ContinueOnError)
 	fs.SetOutput(a.stderr)
 
 	socketPath := fs.String("socket", "", "Unix socket path")
@@ -68,7 +59,7 @@ func (a app) serveGRPC(args []string) int {
 	a.repo = validation.Settings.RepoRoot
 
 	if err := os.Remove(*socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-		fmt.Fprintf(a.stderr, "remove stale grpc socket: %v\n", err)
+		fmt.Fprintf(a.stderr, "remove stale http socket: %v\n", err)
 
 		return 1
 	}
@@ -76,7 +67,7 @@ func (a app) serveGRPC(args []string) int {
 	listener, err := net.Listen("unix", *socketPath)
 
 	if err != nil {
-		fmt.Fprintf(a.stderr, "listen on grpc socket: %v\n", err)
+		fmt.Fprintf(a.stderr, "listen on http socket: %v\n", err)
 
 		return 1
 	}
@@ -86,11 +77,10 @@ func (a app) serveGRPC(args []string) int {
 		_ = os.Remove(*socketPath)
 	}()
 
-	server := grpc.NewServer()
-	bridgepb.RegisterWorkflowBridgeServer(server, workflowBridgeServer{app: a})
+	server := &http.Server{Handler: httpServer{app: a}.buildMux()}
 
-	if err := server.Serve(listener); err != nil {
-		fmt.Fprintf(a.stderr, "serve grpc: %v\n", err)
+	if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		fmt.Fprintf(a.stderr, "serve http: %v\n", err)
 
 		return 1
 	}

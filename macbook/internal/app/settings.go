@@ -14,28 +14,28 @@ import (
 )
 
 type runtimeSettings struct {
-	RepoRoot          string
-	AppsConfigPath    string
-	SecretsConfigPath string
-	GeneratedAppsPath string
-	ArchiveRoot       string
-	WorkflowDBPath    string
-	OPVault           string
-	OPItem            string
+	RepoRoot          string `json:"repoRoot"`
+	AppsConfigPath    string `json:"appsConfigPath"`
+	SecretsConfigPath string `json:"secretsConfigPath"`
+	GeneratedAppsPath string `json:"generatedAppsPath"`
+	ArchiveRoot       string `json:"archiveRoot"`
+	WorkflowDBPath    string `json:"workflowDbPath"`
+	OPVault           string `json:"opVault"`
+	OPItem            string `json:"opItem"`
 }
 
 type settingsCheck struct {
-	Key     string
-	Label   string
-	Path    string
-	Status  string
-	Message string
+	Key     string `json:"key"`
+	Label   string `json:"label"`
+	Path    string `json:"path"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
 }
 
 type settingsValidation struct {
-	Settings runtimeSettings
-	Checks   []settingsCheck
-	Valid    bool
+	Settings runtimeSettings `json:"settings"`
+	Checks   []settingsCheck `json:"checks"`
+	Valid    bool            `json:"valid"`
 }
 
 const (
