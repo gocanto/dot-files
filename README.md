@@ -67,8 +67,8 @@ Start from the repository root.
 
 The script checks macOS, installs or enables Xcode Command Line Tools, installs
 Homebrew and Git when missing, confirms it is running from the canonical git
-checkout, starts a `sudo` keepalive, installs Go when missing, and then opens
-the Go workflow bridge used by the Electron UI.
+checkout, starts a `sudo` keepalive, installs Go when missing, and then checks
+the Go workflow backend used by the Electron UI.
 
 If setup is launched from an unzipped download instead of a git checkout, it
 prompts for a destination path, clones the repository there, and re-runs setup
@@ -83,8 +83,8 @@ stable checkout, not a temporary download directory.
 
 ## Using The Electron UI
 
-The workflow interface lives in `packages/ui` and talks to the Go process
-through JSON commands.
+The workflow interface lives in `packages/ui` and talks to a local Go gRPC
+backend over a per-launch Unix socket.
 
 ```sh
 pnpm install
@@ -92,20 +92,21 @@ pnpm --filter ui build
 pnpm --filter ui start
 ```
 
-The Go command bridge can be inspected directly:
+The Go backend command can be inspected directly:
 
 ```sh
-go run ./macbook/cmd ui workflows
+go run ./macbook/cmd help
 ```
 
-### Command Bridge
+### Backend Bridge
 
-| Command                           | Purpose                                                                 |
-|-----------------------------------|-------------------------------------------------------------------------|
-| `mac-os ui workflows`             | Prints workflow metadata as JSON.                                       |
-| `mac-os ui run`                   | Runs a workflow from a JSON request on stdin and streams NDJSON events. |
-| `mac-os ui runs`                  | Lists persisted workflow runs from SQLite.                              |
-| `mac-os ui run-log --run-id <id>` | Prints one persisted run and its events.                                |
+| Command                              | Purpose                                                         |
+|--------------------------------------|-----------------------------------------------------------------|
+| `mac-os serve-grpc --socket <path>`  | Starts the local gRPC backend used by the Electron main process. |
+
+The shared bridge contract lives in `packages/bridge/proto/workflow.proto`.
+Electron imports `@dot-files/bridge` for the Node gRPC client and the Go
+backend uses generated code in `macbook/internal/bridgepb`.
 
 Most workflows start with a confirmation screen that explains what will happen,
 whether the workflow changes the Mac, and which phases will run. Workflows that

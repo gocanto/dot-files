@@ -207,15 +207,15 @@ prepare_workflow_ui() {
 	local root
 	root="$(cd "$(dirname "$0")" && pwd)"
 
-	log "preparing mac-os workflow UI"
+	log "preparing mac-os workflow backend"
 
 	if [[ "$DRY_RUN" -eq 1 ]]; then
-		printf 'would run: go run ./macbook/cmd ui workflows\n'
+		printf 'would run: go run ./macbook/cmd help\n'
 		return 0
 	fi
 
 	cd "$root"
-	go run ./macbook/cmd ui workflows >/dev/null
+	go run ./macbook/cmd help >/dev/null
 
 	if command -v pnpm >/dev/null 2>&1; then
 		log "Electron UI available: pnpm --filter ui build && pnpm --filter ui start"

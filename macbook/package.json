@@ -4,7 +4,7 @@
   "scripts": {
     "build": "go build -o dist/mac-os ./cmd",
     "test": "go test ./...",
-    "dev": "go run ./cmd ui workflows",
+    "dev": "go run ./cmd help",
     "format": "make -C .. format"
   }
 }

@@ -41,7 +41,7 @@ func TestNoArgsShowsUsage(t *testing.T) {
 		t.Fatalf("exit = %d, want 0", got)
 	}
 
-	if !strings.Contains(stdout.String(), "mac-os ui workflows") {
+	if !strings.Contains(stdout.String(), "mac-os serve-grpc --socket") {
 		t.Fatalf("usage = %s", stdout.String())
 	}
 }
@@ -254,7 +254,7 @@ func TestFactoryInstallEraseFirstStopsWhenAdminValidationFails(t *testing.T) {
 }
 
 func TestCommandsAreRejected(t *testing.T) {
-	for _, command := range []string{"tui", "doctor", "bootstrap"} {
+	for _, command := range []string{"doctor", "bootstrap", "brewfile"} {
 		t.Run(command, func(t *testing.T) {
 			var stderr bytes.Buffer
 			a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, &stderr, stubRunner{})
@@ -280,13 +280,13 @@ func TestHelpOnlyShowsElectronCommandUsage(t *testing.T) {
 
 	output := stdout.String()
 
-	for _, want := range []string{"mac-os", "mac-os ui workflows", "Electron app"} {
+	for _, want := range []string{"mac-os", "mac-os serve-grpc --socket", "gRPC backend"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("help output = %s, want %q", output, want)
 		}
 	}
 
-	for _, old := range []string{"mac-os tui", "interactive Bubble Tea", "bootstrap", "adopt", "capture", "restore", "secrets", "doctor", "brewfile", "macos"} {
+	for _, old := range []string{"interactive legacy interface", "bootstrap", "adopt", "capture", "restore", "secrets", "doctor", "brewfile", "macos"} {
 		if strings.Contains(output, old) {
 			t.Fatalf("help output = %s, did not expect old command %q", output, old)
 		}

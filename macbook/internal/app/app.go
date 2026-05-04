@@ -85,8 +85,8 @@ func (a app) run(args []string) int {
 		a.usage()
 
 		return 0
-	case "ui":
-		return a.ui(args[1:])
+	case "serve-grpc":
+		return a.serveGRPC(args[1:])
 	default:
 		fmt.Fprintf(a.stderr, "unknown command %q\n\n", args[0])
 		a.usage()

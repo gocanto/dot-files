@@ -1,6 +1,0 @@
-- generic [ref=e2]:
-  - generic [ref=e3]:
-    - heading "502" [level=1] [ref=e4]
-    - heading "Bad Gateway" [level=2] [ref=e5]
-  - paragraph [ref=e7]: The target app is not responding. It may have crashed.
-  - paragraph [ref=e8]: portless

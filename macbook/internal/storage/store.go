@@ -72,7 +72,7 @@ type Recorder struct {
 	also  func(workflowdomain.Event) error
 }
 
-const envDBPath = "MAC_OS_UI_DB_PATH"
+const envDBPath = "MAC_OS_WORKFLOW_DB_PATH"
 
 func Open(ctx context.Context, path string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {

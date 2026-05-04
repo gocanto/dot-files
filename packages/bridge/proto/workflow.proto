@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+package macos.bridge.v1;
+
+option go_package = "github.com/gocanto/mac-os/internal/bridgepb";
+
+service WorkflowBridge {
+  rpc ListWorkflows(ListWorkflowsRequest) returns (ListWorkflowsResponse);
+  rpc RunWorkflow(RunWorkflowRequest) returns (stream WorkflowEvent);
+  rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
+  rpc RunLog(RunLogRequest) returns (RunLogResponse);
+}
+
+message ListWorkflowsRequest {}
+
+message ListWorkflowsResponse {
+  repeated Workflow workflows = 1;
+}
+
+message Workflow {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string changes_mac = 4;
+  repeated Phase phases = 5;
+  Confirmation confirmation = 6;
+}
+
+message Phase {
+  string id = 1;
+  string name = 2;
+  bool enabled = 3;
+}
+
+message Confirmation {
+  string title = 1;
+  string message = 2;
+  repeated ConfirmationOption options = 3;
+}
+
+message ConfirmationOption {
+  string id = 1;
+  string label = 2;
+  string description = 3;
+  bool continue = 4;
+  bool back = 5;
+  repeated Phase phases = 6;
+}
+
+message RunWorkflowRequest {
+  string workflow_id = 1;
+  string confirmation_option_id = 2;
+  repeated string enabled_phase_ids = 3;
+}
+
+message WorkflowEvent {
+  int64 id = 1;
+  string run_id = 2;
+  int64 seq = 3;
+  string type = 4;
+  string phase_id = 5;
+  string phase_name = 6;
+  string status = 7;
+  string message = 8;
+  string created_at = 9;
+}
+
+message ListRunsRequest {
+  int64 limit = 1;
+}
+
+message ListRunsResponse {
+  repeated RunSummary runs = 1;
+}
+
+message RunSummary {
+  string id = 1;
+  string workflow_id = 2;
+  string workflow_name = 3;
+  string confirmation_option_id = 4;
+  string confirmation_option_label = 5;
+  string mode = 6;
+  string status = 7;
+  string started_at = 8;
+  string completed_at = 9;
+  string error_message = 10;
+}
+
+message RunLogRequest {
+  string run_id = 1;
+}
+
+message RunLogResponse {
+  RunSummary run = 1;
+  repeated WorkflowEvent events = 2;
+}

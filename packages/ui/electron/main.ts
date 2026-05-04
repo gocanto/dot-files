@@ -1,19 +1,26 @@
 import { app, BrowserWindow, ipcMain } from "electron";
-import { spawn } from "node:child_process";
+import {
+  createWorkflowBridgeClient,
+  unixTarget,
+  waitForReady,
+  type RunWorkflowRequest,
+  type WorkflowBridgeClient,
+  type WorkflowEvent,
+} from "@dot-files/bridge";
+import { type ChildProcess, spawn } from "node:child_process";
+import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-
-interface RunRequest {
-  workflowId: string;
-  confirmationOptionId: string;
-  enabledPhaseIds: string[];
-}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..", "..", "..");
 const macbookDir = join(repoRoot, "macbook");
 
 let mainWindow: BrowserWindow | null = null;
+let bridgeClient: WorkflowBridgeClient | null = null;
+let bridgeProcess: ChildProcess | null = null;
+let bridgeSocketPath = "";
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -39,7 +46,14 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() =>
+  startWorkflowBridge()
+    .then(createWindow)
+    .catch((error: unknown) => {
+      console.error(error);
+      app.quit();
+    }),
+);
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
@@ -53,16 +67,38 @@ app.on("activate", () => {
   }
 });
 
-ipcMain.handle("workflows:list", () => runJSON(["ui", "workflows"]));
-ipcMain.handle("runs:list", (_event, limit: number) => runJSON(["ui", "runs", "--limit", String(limit)]));
-ipcMain.handle("runs:log", (_event, runId: string) => runJSON(["ui", "run-log", "--run-id", runId]));
+app.on("before-quit", stopWorkflowBridge);
 
-ipcMain.handle("workflow:run", async (event, request: RunRequest, eventChannel: string) => {
-  const result = await runStreaming(["ui", "run"], JSON.stringify(request), (line) => {
-    event.sender.send(eventChannel, JSON.parse(line));
+ipcMain.handle("workflows:list", async () => {
+  const response = await unary<{ workflows?: unknown[] }>((callback) => client().listWorkflows({}, callback));
+
+  return response.workflows ?? [];
+});
+
+ipcMain.handle("runs:list", async (_event, limit: number) => {
+  const response = await unary<{ runs?: unknown[] }>((callback) => client().listRuns({ limit }, callback));
+
+  return response.runs ?? [];
+});
+
+ipcMain.handle("runs:log", (_event, runId: string) => unary((callback) => client().runLog({ runId }, callback)));
+
+ipcMain.handle("workflow:run", (event, request: RunWorkflowRequest, eventChannel: string) => {
+  return new Promise<{ exitCode: number }>((resolveResult, reject) => {
+    const stream = client().runWorkflow(request);
+    let exitCode = 0;
+
+    stream.on("data", (workflowEvent: WorkflowEvent) => {
+      if (workflowEvent.type === "run_failed") {
+        exitCode = 1;
+      }
+
+      event.sender.send(eventChannel, workflowEvent);
+    });
+
+    stream.on("error", reject);
+    stream.on("end", () => resolveResult({ exitCode }));
   });
-
-  return { exitCode: result.exitCode };
 });
 
 function goCommand() {
@@ -75,82 +111,79 @@ function goCommand() {
   return { command: "go", args: ["run", "./cmd"] };
 }
 
-async function runJSON(args: string[]) {
-  const result = await runBuffered(args);
-
-  if (result.exitCode !== 0) {
-    throw new Error(result.stderr || `mac-os exited with ${result.exitCode}`);
+async function startWorkflowBridge() {
+  if (bridgeClient) {
+    return;
   }
 
-  return JSON.parse(result.stdout || "null");
-}
-
-function runBuffered(args: string[], input?: string) {
-  return new Promise<{ stdout: string; stderr: string; exitCode: number }>((resolveResult, reject) => {
-    const child = spawnMacOS(args);
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString("utf8");
-    });
-
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString("utf8");
-    });
-
-    child.on("error", reject);
-    child.on("close", (exitCode) => resolveResult({ stdout, stderr, exitCode: exitCode ?? 1 }));
-
-    if (input) {
-      child.stdin.end(input);
-    } else {
-      child.stdin.end();
-    }
-  });
-}
-
-function runStreaming(args: string[], input: string, onLine: (line: string) => void) {
-  return new Promise<{ stderr: string; exitCode: number }>((resolveResult, reject) => {
-    const child = spawnMacOS(args);
-    let stderr = "";
-    let pending = "";
-
-    child.stdout.on("data", (chunk: Buffer) => {
-      pending += chunk.toString("utf8");
-      const lines = pending.split("\n");
-      pending = lines.pop() ?? "";
-
-      for (const line of lines) {
-        if (line.trim() !== "") {
-          onLine(line);
-        }
-      }
-    });
-
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString("utf8");
-    });
-
-    child.on("error", reject);
-    child.on("close", (exitCode) => {
-      if (pending.trim() !== "") {
-        onLine(pending);
-      }
-
-      resolveResult({ stderr, exitCode: exitCode ?? 1 });
-    });
-
-    child.stdin.end(input);
-  });
-}
-
-function spawnMacOS(args: string[]) {
   const command = goCommand();
+  bridgeSocketPath = join(tmpdir(), `mac-os-${process.pid}-${Date.now()}.sock`);
 
-  return spawn(command.command, [...command.args, ...args], {
+  const child = spawn(command.command, [...command.args, "serve-grpc", "--socket", bridgeSocketPath], {
     cwd: macbookDir,
     env: process.env,
-    stdio: ["pipe", "pipe", "pipe"],
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  bridgeProcess = child;
+
+  let stderr = "";
+
+  child.stderr?.on("data", (chunk: Buffer) => {
+    stderr += chunk.toString("utf8");
+  });
+
+  child.on("exit", (code, signal) => {
+    if (bridgeClient) {
+      console.error(`mac-os gRPC bridge exited with ${code ?? signal ?? "unknown status"}`);
+    }
+
+    bridgeClient?.close();
+    bridgeClient = null;
+    bridgeProcess = null;
+  });
+
+  const grpcClient = createWorkflowBridgeClient(unixTarget(bridgeSocketPath));
+
+  try {
+    await waitForReady(grpcClient);
+    bridgeClient = grpcClient;
+  } catch (error) {
+    grpcClient.close();
+    child.kill();
+    throw new Error(stderr || (error instanceof Error ? error.message : String(error)));
+  }
+}
+
+function stopWorkflowBridge() {
+  bridgeClient?.close();
+  bridgeClient = null;
+
+  bridgeProcess?.kill();
+  bridgeProcess = null;
+
+  if (bridgeSocketPath) {
+    rmSync(bridgeSocketPath, { force: true });
+    bridgeSocketPath = "";
+  }
+}
+
+function client() {
+  if (!bridgeClient) {
+    throw new Error("mac-os gRPC bridge is not running");
+  }
+
+  return bridgeClient;
+}
+
+function unary<T>(call: (callback: (error: Error | null, response: T) => void) => void) {
+  return new Promise<T>((resolveResult, reject) => {
+    call((error, response) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolveResult(response);
+    });
   });
 }

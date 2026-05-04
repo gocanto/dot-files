@@ -33,6 +33,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge, type BadgeVariants } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import OutputBlock from "@/components/OutputBlock.vue";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -814,7 +815,7 @@ function initials(value: string) {
                   <section>
                     <h2 class="mb-2 text-sm font-semibold">Output</h2>
                     <ScrollArea class="h-72 rounded-lg border bg-primary text-primary-foreground">
-                      <pre class="min-h-full whitespace-pre-wrap p-4 text-xs leading-5">{{ outputText || "No workflow output yet." }}</pre>
+                      <OutputBlock :code="outputText" empty-text="No workflow output yet." class="text-xs leading-5" />
                     </ScrollArea>
                   </section>
                 </div>
@@ -860,7 +861,7 @@ function initials(value: string) {
                 </div>
                 <Separator />
                 <ScrollArea class="min-h-0 flex-1">
-                  <pre class="whitespace-pre-wrap p-4 text-sm leading-6">{{ selectedRunOutput || "No log output recorded." }}</pre>
+                  <OutputBlock :code="selectedRunOutput" empty-text="No log output recorded." class="text-sm leading-6" />
                 </ScrollArea>
                 <Separator />
                 <div class="p-4">

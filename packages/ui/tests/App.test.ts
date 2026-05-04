@@ -77,6 +77,12 @@ function findDocumentButton(text: string) {
   return [...document.body.querySelectorAll("button")].find((button) => button.textContent?.includes(text));
 }
 
+async function flushOutputHighlighting() {
+  await flushPromises();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await flushPromises();
+}
+
 describe("App", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -128,12 +134,13 @@ describe("App", () => {
 
     await wrapper.findAll("button").find((button) => button.text().includes("Run now"))?.trigger("click");
     findDocumentButton("Continue")?.click();
-    await flushPromises();
+    await flushOutputHighlighting();
 
     expect(api.runWorkflow).toHaveBeenCalledWith(
       { workflowId: "check-setup", confirmationOptionId: "run-now", enabledPhaseIds: ["run-health-checks"] },
       expect.any(Function),
     );
+    expect(wrapper.text()).toContain("healthy");
     expect(wrapper.text()).toContain("completed");
   });
 
@@ -149,6 +156,37 @@ describe("App", () => {
     await flushPromises();
 
     expect(api.runLog).toHaveBeenCalledWith("run-1");
+    expect(wrapper.text()).toContain("ok");
     expect(wrapper.text()).toContain("live");
+  });
+
+  it("renders ANSI persisted log output without raw escape codes", async () => {
+    installApi({
+      runLog: vi.fn().mockResolvedValue({
+        run: {
+          id: "run-1",
+          workflowId: "check-setup",
+          workflowName: "Check Setup",
+          confirmationOptionId: "run-now",
+          confirmationOptionLabel: "Run now",
+          mode: "live",
+          status: "completed",
+          startedAt: "2026-05-04T00:00:00Z",
+        },
+        events: [{ id: 1, runId: "run-1", seq: 1, type: "phase_output", message: "\u001B[31mred output\u001B[0m", createdAt: "2026-05-04T00:00:00Z" }],
+      }),
+    });
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper.findAll("button").find((button) => button.text().includes("Logs"))?.trigger("click");
+    await flushPromises();
+    await wrapper.findAll("button").find((button) => button.text().includes("Check Setup"))?.trigger("click");
+    await flushOutputHighlighting();
+
+    expect(wrapper.text()).toContain("red output");
+    expect(wrapper.text()).not.toContain("\u001B");
+    expect(wrapper.html()).toContain("shiki");
   });
 });
