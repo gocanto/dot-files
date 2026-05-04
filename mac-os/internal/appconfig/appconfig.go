@@ -16,12 +16,12 @@ type Config struct {
 
 type ManagedApp struct {
 	Name              string       `mapstructure:"name" yaml:"name"`
-	BundleID          string       `mapstructure:"bundle_id" yaml:"bundle_id"`
+	BundleID          string       `mapstructure:"bundle_id" yaml:"bundle_id,omitempty"`
 	InstallMethod     string       `mapstructure:"install_method" yaml:"install_method"`
-	Package           string       `mapstructure:"package" yaml:"package"`
+	Package           string       `mapstructure:"package" yaml:"package,omitempty"`
 	ConfigMode        string       `mapstructure:"config_mode" yaml:"config_mode"`
-	ConfigPaths       []ConfigPath `mapstructure:"config_paths" yaml:"config_paths"`
-	OnePasswordFields []string     `mapstructure:"onepassword_fields" yaml:"onepassword_fields"`
+	ConfigPaths       []ConfigPath `mapstructure:"config_paths" yaml:"config_paths,omitempty"`
+	OnePasswordFields []string     `mapstructure:"onepassword_fields" yaml:"onepassword_fields,omitempty"`
 }
 
 type ConfigPath struct {

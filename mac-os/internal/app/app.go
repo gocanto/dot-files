@@ -23,14 +23,15 @@ type app struct {
 }
 
 type options struct {
-	dryRun      bool
-	encrypt     bool
-	apps        bool
-	archiveRoot string
-	archivePath string
-	configPath  string
-	opVault     string
-	opItem      string
+	dryRun        bool
+	encrypt       bool
+	apps          bool
+	archiveRoot   string
+	archivePath   string
+	configPath    string
+	generatedPath string
+	opVault       string
+	opItem        string
 }
 
 const (

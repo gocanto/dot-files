@@ -13,10 +13,12 @@ import (
 )
 
 type Options struct {
-	DryRun      bool
-	Apps        bool
-	ArchivePath string
-	ConfigPath  string
+	DryRun        bool
+	Apps          bool
+	ArchivePath   string
+	ConfigPath    string
+	GeneratedPath string
+	AppRoots      []string
 }
 
 type Service struct {

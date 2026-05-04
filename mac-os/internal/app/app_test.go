@@ -67,6 +67,7 @@ func TestTUIWorkflowsUsePlainMenuLabels(t *testing.T) {
 		"Set Up This Mac",
 		"Save App Settings Snapshot",
 		"Restore App Settings",
+		"Update Installed App List",
 		"Apply macOS Settings",
 		"Check Setup",
 		"Show Homebrew Packages",
@@ -244,6 +245,37 @@ func TestHelpOnlyShowsTUIUsage(t *testing.T) {
 		if strings.Contains(output, old) {
 			t.Fatalf("help output = %s, did not expect old command %q", output, old)
 		}
+	}
+}
+
+func TestUpdateInstalledAppListWorkflowUsesPreviewCandidate(t *testing.T) {
+	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
+	workflows := a.tuiWorkflows()
+
+	var workflow *tui.Workflow
+
+	for i := range workflows {
+		if workflows[i].Name == "Update Installed App List" {
+			workflow = &workflows[i]
+
+			break
+		}
+	}
+
+	if workflow == nil {
+		t.Fatalf("missing Update Installed App List workflow: %#v", workflows)
+	}
+
+	if workflow.Confirmation == nil || len(workflow.Confirmation.Options) < 2 {
+		t.Fatalf("workflow confirmation = %#v", workflow.Confirmation)
+	}
+
+	if workflow.Confirmation.Options[0].Phases[0].Name != "Generate installed app list candidate" {
+		t.Fatalf("preview phases = %#v", workflow.Confirmation.Options[0].Phases)
+	}
+
+	if workflow.Confirmation.Options[1].Phases[0].Name != "Generate installed app list candidate" {
+		t.Fatalf("run phases = %#v", workflow.Confirmation.Options[1].Phases)
 	}
 }
 

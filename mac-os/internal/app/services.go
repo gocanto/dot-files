@@ -144,6 +144,10 @@ func (a app) restoreAppConfigs(opts options) error {
 	return a.apps().RestoreConfigs(apps.Options{DryRun: opts.dryRun, Apps: opts.apps, ArchivePath: opts.archivePath, ConfigPath: opts.configPath})
 }
 
+func (a app) updateInstalledAppList(opts options) error {
+	return a.apps().GenerateInstalledList(apps.Options{DryRun: opts.dryRun, ConfigPath: opts.configPath, GeneratedPath: opts.generatedPath})
+}
+
 func (a app) runDoctor(options) error {
 	return doctor.Service{GOOS: a.goos, GOARCH: a.goarch, Home: a.home, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}.Run(defaultOPVault, defaultOPItem)
 }

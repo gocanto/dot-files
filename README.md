@@ -117,6 +117,7 @@ can change files or settings offer `Preview only` before `Run now`.
 | `Set Up This Mac` | One-pass restore path for a new machine. |
 | `Save App Settings Snapshot` | Captures supported app settings for review or later restore. |
 | `Restore App Settings` | Restores allowlisted app settings from a private archive. |
+| `Update Installed App List` | Scans installed apps and writes `mac-os/apps.generated.yaml` for review. |
 | `Apply macOS Settings` | Applies curated macOS defaults. |
 | `Check Setup` | Verifies prerequisites and developer tools. |
 | `Show Homebrew Packages` | Prints the generated Homebrew package plan. |
@@ -146,6 +147,9 @@ restored locally from 1Password.
 ## App Restore Policy
 
 `mac-os/apps.yaml` is the source of truth for app install and restore behavior.
+The `Update Installed App List` workflow never rewrites that file directly. It
+scans installed GUI apps, Homebrew casks, and Mac App Store apps, then writes a
+review candidate to `mac-os/apps.generated.yaml`.
 
 ### Install Methods
 

@@ -30,6 +30,8 @@ func (a app) tuiWorkflows() []tui.Workflow {
 	factoryDryRunOpts := options{dryRun: true, apps: true, opVault: defaultOPVault, opItem: defaultOPItem}
 	appDryRunOpts := options{dryRun: true, apps: true}
 	appLiveOpts := options{apps: true}
+	updateAppsDryRunOpts := options{dryRun: true}
+	updateAppsOpts := options{}
 	captureDryRunOpts := options{dryRun: true, apps: true, opVault: defaultOPVault, opItem: defaultOPItem}
 	captureOpts := options{apps: true, opVault: defaultOPVault, opItem: defaultOPItem}
 
@@ -63,6 +65,18 @@ func (a app) tuiWorkflows() []tui.Workflow {
 				"Restore supported app settings from a prior snapshot. Preview shows the restore plan without changing app files.",
 				restoreAppSettingsPhases(a, appDryRunOpts),
 				restoreAppSettingsPhases(a, appLiveOpts),
+			),
+		},
+		{
+			Name:        "Update Installed App List",
+			Description: "Scan installed apps and write a reviewable apps.generated.yaml candidate without changing the tracked apps.yaml source of truth.",
+			ChangesMac:  "Writes a generated file",
+			Phases:      updateInstalledAppListPhases(a, updateAppsDryRunOpts),
+			Confirmation: workflowConfirmation(
+				"Update Installed App List",
+				"Scan GUI apps, Homebrew casks, and Mac App Store apps. Preview prints the merge summary; run now writes apps.generated.yaml for review.",
+				updateInstalledAppListPhases(a, updateAppsDryRunOpts),
+				updateInstalledAppListPhases(a, updateAppsOpts),
 			),
 		},
 		{
@@ -100,6 +114,10 @@ func capturePhases(a app, opts options) []tui.Phase {
 
 func restoreAppSettingsPhases(a app, opts options) []tui.Phase {
 	return []tui.Phase{{Name: "Restore supported app settings", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).restoreAppConfigs(opts) }}}
+}
+
+func updateInstalledAppListPhases(a app, opts options) []tui.Phase {
+	return []tui.Phase{{Name: "Generate installed app list candidate", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).updateInstalledAppList(opts) }}}
 }
 
 func macOSSettingsPhases(a app, opts options) []tui.Phase {
