@@ -5,9 +5,10 @@
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
+    "check:typescript": "! rg --files src electron | rg '\\.(js|jsx|mjs|cjs)$'",
     "dev": "vite --host 127.0.0.1",
-    "build": "vue-tsc --noEmit && vite build && tsc -p tsconfig.electron.json",
-    "test": "vitest run",
+    "build": "pnpm run check:typescript && vue-tsc --noEmit && vite build && tsc -p tsconfig.electron.json && vite build --config vite.electron.config.ts",
+    "test": "pnpm run check:typescript && vitest run",
     "start": "electron dist-electron/main.js",
     "format": "prettier --write ."
   },
@@ -27,6 +28,7 @@
     "@vue/test-utils": "2.4.10",
     "electron-builder": "26.8.1",
     "happy-dom": "^20.0.11",
+    "portless": "0.12.0",
     "typescript": "^5.9.3",
     "vite": "8.0.10",
     "vitest": "4.1.5",

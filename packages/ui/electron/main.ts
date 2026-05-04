@@ -23,7 +23,7 @@ function createWindow() {
     minHeight: 700,
     title: "Mac OS Manager",
     webPreferences: {
-      preload: join(__dirname, "preload.js"),
+      preload: join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
     },

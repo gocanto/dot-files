@@ -4,7 +4,7 @@
 > macOS settings, and private recovery metadata without committing secrets.
 
 This repository is the path back to a working Mac when I rebuild, replace, or
-erase a machine. It keeps the setup I care about in one place so the restore is
+erase a machine. It keeps the setup I care about in one place, so the restore is
 based on deliberate policy instead of memory, scattered notes, or whatever
 happens to still exist on the old laptop.
 
@@ -16,14 +16,14 @@ are deliberately excluded from the repo and from automatic replay.
 
 ## Quick Links
 
-| Need | Start here |
-| --- | --- |
-| Set up a fresh Mac | [`./setup.sh`](#fresh-mac-setup) |
-| Run the desktop interface | [Using The Electron UI](#using-the-electron-ui) |
-| Understand what gets installed | [App Restore Policy](#app-restore-policy) |
-| Restore private settings | [Private Archives](#private-archives) |
-| Work on the tool | [Developer Notes](#developer-notes) |
-| Know what is intentionally skipped | [Safety Rules](#safety-rules) |
+| Need                               | Start here                                      |
+|------------------------------------|-------------------------------------------------|
+| Set up a fresh Mac                 | [`./setup.sh`](#fresh-mac-setup)                |
+| Run the desktop interface          | [Using The Electron UI](#using-the-electron-ui) |
+| Understand what gets installed     | [App Restore Policy](#app-restore-policy)       |
+| Restore private settings           | [Private Archives](#private-archives)           |
+| Work on the tool                   | [Developer Notes](#developer-notes)             |
+| Know what is intentionally skipped | [Safety Rules](#safety-rules)                   |
 
 ## What This Repo Does
 
@@ -44,7 +44,7 @@ are deliberately excluded from the repo and from automatic replay.
 > [!IMPORTANT]
 > This is not a full Mac backup. It does not clone every app, account, browser
 > profile, keychain, database, container, cache, or private credential. Use a
-> real backup strategy for personal files and app data that must be preserved
+> real backup strategy for personnel files and app data that must be preserved
 > exactly.
 
 ## Fresh Mac Setup
@@ -57,13 +57,13 @@ Start from the repository root.
 
 ### Requirements
 
-| Requirement | Why it matters |
-| --- | --- |
-| macOS | The setup flow applies Mac-specific tools and defaults. |
-| Network access | Homebrew, GitHub, 1Password, and package installs need it. |
-| Administrator access | The bootstrap validates `sudo` and may install system tooling. |
+| Requirement                      | Why it matters                                                                |
+|----------------------------------|-------------------------------------------------------------------------------|
+| macOS                            | The setup flow applies Mac-specific tools and defaults.                       |
+| Network access                   | Homebrew, GitHub, 1Password, and package installs need it.                    |
+| Administrator access             | The bootstrap validates `sudo` and may install system tooling.                |
 | Xcode Command Line Tools prompts | Apple installer and license prompts must be completed before setup continues. |
-| 1Password access | Private fields and archive metadata are restored from the configured vault. |
+| 1Password access                 | Private fields and archive metadata are restored from the configured vault.   |
 
 The script checks macOS, installs or enables Xcode Command Line Tools, installs
 Homebrew and Git when missing, confirms it is running from the canonical git
@@ -100,12 +100,12 @@ go run ./macbook/cmd ui workflows
 
 ### Command Bridge
 
-| Command | Purpose |
-| --- | --- |
-| `mac-os ui workflows` | Prints workflow metadata as JSON. |
-| `mac-os ui run` | Runs a workflow from a JSON request on stdin and streams NDJSON events. |
-| `mac-os ui runs` | Lists persisted workflow runs from SQLite. |
-| `mac-os ui run-log --run-id <id>` | Prints one persisted run and its events. |
+| Command                           | Purpose                                                                 |
+|-----------------------------------|-------------------------------------------------------------------------|
+| `mac-os ui workflows`             | Prints workflow metadata as JSON.                                       |
+| `mac-os ui run`                   | Runs a workflow from a JSON request on stdin and streams NDJSON events. |
+| `mac-os ui runs`                  | Lists persisted workflow runs from SQLite.                              |
+| `mac-os ui run-log --run-id <id>` | Prints one persisted run and its events.                                |
 
 Most workflows start with a confirmation screen that explains what will happen,
 whether the workflow changes the Mac, and which phases will run. Workflows that
@@ -113,16 +113,16 @@ can change files or settings offer `Preview only` before `Run now`.
 
 ### Workflows
 
-| Workflow | Purpose |
-| --- | --- |
-| `Set Up This Mac` | One-pass restore path for a new machine. |
-| `Update This Mac` | Updates the current host from tracked repo policy and the latest local app settings snapshot. |
-| `Save App Settings Snapshot` | Captures supported app settings for review or later restore. |
-| `Restore App Settings` | Restores allowlisted app settings from a private archive. |
-| `Update Installed App List` | Scans installed apps and writes `macbook/apps.generated.yaml` for review. |
-| `Apply macOS Settings` | Applies curated macOS defaults. |
-| `Check Setup` | Verifies prerequisites and developer tools. |
-| `Show Homebrew Packages` | Prints the generated Homebrew package plan. |
+| Workflow                     | Purpose                                                                                       |
+|------------------------------|-----------------------------------------------------------------------------------------------|
+| `Set Up This Mac`            | One-pass restore path for a new machine.                                                      |
+| `Update This Mac`            | Updates the current host from tracked repo policy and the latest local app settings snapshot. |
+| `Save App Settings Snapshot` | Captures supported app settings for review or later restore.                                  |
+| `Restore App Settings`       | Restores allowlisted app settings from a private archive.                                     |
+| `Update Installed App List`  | Scans installed apps and writes `macbook/apps.generated.yaml` for review.                     |
+| `Apply macOS Settings`       | Applies curated macOS defaults.                                                               |
+| `Check Setup`                | Verifies prerequisites and developer tools.                                                   |
+| `Show Homebrew Packages`     | Prints the generated Homebrew package plan.                                                   |
 
 `Set Up This Mac` installs prerequisites, Homebrew packages, GitHub access and
 signing keys, App Store apps, private secrets from 1Password, safe dotfiles via
@@ -144,7 +144,7 @@ Tracked dotfiles live under `macbook/stow`. The setup workflow links safe shell,
 Git, and Vim configuration into `$HOME` with Stow.
 
 Before linking, the Stow phase scans `$HOME` for existing symlinks that point
-into a different stow tree, such as an old run from `~/Downloads/dot-files-main`.
+into a different stowed tree, such as an old run from `~/Downloads/dot-files-main`.
 It refuses to continue until those links are removed. This avoids silent Stow
 skips and keeps the machine linked to the canonical checkout.
 
@@ -154,27 +154,27 @@ restored locally from 1Password.
 
 ## App Restore Policy
 
-`macbook/apps.yaml` is the source of truth for app install and restore behavior.
+`macbook/apps.yaml` is the source of truth for app install and restore behaviour.
 The `Update Installed App List` workflow never rewrites that file directly. It
 scans installed GUI apps, Homebrew casks, and Mac App Store apps, then writes a
 review candidate to `macbook/apps.generated.yaml`.
 
 ### Install Methods
 
-| Method | Behavior |
-| --- | --- |
-| `brew` | Installed by the generated Homebrew plan. |
-| `mas` | Installed with the Mac App Store CLI. |
-| `manual` | Reported with download or restore notes. |
-| `system` | Expected to ship with macOS. |
+| Method   | Behavior                                  |
+|----------|-------------------------------------------|
+| `brew`   | Installed by the generated Homebrew plan. |
+| `mas`    | Installed with the Mac App Store CLI.     |
+| `manual` | Reported with download or restore notes.  |
+| `system` | Expected to ship with macOS.              |
 
 ### Config Modes
 
-| Mode | Behavior |
-| --- | --- |
-| `auto` | Allowlisted paths can be captured and restored automatically. |
-| `reference` | Paths are captured for review but not replayed. |
-| `manual` | Restore depends on app sync, login, export/import, or manual notes. |
+| Mode        | Behavior                                                            |
+|-------------|---------------------------------------------------------------------|
+| `auto`      | Allowlisted paths can be captured and restored automatically.       |
+| `reference` | Paths are captured for review but not replayed.                     |
+| `manual`    | Restore depends on app sync, login, export/import, or manual notes. |
 
 Even when a directory is allowlisted, the capture flow skips secrets, sessions,
 browser profiles, keychains, SSH and GPG private keys, database data, Docker VM
@@ -207,18 +207,18 @@ Item:  Mac Migration Archive
 
 ### Expected 1Password Fields
 
-| Field | Contents |
-| --- | --- |
-| `archive_age_identity` | Concealed Age private identity. |
-| `archive_age_recipient` | Age public recipient. |
-| `archive_root` | Directory for encrypted archives. |
-| `gitconfig_plaintext` | Concealed private `~/.config/git/private.gitconfig` contents. |
-| `allowed_signers_plaintext` | Concealed `~/.ssh/allowed_signers` contents. |
-| `github_username` | GitHub username. |
-| `github_email` | Git commit/GitHub email. |
-| `git_author_name` | Git commit author name. |
-| `latest_archive` | Last encrypted archive path, updated by capture. |
-| `restore_notes` | Short manual restore notes. |
+| Field                       | Contents                                                      |
+|-----------------------------|---------------------------------------------------------------|
+| `archive_age_identity`      | Concealed Age private identity.                               |
+| `archive_age_recipient`     | Age public recipient.                                         |
+| `archive_root`              | Directory for encrypted archives.                             |
+| `gitconfig_plaintext`       | Concealed private `~/.config/git/private.gitconfig` contents. |
+| `allowed_signers_plaintext` | Concealed `~/.ssh/allowed_signers` contents.                  |
+| `github_username`           | GitHub username.                                              |
+| `github_email`              | Git commit/GitHub email.                                      |
+| `git_author_name`           | Git commit author name.                                       |
+| `latest_archive`            | Last encrypted archive path, updated by capture.              |
+| `restore_notes`             | Short manual restore notes.                                   |
 
 Create the Age identity once:
 
@@ -250,7 +250,7 @@ private keys are never committed and are not stored in 1Password by this repo.
 ## macOS Defaults
 
 The setup flow applies curated macOS defaults, but it does not raw-replay every
-exported defaults domain. Full defaults exports can contain private values such
+exported default domain. Full default exports can contain private values such
 as text replacements, addresses, account state, and machine-specific
 identifiers, so broad defaults captures are kept as reference material instead
 of blindly replayed.

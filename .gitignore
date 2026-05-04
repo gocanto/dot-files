@@ -2,6 +2,7 @@
 *.log
 node_modules/
 .turbo/
+.idea/
 
 # Private migration artifacts should stay outside git.
 *.tar.gz
