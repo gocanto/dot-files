@@ -47,8 +47,8 @@ watchEffect((onCleanup) => {
 
 <style scoped>
 .output-block {
-  background: #121212;
-  color: #dbd7caee;
+  background: var(--card);
+  color: var(--card-foreground);
 }
 
 .output-block :deep(pre.shiki) {

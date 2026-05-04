@@ -21,6 +21,12 @@ importers:
       '@dot-files/bridge':
         specifier: workspace:*
         version: link:../bridge
+      '@fontsource-variable/jetbrains-mono':
+        specifier: ^5.2.7
+        version: 5.2.8
+      '@fontsource/inter':
+        specifier: ^5.2.7
+        version: 5.2.8
       '@radix-icons/vue':
         specifier: ^1.0.0
         version: 1.0.0(vue@3.5.33(typescript@5.9.3))
@@ -181,6 +187,12 @@ packages:
 
   '@floating-ui/vue@1.1.11':
     resolution: {integrity: sha512-HzHKCNVxnGS35r9fCHBc3+uCnjw9IWIlCPL683cGgM9Kgj2BiAl8x1mS7vtvP6F9S/e/q4O6MApwSHj8hNLGfw==}
+
+  '@fontsource-variable/jetbrains-mono@5.2.8':
+    resolution: {integrity: sha512-WBA9elru6Jdp5df2mES55wuOO0WIrn3kpXnI4+W2ek5u3ZgLS9XS4gmIlcQhiZOWEKl95meYdvK7xI+ETLCq/Q==}
+
+  '@fontsource/inter@5.2.8':
+    resolution: {integrity: sha512-P6r5WnJoKiNVV+zvW2xM13gNdFhAEpQ9dQJHt3naLvfg+LkF2ldgSLiF4T41lf1SQCM9QmkqPTn4TH568IRagg==}
 
   '@internationalized/date@3.12.1':
     resolution: {integrity: sha512-6IedsVWXyq4P9Tj+TxuU8WGWM70hYLl12nbYU8jkikVpa6WXapFazPUcHUMDMoWftIDE2ILDkFFte6W2nFCkRQ==}
@@ -2319,6 +2331,10 @@ snapshots:
     transitivePeerDependencies:
       - '@vue/composition-api'
       - vue
+
+  '@fontsource-variable/jetbrains-mono@5.2.8': {}
+
+  '@fontsource/inter@5.2.8': {}
 
   '@internationalized/date@3.12.1':
     dependencies:

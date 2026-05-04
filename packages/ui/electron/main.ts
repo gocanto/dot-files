@@ -32,6 +32,9 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 800,
     title: "Mac OS Manager",
+    vibrancy: "sidebar",
+    visualEffectState: "active",
+    backgroundColor: "#00000000",
     webPreferences: {
       preload: join(__dirname, "preload.cjs"),
       contextIsolation: true,
