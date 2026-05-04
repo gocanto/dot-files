@@ -94,6 +94,34 @@ func TestGRPCRunPersistsEventsAndRunLog(t *testing.T) {
 	}
 }
 
+func TestGRPCSettingsValidation(t *testing.T) {
+	home := t.TempDir()
+	repo := writeSettingsRepo(t)
+	server := workflowBridgeServer{app: newApp(home, repo, strings.NewReader(""), io.Discard, io.Discard, stubRunner{})}
+
+	response, err := server.GetSettings(context.Background(), &bridgepb.GetSettingsRequest{})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !response.GetValid() || response.GetSettings().GetRepoRoot() != repo {
+		t.Fatalf("settings response = %#v", response)
+	}
+
+	validation, err := server.ValidateSettings(context.Background(), &bridgepb.ValidateSettingsRequest{
+		Settings: &bridgepb.RuntimeSettings{RepoRoot: filepath.Join(home, "missing")},
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if validation.GetValid() {
+		t.Fatalf("expected invalid settings, got %#v", validation)
+	}
+}
+
 func firstStreamRunID(t *testing.T, events []*bridgepb.WorkflowEvent) string {
 	t.Helper()
 

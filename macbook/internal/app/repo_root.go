@@ -1,24 +1,46 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func findRepoRoot(start string) string {
+	root, err := resolveRepoRoot(start, "")
+
+	if err != nil {
+		return start
+	}
+
+	return root
+}
+
+func resolveRepoRoot(start, explicit string) (string, error) {
+	if strings.TrimSpace(explicit) != "" {
+		root, err := validateRepoRoot(explicit)
+
+		if err != nil {
+			return root, err
+		}
+
+		return root, nil
+	}
+
 	if root, ok := walkForRepoRoot(start); ok {
-		return root
+		return root, nil
 	}
 
 	exe, err := os.Executable()
 
 	if err == nil {
 		if root, ok := walkForRepoRoot(filepath.Dir(exe)); ok {
-			return root
+			return root, nil
 		}
 	}
 
-	return start
+	return start, fmt.Errorf("could not find repo root from %s", start)
 }
 
 func walkForRepoRoot(start string) (string, bool) {

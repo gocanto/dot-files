@@ -1,6 +1,8 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, type OpenDialogOptions, type SaveDialogOptions } from "electron";
 import {
   createWorkflowBridgeClient,
+  type RuntimeSettings,
+  type SettingsResponse,
   unixTarget,
   waitForReady,
   type RunWorkflowRequest,
@@ -8,7 +10,7 @@ import {
   type WorkflowEvent,
 } from "@dot-files/bridge";
 import { type ChildProcess, spawn } from "node:child_process";
-import { rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,6 +23,7 @@ let mainWindow: BrowserWindow | null = null;
 let bridgeClient: WorkflowBridgeClient | null = null;
 let bridgeProcess: ChildProcess | null = null;
 let bridgeSocketPath = "";
+let savedSettings: Partial<RuntimeSettings> = {};
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -47,7 +50,11 @@ function createWindow() {
 }
 
 app.whenReady().then(() =>
-  startWorkflowBridge()
+  Promise.resolve()
+    .then(() => {
+      savedSettings = readSavedSettings();
+    })
+    .then(startWorkflowBridge)
     .then(createWindow)
     .catch((error: unknown) => {
       console.error(error);
@@ -82,6 +89,44 @@ ipcMain.handle("runs:list", async (_event, limit: number) => {
 });
 
 ipcMain.handle("runs:log", (_event, runId: string) => unary((callback) => client().runLog({ runId }, callback)));
+
+ipcMain.handle("settings:get", async () => unary<SettingsResponse>((callback) => client().getSettings({}, callback)));
+
+ipcMain.handle("settings:validate", async (_event, settings: RuntimeSettings) =>
+  unary<SettingsResponse>((callback) => client().validateSettings({ settings }, callback)),
+);
+
+ipcMain.handle("settings:save", async (_event, settings: RuntimeSettings) => saveSettings(settings));
+
+ipcMain.handle("settings:choose-directory", async (_event, defaultPath?: string) => {
+  const options: OpenDialogOptions = {
+    defaultPath,
+    properties: ["openDirectory", "createDirectory"],
+  };
+  const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
+
+  return result.canceled ? null : result.filePaths[0] ?? null;
+});
+
+ipcMain.handle("settings:choose-file", async (_event, defaultPath?: string) => {
+  const options: OpenDialogOptions = {
+    defaultPath,
+    properties: ["openFile"],
+  };
+  const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
+
+  return result.canceled ? null : result.filePaths[0] ?? null;
+});
+
+ipcMain.handle("settings:choose-save-file", async (_event, defaultPath?: string) => {
+  const options: SaveDialogOptions = {
+    defaultPath,
+    properties: ["createDirectory", "showOverwriteConfirmation"],
+  };
+  const result = mainWindow ? await dialog.showSaveDialog(mainWindow, options) : await dialog.showSaveDialog(options);
+
+  return result.canceled ? null : result.filePath ?? null;
+});
 
 ipcMain.handle("workflow:run", (event, request: RunWorkflowRequest, eventChannel: string) => {
   return new Promise<{ exitCode: number }>((resolveResult, reject) => {
@@ -119,7 +164,7 @@ async function startWorkflowBridge() {
   const command = goCommand();
   bridgeSocketPath = join(tmpdir(), `mac-os-${process.pid}-${Date.now()}.sock`);
 
-  const child = spawn(command.command, [...command.args, "serve-grpc", "--socket", bridgeSocketPath], {
+  const child = spawn(command.command, [...command.args, "serve-grpc", "--socket", bridgeSocketPath, ...settingsArgs(savedSettings)], {
     cwd: macbookDir,
     env: process.env,
     stdio: ["ignore", "pipe", "pipe"],
@@ -186,4 +231,119 @@ function unary<T>(call: (callback: (error: Error | null, response: T) => void) =
       resolveResult(response);
     });
   });
+}
+
+async function saveSettings(settings: RuntimeSettings): Promise<SettingsResponse> {
+  const validation = await unary<SettingsResponse>((callback) => client().validateSettings({ settings }, callback));
+
+  if (!validation.valid || !validation.settings) {
+    return validation;
+  }
+
+  const current = await unary<SettingsResponse>((callback) => client().getSettings({}, callback));
+  const previousSettings = savedSettings;
+  const nextSettings = validation.settings;
+  let rollbackDatabaseMove = () => {};
+
+  stopWorkflowBridge();
+
+  try {
+    rollbackDatabaseMove = moveWorkflowDatabase(current.settings?.workflowDbPath, nextSettings.workflowDbPath);
+    savedSettings = nextSettings;
+    writeSavedSettings(nextSettings);
+    await startWorkflowBridge();
+
+    return unary<SettingsResponse>((callback) => client().getSettings({}, callback));
+  } catch (error) {
+    rollbackDatabaseMove();
+    savedSettings = previousSettings;
+    writeSavedSettings(previousSettings);
+    await startWorkflowBridge();
+    throw error;
+  }
+}
+
+function settingsPath() {
+  return join(app.getPath("userData"), "settings.json");
+}
+
+function readSavedSettings(): Partial<RuntimeSettings> {
+  try {
+    const data = JSON.parse(readFileSync(settingsPath(), "utf8")) as Partial<RuntimeSettings>;
+
+    return cleanSettings(data);
+  } catch {
+    return {};
+  }
+}
+
+function writeSavedSettings(settings: Partial<RuntimeSettings>) {
+  mkdirSync(dirname(settingsPath()), { recursive: true });
+  writeFileSync(settingsPath(), JSON.stringify(cleanSettings(settings), null, 2) + "\n", "utf8");
+}
+
+function cleanSettings(settings: Partial<RuntimeSettings>): Partial<RuntimeSettings> {
+  return {
+    repoRoot: settings.repoRoot ?? "",
+    appsConfigPath: settings.appsConfigPath ?? "",
+    secretsConfigPath: settings.secretsConfigPath ?? "",
+    generatedAppsPath: settings.generatedAppsPath ?? "",
+    archiveRoot: settings.archiveRoot ?? "",
+    workflowDbPath: settings.workflowDbPath ?? "",
+    opVault: settings.opVault ?? "",
+    opItem: settings.opItem ?? "",
+  };
+}
+
+function settingsArgs(settings: Partial<RuntimeSettings>) {
+  const args: string[] = [];
+  const pairs: Array<[string, string | undefined]> = [
+    ["--repo-root", settings.repoRoot],
+    ["--apps-config", settings.appsConfigPath],
+    ["--secrets-config", settings.secretsConfigPath],
+    ["--generated-apps", settings.generatedAppsPath],
+    ["--archive-root", settings.archiveRoot],
+    ["--workflow-db", settings.workflowDbPath],
+    ["--op-vault", settings.opVault],
+    ["--op-item", settings.opItem],
+  ];
+
+  for (const [flag, value] of pairs) {
+    if (value?.trim()) {
+      args.push(flag, value);
+    }
+  }
+
+  return args;
+}
+
+function moveWorkflowDatabase(fromPath?: string, toPath?: string) {
+  if (!fromPath || !toPath || fromPath === toPath) {
+    return () => {};
+  }
+
+  if (existsSync(toPath) && statSync(toPath).isDirectory()) {
+    throw new Error(`Workflow database path is a directory: ${toPath}`);
+  }
+
+  mkdirSync(dirname(toPath), { recursive: true });
+
+  if (!existsSync(fromPath)) {
+    return () => {};
+  }
+
+  if (existsSync(toPath)) {
+    throw new Error(`Workflow database already exists: ${toPath}`);
+  }
+
+  copyFileSync(fromPath, toPath);
+  unlinkSync(fromPath);
+
+  return () => {
+    if (existsSync(toPath) && !existsSync(fromPath)) {
+      mkdirSync(dirname(fromPath), { recursive: true });
+      copyFileSync(toPath, fromPath);
+      unlinkSync(toPath);
+    }
+  };
 }

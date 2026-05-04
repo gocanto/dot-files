@@ -144,14 +144,20 @@ func (a app) restoreAppConfigs(opts options) error {
 	archivePath := opts.archivePath
 
 	if opts.useLatestArchive && archivePath == "" {
-		latest, ok, err := archive.LatestLocalSnapshot(a.home)
+		archiveRoot := opts.archiveRoot
+
+		if archiveRoot == "" {
+			archiveRoot = archive.DefaultLocalRoot(a.home)
+		}
+
+		latest, ok, err := archive.LatestSnapshot(archiveRoot)
 
 		if err != nil {
 			return err
 		}
 
 		if !ok {
-			fmt.Fprintf(a.stdout, "skipped: no local app settings snapshot found under %s\n", archive.DefaultLocalRoot(a.home))
+			fmt.Fprintf(a.stdout, "skipped: no local app settings snapshot found under %s\n", archiveRoot)
 
 			return nil
 		}
@@ -168,7 +174,7 @@ func (a app) updateInstalledAppList(opts options) error {
 }
 
 func (a app) runDoctor(options) error {
-	return doctor.Service{GOOS: a.goos, GOARCH: a.goarch, Home: a.home, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}.Run(defaultOPVault, defaultOPItem)
+	return doctor.Service{GOOS: a.goos, GOARCH: a.goarch, Home: a.home, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}.Run(a.settings.OPVault, a.settings.OPItem, a.settings.SecretsConfigPath)
 }
 
 func (a app) openEraseAssistant(dryRun bool) error {
@@ -218,12 +224,13 @@ func (a app) apps() apps.Service {
 }
 
 func (a app) restorePrivateSecrets(opts options) error {
-	svc := secrets.Service{Repo: a.repo, Stdout: a.stdout, Runner: a.runner}
+	svc := secrets.Service{Home: a.home, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}
 
 	secretOpts := secrets.Options{
-		DryRun:  opts.dryRun,
-		OPVault: opts.opVault,
-		OPItem:  opts.opItem,
+		DryRun:      opts.dryRun,
+		SecretsPath: opts.secretsPath,
+		OPVault:     opts.opVault,
+		OPItem:      opts.opItem,
 	}
 
 	if opts.dryRun {

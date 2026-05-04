@@ -3,6 +3,7 @@
 node_modules/
 .turbo
 .idea/
+.playwright-mcp/
 
 # Private migration artifacts should stay outside git.
 *.tar.gz

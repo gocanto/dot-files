@@ -60,11 +60,42 @@ export interface RunLog {
   events: Array<RunEvent & { id: number; createdAt: string }>;
 }
 
+export interface RuntimeSettings {
+  repoRoot: string;
+  appsConfigPath: string;
+  secretsConfigPath: string;
+  generatedAppsPath: string;
+  archiveRoot: string;
+  workflowDbPath: string;
+  opVault: string;
+  opItem: string;
+}
+
+export interface SettingsCheck {
+  key: string;
+  label: string;
+  path: string;
+  status: string;
+  message: string;
+}
+
+export interface SettingsResponse {
+  settings: RuntimeSettings;
+  checks: SettingsCheck[];
+  valid: boolean;
+}
+
 export interface MacOSApi {
   workflows(): Promise<Workflow[]>;
   runWorkflow(request: RunRequest, onEvent: (event: RunEvent) => void): Promise<{ exitCode: number }>;
   runs(limit?: number): Promise<RunSummary[]>;
   runLog(runId: string): Promise<RunLog>;
+  settings(): Promise<SettingsResponse>;
+  validateSettings(settings: RuntimeSettings): Promise<SettingsResponse>;
+  saveSettings(settings: RuntimeSettings): Promise<SettingsResponse>;
+  chooseDirectory(defaultPath?: string): Promise<string | null>;
+  chooseFile(defaultPath?: string): Promise<string | null>;
+  chooseSaveFile(defaultPath?: string): Promise<string | null>;
 }
 
 declare global {

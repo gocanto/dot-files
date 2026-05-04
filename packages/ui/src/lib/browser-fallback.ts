@@ -1,4 +1,4 @@
-import type { MacOSApi, RunEvent, RunLog, RunSummary, Workflow } from "../types/api";
+import type { MacOSApi, RunEvent, RunLog, RunSummary, RuntimeSettings, SettingsResponse, Workflow } from "../types/api";
 
 const fallbackWorkflows: Workflow[] = [
   {
@@ -40,10 +40,41 @@ export function installBrowserFallback() {
   }
 
   const fallbackRuns: RunLog[] = [];
+  let fallbackSettings: RuntimeSettings = {
+    repoRoot: "/repo",
+    appsConfigPath: "/repo/apps.yaml",
+    secretsConfigPath: "/repo/secrets.yaml",
+    generatedAppsPath: "/repo/apps.generated.yaml",
+    archiveRoot: "/Users/local/.local/state/macos-settings-archives",
+    workflowDbPath: "/Users/local/Library/Application Support/mac-os/workflows.sqlite3",
+    opVault: "Private",
+    opItem: "Mac Migration Archive",
+  };
+
+  const settingsResponse = (settings: RuntimeSettings): SettingsResponse => ({
+    settings,
+    valid: true,
+    checks: [
+      { key: "repo_root", label: "Repository root", path: settings.repoRoot, status: "ok", message: "ok" },
+      { key: "apps_config_path", label: "Apps manifest", path: settings.appsConfigPath, status: "ok", message: "ok" },
+      { key: "secrets_config_path", label: "Secrets manifest", path: settings.secretsConfigPath, status: "ok", message: "ok" },
+      { key: "workflow_db_path", label: "Workflow SQLite database", path: settings.workflowDbPath, status: "ok", message: "ok" },
+    ],
+  });
 
   const api: MacOSApi = {
     workflows: async () => fallbackWorkflows,
     runs: async (limit = 25) => fallbackRuns.map((run) => run.run).slice(0, limit),
+    settings: async () => settingsResponse(fallbackSettings),
+    validateSettings: async (settings) => settingsResponse(settings),
+    saveSettings: async (settings) => {
+      fallbackSettings = settings;
+
+      return settingsResponse(fallbackSettings);
+    },
+    chooseDirectory: async (defaultPath) => defaultPath ?? fallbackSettings.repoRoot,
+    chooseFile: async (defaultPath) => defaultPath ?? fallbackSettings.appsConfigPath,
+    chooseSaveFile: async (defaultPath) => defaultPath ?? fallbackSettings.workflowDbPath,
     runLog: async (runId) => {
       const run = fallbackRuns.find((entry) => entry.run.id === runId);
 

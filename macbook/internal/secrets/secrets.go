@@ -33,6 +33,7 @@ type ManagedSecret struct {
 }
 
 type Service struct {
+	Home   string
 	Repo   string
 	Stdout io.Writer
 	Runner command.Runner
@@ -147,7 +148,15 @@ func (s Service) PlaintextPath(secret ManagedSecret) string {
 
 func (s Service) resolveSecretPath(path string) string {
 	if strings.HasPrefix(path, "~/") {
-		if home, err := os.UserHomeDir(); err == nil {
+		home := s.Home
+
+		if home == "" {
+			if userHome, err := os.UserHomeDir(); err == nil {
+				home = userHome
+			}
+		}
+
+		if home != "" {
 			return filepath.Join(home, strings.TrimPrefix(path, "~/"))
 		}
 	}

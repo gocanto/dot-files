@@ -41,17 +41,34 @@ func (a app) hostUpdatePhases(opts options) []workflowdomain.Phase {
 }
 
 func (a app) workflows() []workflowdomain.Workflow {
-	dryRunOpts := options{dryRun: true, opVault: defaultOPVault, opItem: defaultOPItem}
-	factoryOpts := options{apps: true, opVault: defaultOPVault, opItem: defaultOPItem}
-	factoryDryRunOpts := options{dryRun: true, apps: true, opVault: defaultOPVault, opItem: defaultOPItem}
-	hostUpdateOpts := options{apps: true, useLatestArchive: true, opVault: defaultOPVault, opItem: defaultOPItem}
-	hostUpdateDryRunOpts := options{dryRun: true, apps: true, useLatestArchive: true, opVault: defaultOPVault, opItem: defaultOPItem}
-	appDryRunOpts := options{dryRun: true, apps: true}
-	appLiveOpts := options{apps: true}
-	updateAppsDryRunOpts := options{dryRun: true}
-	updateAppsOpts := options{}
-	captureDryRunOpts := options{dryRun: true, apps: true, opVault: defaultOPVault, opItem: defaultOPItem}
-	captureOpts := options{apps: true, opVault: defaultOPVault, opItem: defaultOPItem}
+	baseOpts := options{
+		configPath:    a.settings.AppsConfigPath,
+		generatedPath: a.settings.GeneratedAppsPath,
+		secretsPath:   a.settings.SecretsConfigPath,
+		archiveRoot:   a.settings.ArchiveRoot,
+		opVault:       a.settings.OPVault,
+		opItem:        a.settings.OPItem,
+	}
+	dryRunOpts := baseOpts
+	dryRunOpts.dryRun = true
+	factoryOpts := baseOpts
+	factoryOpts.apps = true
+	factoryDryRunOpts := factoryOpts
+	factoryDryRunOpts.dryRun = true
+	hostUpdateOpts := factoryOpts
+	hostUpdateOpts.useLatestArchive = true
+	hostUpdateDryRunOpts := hostUpdateOpts
+	hostUpdateDryRunOpts.dryRun = true
+	appDryRunOpts := baseOpts
+	appDryRunOpts.dryRun = true
+	appDryRunOpts.apps = true
+	appLiveOpts := baseOpts
+	appLiveOpts.apps = true
+	updateAppsDryRunOpts := baseOpts
+	updateAppsDryRunOpts.dryRun = true
+	updateAppsOpts := baseOpts
+	captureDryRunOpts := factoryDryRunOpts
+	captureOpts := factoryOpts
 
 	return workflowdomain.Normalize([]workflowdomain.Workflow{
 		{

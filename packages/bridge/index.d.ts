@@ -64,6 +64,31 @@ export interface RunLog {
   events: WorkflowEvent[];
 }
 
+export interface RuntimeSettings {
+  repoRoot: string;
+  appsConfigPath: string;
+  secretsConfigPath: string;
+  generatedAppsPath: string;
+  archiveRoot: string;
+  workflowDbPath: string;
+  opVault: string;
+  opItem: string;
+}
+
+export interface SettingsCheck {
+  key: string;
+  label: string;
+  path: string;
+  status: string;
+  message: string;
+}
+
+export interface SettingsResponse {
+  settings?: RuntimeSettings;
+  checks: SettingsCheck[];
+  valid: boolean;
+}
+
 export interface WorkflowBridgeClient extends Client {
   listWorkflows(
     request: Record<string, never>,
@@ -72,6 +97,14 @@ export interface WorkflowBridgeClient extends Client {
   runWorkflow(request: RunWorkflowRequest): ClientReadableStream<WorkflowEvent>;
   listRuns(request: { limit: number }, callback: (error: ServiceError | null, response: { runs: RunSummary[] }) => void): void;
   runLog(request: { runId: string }, callback: (error: ServiceError | null, response: RunLog) => void): void;
+  getSettings(
+    request: Record<string, never>,
+    callback: (error: ServiceError | null, response: SettingsResponse) => void,
+  ): void;
+  validateSettings(
+    request: { settings: RuntimeSettings },
+    callback: (error: ServiceError | null, response: SettingsResponse) => void,
+  ): void;
 }
 
 export const workflowProtoPath: string;

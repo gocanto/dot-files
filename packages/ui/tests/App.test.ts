@@ -58,6 +58,36 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
       },
       events: [{ id: 1, runId: "run-1", seq: 1, type: "phase_output", message: "ok", createdAt: "2026-05-04T00:00:00Z" }],
     }),
+    settings: vi.fn().mockResolvedValue({
+      valid: true,
+      settings: {
+        repoRoot: "/repo",
+        appsConfigPath: "/repo/apps.yaml",
+        secretsConfigPath: "/repo/secrets.yaml",
+        generatedAppsPath: "/repo/apps.generated.yaml",
+        archiveRoot: "/Users/gus/.local/state/macos-settings-archives",
+        workflowDbPath: "/Users/gus/Library/Application Support/mac-os/workflows.sqlite3",
+        opVault: "Private",
+        opItem: "Mac Migration Archive",
+      },
+      checks: [
+        { key: "repo_root", label: "Repository root", path: "/repo", status: "ok", message: "ok" },
+        { key: "workflow_db_path", label: "Workflow SQLite database", path: "/Users/gus/Library/Application Support/mac-os/workflows.sqlite3", status: "ok", message: "ok" },
+      ],
+    }),
+    validateSettings: vi.fn().mockImplementation(async (settings) => ({
+      valid: true,
+      settings,
+      checks: [{ key: "repo_root", label: "Repository root", path: settings.repoRoot, status: "ok", message: "ok" }],
+    })),
+    saveSettings: vi.fn().mockImplementation(async (settings) => ({
+      valid: true,
+      settings,
+      checks: [{ key: "repo_root", label: "Repository root", path: settings.repoRoot, status: "ok", message: "ok" }],
+    })),
+    chooseDirectory: vi.fn().mockResolvedValue("/chosen"),
+    chooseFile: vi.fn().mockResolvedValue("/chosen/file.yaml"),
+    chooseSaveFile: vi.fn().mockResolvedValue("/chosen/workflows.sqlite3"),
     runWorkflow: vi.fn().mockImplementation(async (_request, onEvent: (event: RunEvent) => void) => {
       onEvent({ runId: "run-2", seq: 1, type: "phase_started", phaseId: "run-health-checks", phaseName: "Run health checks", status: "running" });
       onEvent({ runId: "run-2", seq: 2, type: "phase_output", phaseId: "run-health-checks", phaseName: "Run health checks", message: "healthy" });
@@ -188,5 +218,51 @@ describe("App", () => {
     expect(wrapper.text()).toContain("red output");
     expect(wrapper.text()).not.toContain("\u001B");
     expect(wrapper.html()).toContain("shiki");
+  });
+
+  it("renders settings and saves changed repo configuration", async () => {
+    const api = installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper.findAll("button").find((button) => button.text().includes("Settings"))?.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Workflow SQLite database");
+    await wrapper.find('[data-testid="settings-repo-root"]').setValue("/repo-next");
+    await wrapper.findAll("button").find((button) => button.text().includes("Save settings"))?.trigger("click");
+    await flushPromises();
+
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        repoRoot: "/repo-next",
+        workflowDbPath: "/Users/gus/Library/Application Support/mac-os/workflows.sqlite3",
+      }),
+    );
+    expect(wrapper.text()).toContain("Settings saved");
+  });
+
+  it("shows settings validation failures without clearing input", async () => {
+    const api = installApi({
+      saveSettings: vi.fn().mockImplementation(async (settings) => ({
+        valid: false,
+        settings,
+        checks: [{ key: "repo_root", label: "Repository root", path: settings.repoRoot, status: "error", message: "missing repo markers" }],
+      })),
+    });
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper.findAll("button").find((button) => button.text().includes("Settings"))?.trigger("click");
+    await flushPromises();
+    await wrapper.find('[data-testid="settings-repo-root"]').setValue("/broken");
+    await wrapper.findAll("button").find((button) => button.text().includes("Save settings"))?.trigger("click");
+    await flushPromises();
+
+    expect(api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ repoRoot: "/broken" }));
+    expect(wrapper.find<HTMLInputElement>('[data-testid="settings-repo-root"]').element.value).toBe("/broken");
+    expect(wrapper.text()).toContain("missing repo markers");
   });
 });

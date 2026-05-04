@@ -5,15 +5,19 @@ import {
   Apple,
   CheckCircle2,
   Circle,
-  ClipboardList,
+  Database,
+  FileText,
+  FolderOpen,
   HardDrive,
   History,
   Inbox,
+  KeyRound,
   Loader2,
   MoreVertical,
   Play,
   RefreshCw,
   RotateCcw,
+  Save,
   Search,
   Send,
   Settings,
@@ -63,7 +67,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import type { ConfirmationOption, Phase, RunEvent, RunLog, RunSummary, Workflow } from "./types/api";
+import type { ConfirmationOption, Phase, RunEvent, RunLog, RunSummary, RuntimeSettings, SettingsResponse, Workflow } from "./types/api";
 
 type SectionId = "workflows" | "logs" | "this-mac" | "snapshots" | "health" | "settings";
 
@@ -86,6 +90,11 @@ const workflowTab = ref("all");
 const logTab = ref("all");
 const mutedNotes = ref(false);
 const noteText = ref("");
+const settingsResponse = ref<SettingsResponse | null>(null);
+const settingsForm = ref<RuntimeSettings>(emptySettings());
+const settingsSaving = ref(false);
+const settingsMessage = ref("");
+const settingsError = ref("");
 
 const primaryNavItems = computed(() => [
   { id: "workflows" as const, label: "Workflows", icon: Inbox, count: workflows.value.length },
@@ -101,6 +110,35 @@ const secondaryNavItems = computed(() => [
 
 const selectedWorkflow = computed(() => workflows.value.find((workflow) => workflow.id === selectedWorkflowId.value));
 const selectedRun = computed(() => runs.value.find((run) => run.id === selectedRunId.value));
+const settingsDirty = computed(() => JSON.stringify(settingsForm.value) !== JSON.stringify(settingsResponse.value?.settings ?? emptySettings()));
+const settingsChecks = computed(() => settingsResponse.value?.checks ?? []);
+
+const settingsGroups = computed(() => [
+  {
+    id: "repository",
+    label: "Repository",
+    icon: FolderOpen,
+    count: settingsChecks.value.filter((check) => ["repo_root", "stow"].includes(check.key)).filter((check) => check.status !== "ok").length,
+  },
+  {
+    id: "manifests",
+    label: "Manifests",
+    icon: FileText,
+    count: settingsChecks.value.filter((check) => ["apps_config_path", "secrets_config_path", "generated_apps_path", "private_gitconfig_path"].includes(check.key)).filter((check) => check.status !== "ok").length,
+  },
+  {
+    id: "storage",
+    label: "Storage",
+    icon: Database,
+    count: settingsChecks.value.filter((check) => check.key === "workflow_db_path").filter((check) => check.status !== "ok").length,
+  },
+  {
+    id: "operations",
+    label: "Operations",
+    icon: KeyRound,
+    count: settingsChecks.value.filter((check) => check.key === "archive_root").filter((check) => check.status !== "ok").length,
+  },
+]);
 
 const displayPhases = computed(() => {
   if (!selectedWorkflow.value) {
@@ -194,6 +232,7 @@ async function loadAll() {
     loadError.value = "";
     workflows.value = await window.macOS.workflows();
     runs.value = await window.macOS.runs(25);
+    await loadSettings();
 
     if (!selectedWorkflowId.value || !workflows.value.some((workflow) => workflow.id === selectedWorkflowId.value)) {
       selectedWorkflowId.value = workflows.value[0]?.id ?? "";
@@ -213,6 +252,10 @@ function selectSection(next: SectionId) {
 
   if (next === "logs") {
     void refreshRuns();
+  }
+
+  if (next === "settings") {
+    void loadSettings();
   }
 }
 
@@ -288,6 +331,88 @@ async function refreshRuns() {
 async function openRun(run: RunSummary) {
   selectedRunId.value = run.id;
   selectedRunLog.value = await window.macOS.runLog(run.id);
+}
+
+function emptySettings(): RuntimeSettings {
+  return {
+    repoRoot: "",
+    appsConfigPath: "",
+    secretsConfigPath: "",
+    generatedAppsPath: "",
+    archiveRoot: "",
+    workflowDbPath: "",
+    opVault: "",
+    opItem: "",
+  };
+}
+
+async function loadSettings() {
+  const response = await window.macOS.settings();
+
+  settingsResponse.value = response;
+  settingsForm.value = { ...response.settings };
+  settingsError.value = "";
+}
+
+async function validateSettings() {
+  settingsMessage.value = "";
+  settingsError.value = "";
+  settingsResponse.value = await window.macOS.validateSettings({ ...settingsForm.value });
+}
+
+async function saveSettings() {
+  settingsSaving.value = true;
+  settingsMessage.value = "";
+  settingsError.value = "";
+
+  try {
+    const response = await window.macOS.saveSettings({ ...settingsForm.value });
+    settingsResponse.value = response;
+
+    if (!response.valid) {
+      settingsError.value = "Fix the highlighted settings before saving.";
+      return;
+    }
+
+    settingsForm.value = { ...response.settings };
+    settingsMessage.value = "Settings saved. The workflow bridge was restarted.";
+    workflows.value = await window.macOS.workflows();
+    runs.value = await window.macOS.runs(25);
+  } catch (error) {
+    settingsError.value = error instanceof Error ? error.message : String(error);
+  } finally {
+    settingsSaving.value = false;
+  }
+}
+
+function resetSettingsForm() {
+  settingsForm.value = { ...(settingsResponse.value?.settings ?? emptySettings()) };
+  settingsError.value = "";
+  settingsMessage.value = "";
+}
+
+async function chooseDirectory(field: keyof RuntimeSettings) {
+  const path = await window.macOS.chooseDirectory(settingsForm.value[field]);
+
+  if (path) {
+    settingsForm.value = { ...settingsForm.value, [field]: path };
+  }
+}
+
+async function chooseFile(field: keyof RuntimeSettings) {
+  const path = await window.macOS.chooseFile(settingsForm.value[field]);
+
+  if (path) {
+    settingsForm.value = { ...settingsForm.value, [field]: path };
+  }
+}
+
+async function chooseSaveFile(field: keyof RuntimeSettings) {
+  const path = await window.macOS.chooseSaveFile(settingsForm.value[field]);
+
+  if (path) {
+    settingsForm.value = { ...settingsForm.value, [field]: path };
+  }
 }
 
 function phaseStatus(phase: Phase) {
@@ -619,6 +744,34 @@ function initials(value: string) {
               </Tabs>
             </template>
 
+            <template v-else-if="section === 'settings'">
+              <div class="flex items-center px-4 py-2">
+                <h1 class="text-xl font-bold">Settings</h1>
+                <Badge class="ml-auto" :variant="settingsResponse?.valid ? 'default' : 'destructive'">
+                  {{ settingsResponse?.valid ? "valid" : "needs review" }}
+                </Badge>
+              </div>
+              <Separator />
+              <ScrollArea class="min-h-0 flex-1">
+                <div class="flex flex-col gap-2 p-4">
+                  <div
+                    v-for="group in settingsGroups"
+                    :key="group.id"
+                    class="flex items-center gap-3 rounded-lg border p-3 text-sm"
+                  >
+                    <component :is="group.icon" class="size-4 text-muted-foreground" />
+                    <div class="min-w-0 flex-1">
+                      <div class="font-medium">{{ group.label }}</div>
+                      <div class="truncate text-xs text-muted-foreground">
+                        {{ group.count === 0 ? "No validation errors" : `${group.count} issue${group.count === 1 ? "" : "s"}` }}
+                      </div>
+                    </div>
+                    <Badge :variant="group.count === 0 ? 'secondary' : 'destructive'">{{ group.count }}</Badge>
+                  </div>
+                </div>
+              </ScrollArea>
+            </template>
+
             <template v-else>
               <div class="flex items-center px-4 py-2">
                 <h1 class="text-xl font-bold capitalize">{{ section.replace("-", " ") }}</h1>
@@ -886,6 +1039,159 @@ function initials(value: string) {
                   <TerminalSquare class="mx-auto mb-3 size-8" />
                   <p>Select a run to inspect its persisted output.</p>
                 </div>
+              </div>
+            </template>
+
+            <template v-else-if="section === 'settings'">
+              <div class="flex items-start p-4">
+                <div class="flex items-start gap-4 text-sm">
+                  <Avatar size="sm">
+                    <AvatarFallback>SE</AvatarFallback>
+                  </Avatar>
+                  <div class="grid gap-1">
+                    <div class="font-semibold">Settings</div>
+                    <div class="line-clamp-1 text-xs">Repository, workflow storage, and operational defaults.</div>
+                    <div class="line-clamp-1 text-xs">
+                      <span class="font-medium">Status:</span> {{ settingsResponse?.valid ? "Valid" : "Needs review" }}
+                    </div>
+                  </div>
+                </div>
+                <Badge class="ml-auto" :variant="settingsResponse?.valid ? 'default' : 'destructive'">
+                  {{ settingsResponse?.valid ? "valid" : "invalid" }}
+                </Badge>
+              </div>
+              <Separator />
+              <ScrollArea class="min-h-0 flex-1">
+                <div class="grid gap-6 p-4">
+                  <section class="grid gap-3">
+                    <h2 class="text-sm font-semibold">Repository</h2>
+                    <div class="grid gap-2">
+                      <Label for="repo-root">Repo root</Label>
+                      <div class="flex gap-2">
+                        <Input id="repo-root" v-model="settingsForm.repoRoot" data-testid="settings-repo-root" />
+                        <Tooltip>
+                          <TooltipTrigger as-child>
+                            <Button type="button" variant="outline" size="icon" @click="chooseDirectory('repoRoot')">
+                              <FolderOpen class="size-4" />
+                              <span class="sr-only">Choose repo root</span>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Choose repo root</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="grid gap-3">
+                    <h2 class="text-sm font-semibold">Manifests</h2>
+                    <div class="grid gap-2">
+                      <Label for="apps-config">Apps manifest</Label>
+                      <div class="flex gap-2">
+                        <Input id="apps-config" v-model="settingsForm.appsConfigPath" data-testid="settings-apps-config" />
+                        <Button type="button" variant="outline" size="icon" @click="chooseFile('appsConfigPath')">
+                          <FileText class="size-4" />
+                          <span class="sr-only">Choose apps manifest</span>
+                        </Button>
+                      </div>
+                    </div>
+                    <div class="grid gap-2">
+                      <Label for="secrets-config">Secrets manifest</Label>
+                      <div class="flex gap-2">
+                        <Input id="secrets-config" v-model="settingsForm.secretsConfigPath" />
+                        <Button type="button" variant="outline" size="icon" @click="chooseFile('secretsConfigPath')">
+                          <FileText class="size-4" />
+                          <span class="sr-only">Choose secrets manifest</span>
+                        </Button>
+                      </div>
+                    </div>
+                    <div class="grid gap-2">
+                      <Label for="generated-apps">Generated apps output</Label>
+                      <div class="flex gap-2">
+                        <Input id="generated-apps" v-model="settingsForm.generatedAppsPath" />
+                        <Button type="button" variant="outline" size="icon" @click="chooseSaveFile('generatedAppsPath')">
+                          <Save class="size-4" />
+                          <span class="sr-only">Choose generated apps output</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="grid gap-3">
+                    <h2 class="text-sm font-semibold">Storage</h2>
+                    <div class="grid gap-2">
+                      <Label for="workflow-db">Workflow SQLite database</Label>
+                      <div class="flex gap-2">
+                        <Input id="workflow-db" v-model="settingsForm.workflowDbPath" data-testid="settings-workflow-db" />
+                        <Button type="button" variant="outline" size="icon" @click="chooseSaveFile('workflowDbPath')">
+                          <Database class="size-4" />
+                          <span class="sr-only">Choose workflow database</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="grid gap-3">
+                    <h2 class="text-sm font-semibold">Operations</h2>
+                    <div class="grid gap-2">
+                      <Label for="archive-root">Archive root</Label>
+                      <div class="flex gap-2">
+                        <Input id="archive-root" v-model="settingsForm.archiveRoot" />
+                        <Button type="button" variant="outline" size="icon" @click="chooseDirectory('archiveRoot')">
+                          <FolderOpen class="size-4" />
+                          <span class="sr-only">Choose archive root</span>
+                        </Button>
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                      <div class="grid gap-2">
+                        <Label for="op-vault">1Password vault</Label>
+                        <Input id="op-vault" v-model="settingsForm.opVault" />
+                      </div>
+                      <div class="grid gap-2">
+                        <Label for="op-item">1Password item</Label>
+                        <Input id="op-item" v-model="settingsForm.opItem" />
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="grid gap-3">
+                    <div class="flex items-center justify-between gap-3">
+                      <h2 class="text-sm font-semibold">Validation</h2>
+                      <Button type="button" variant="ghost" size="sm" @click="validateSettings">Validate</Button>
+                    </div>
+                    <div class="overflow-hidden rounded-lg border">
+                      <div
+                        v-for="check in settingsChecks"
+                        :key="check.key"
+                        class="grid gap-1 border-b px-3 py-3 text-sm last:border-b-0"
+                      >
+                        <div class="flex items-center gap-2">
+                          <span class="font-medium">{{ check.label }}</span>
+                          <Badge class="ml-auto" :variant="check.status === 'ok' ? 'secondary' : 'destructive'">{{ check.status }}</Badge>
+                        </div>
+                        <div class="truncate text-xs text-muted-foreground">{{ check.path }}</div>
+                        <div v-if="check.message && check.message !== 'ok'" class="text-xs text-destructive">{{ check.message }}</div>
+                      </div>
+                    </div>
+                    <div v-if="settingsError" class="rounded-lg border border-destructive/40 p-3 text-sm text-destructive">
+                      {{ settingsError }}
+                    </div>
+                    <div v-if="settingsMessage" class="rounded-lg border p-3 text-sm text-muted-foreground">
+                      {{ settingsMessage }}
+                    </div>
+                  </section>
+                </div>
+              </ScrollArea>
+              <Separator />
+              <div class="flex items-center gap-2 p-4">
+                <Button type="button" variant="outline" :disabled="!settingsDirty || settingsSaving" @click="resetSettingsForm">
+                  Reset
+                </Button>
+                <Button type="button" class="ml-auto" :disabled="!settingsDirty || settingsSaving" @click="saveSettings">
+                  <Loader2 v-if="settingsSaving" class="size-4 animate-spin" />
+                  <Save v-else class="size-4" />
+                  Save settings
+                </Button>
               </div>
             </template>
 

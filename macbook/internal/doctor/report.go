@@ -10,7 +10,7 @@ import (
 	"github.com/gocanto/mac-os/internal/secrets"
 )
 
-func (s Service) Run(defaultOPVault, defaultOPItem string) error {
+func (s Service) Run(defaultOPVault, defaultOPItem, secretsPath string) error {
 	if runtime.GOOS != "darwin" {
 		fmt.Fprintf(s.Stdout, "OS: %s (unsupported)\n", runtime.GOOS)
 	} else {
@@ -52,12 +52,12 @@ func (s Service) Run(defaultOPVault, defaultOPItem string) error {
 		fmt.Fprintf(s.Stdout, "  %-14s %s (%s)\n", tool.Name, version, path)
 	}
 
-	s.printOnePasswordArchiveStatus(defaultOPVault, defaultOPItem)
+	s.printOnePasswordArchiveStatus(defaultOPVault, defaultOPItem, secretsPath)
 
 	return nil
 }
 
-func (s Service) printOnePasswordArchiveStatus(vault, item string) {
+func (s Service) printOnePasswordArchiveStatus(vault, item, secretsPath string) {
 	fmt.Fprintln(s.Stdout, "\nPrivate archive:")
 
 	if _, err := exec.LookPath("op"); err != nil {
@@ -81,5 +81,5 @@ func (s Service) printOnePasswordArchiveStatus(vault, item string) {
 	}
 
 	fmt.Fprintf(s.Stdout, "  archive item found: %s/%s\n", vault, item)
-	secrets.Service{Repo: s.Repo, Stdout: s.Stdout, Runner: s.Runner}.PrintStatus(secrets.Options{OPVault: vault, OPItem: item})
+	secrets.Service{Home: s.Home, Repo: s.Repo, Stdout: s.Stdout, Runner: s.Runner}.PrintStatus(secrets.Options{SecretsPath: secretsPath, OPVault: vault, OPItem: item})
 }

@@ -19,10 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	WorkflowBridge_ListWorkflows_FullMethodName = "/macos.bridge.v1.WorkflowBridge/ListWorkflows"
-	WorkflowBridge_RunWorkflow_FullMethodName   = "/macos.bridge.v1.WorkflowBridge/RunWorkflow"
-	WorkflowBridge_ListRuns_FullMethodName      = "/macos.bridge.v1.WorkflowBridge/ListRuns"
-	WorkflowBridge_RunLog_FullMethodName        = "/macos.bridge.v1.WorkflowBridge/RunLog"
+	WorkflowBridge_ListWorkflows_FullMethodName    = "/macos.bridge.v1.WorkflowBridge/ListWorkflows"
+	WorkflowBridge_RunWorkflow_FullMethodName      = "/macos.bridge.v1.WorkflowBridge/RunWorkflow"
+	WorkflowBridge_ListRuns_FullMethodName         = "/macos.bridge.v1.WorkflowBridge/ListRuns"
+	WorkflowBridge_RunLog_FullMethodName           = "/macos.bridge.v1.WorkflowBridge/RunLog"
+	WorkflowBridge_GetSettings_FullMethodName      = "/macos.bridge.v1.WorkflowBridge/GetSettings"
+	WorkflowBridge_ValidateSettings_FullMethodName = "/macos.bridge.v1.WorkflowBridge/ValidateSettings"
 )
 
 // WorkflowBridgeClient is the client API for WorkflowBridge service.
@@ -33,6 +35,8 @@ type WorkflowBridgeClient interface {
 	RunWorkflow(ctx context.Context, in *RunWorkflowRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[WorkflowEvent], error)
 	ListRuns(ctx context.Context, in *ListRunsRequest, opts ...grpc.CallOption) (*ListRunsResponse, error)
 	RunLog(ctx context.Context, in *RunLogRequest, opts ...grpc.CallOption) (*RunLogResponse, error)
+	GetSettings(ctx context.Context, in *GetSettingsRequest, opts ...grpc.CallOption) (*SettingsResponse, error)
+	ValidateSettings(ctx context.Context, in *ValidateSettingsRequest, opts ...grpc.CallOption) (*SettingsValidationResponse, error)
 }
 
 type workflowBridgeClient struct {
@@ -92,6 +96,26 @@ func (c *workflowBridgeClient) RunLog(ctx context.Context, in *RunLogRequest, op
 	return out, nil
 }
 
+func (c *workflowBridgeClient) GetSettings(ctx context.Context, in *GetSettingsRequest, opts ...grpc.CallOption) (*SettingsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SettingsResponse)
+	err := c.cc.Invoke(ctx, WorkflowBridge_GetSettings_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workflowBridgeClient) ValidateSettings(ctx context.Context, in *ValidateSettingsRequest, opts ...grpc.CallOption) (*SettingsValidationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SettingsValidationResponse)
+	err := c.cc.Invoke(ctx, WorkflowBridge_ValidateSettings_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WorkflowBridgeServer is the server API for WorkflowBridge service.
 // All implementations must embed UnimplementedWorkflowBridgeServer
 // for forward compatibility.
@@ -100,6 +124,8 @@ type WorkflowBridgeServer interface {
 	RunWorkflow(*RunWorkflowRequest, grpc.ServerStreamingServer[WorkflowEvent]) error
 	ListRuns(context.Context, *ListRunsRequest) (*ListRunsResponse, error)
 	RunLog(context.Context, *RunLogRequest) (*RunLogResponse, error)
+	GetSettings(context.Context, *GetSettingsRequest) (*SettingsResponse, error)
+	ValidateSettings(context.Context, *ValidateSettingsRequest) (*SettingsValidationResponse, error)
 	mustEmbedUnimplementedWorkflowBridgeServer()
 }
 
@@ -121,6 +147,12 @@ func (UnimplementedWorkflowBridgeServer) ListRuns(context.Context, *ListRunsRequ
 }
 func (UnimplementedWorkflowBridgeServer) RunLog(context.Context, *RunLogRequest) (*RunLogResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RunLog not implemented")
+}
+func (UnimplementedWorkflowBridgeServer) GetSettings(context.Context, *GetSettingsRequest) (*SettingsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSettings not implemented")
+}
+func (UnimplementedWorkflowBridgeServer) ValidateSettings(context.Context, *ValidateSettingsRequest) (*SettingsValidationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ValidateSettings not implemented")
 }
 func (UnimplementedWorkflowBridgeServer) mustEmbedUnimplementedWorkflowBridgeServer() {}
 func (UnimplementedWorkflowBridgeServer) testEmbeddedByValue()                        {}
@@ -208,6 +240,42 @@ func _WorkflowBridge_RunLog_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WorkflowBridge_GetSettings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSettingsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowBridgeServer).GetSettings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowBridge_GetSettings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowBridgeServer).GetSettings(ctx, req.(*GetSettingsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkflowBridge_ValidateSettings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateSettingsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowBridgeServer).ValidateSettings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowBridge_ValidateSettings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowBridgeServer).ValidateSettings(ctx, req.(*ValidateSettingsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WorkflowBridge_ServiceDesc is the grpc.ServiceDesc for WorkflowBridge service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -226,6 +294,14 @@ var WorkflowBridge_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RunLog",
 			Handler:    _WorkflowBridge_RunLog_Handler,
+		},
+		{
+			MethodName: "GetSettings",
+			Handler:    _WorkflowBridge_GetSettings_Handler,
+		},
+		{
+			MethodName: "ValidateSettings",
+			Handler:    _WorkflowBridge_ValidateSettings_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

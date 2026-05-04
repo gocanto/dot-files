@@ -9,6 +9,8 @@ service WorkflowBridge {
   rpc RunWorkflow(RunWorkflowRequest) returns (stream WorkflowEvent);
   rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
   rpc RunLog(RunLogRequest) returns (RunLogResponse);
+  rpc GetSettings(GetSettingsRequest) returns (SettingsResponse);
+  rpc ValidateSettings(ValidateSettingsRequest) returns (SettingsValidationResponse);
 }
 
 message ListWorkflowsRequest {}
@@ -93,4 +95,41 @@ message RunLogRequest {
 message RunLogResponse {
   RunSummary run = 1;
   repeated WorkflowEvent events = 2;
+}
+
+message GetSettingsRequest {}
+
+message ValidateSettingsRequest {
+  RuntimeSettings settings = 1;
+}
+
+message SettingsResponse {
+  RuntimeSettings settings = 1;
+  repeated SettingsCheck checks = 2;
+  bool valid = 3;
+}
+
+message SettingsValidationResponse {
+  RuntimeSettings settings = 1;
+  repeated SettingsCheck checks = 2;
+  bool valid = 3;
+}
+
+message RuntimeSettings {
+  string repo_root = 1;
+  string apps_config_path = 2;
+  string secrets_config_path = 3;
+  string generated_apps_path = 4;
+  string archive_root = 5;
+  string workflow_db_path = 6;
+  string op_vault = 7;
+  string op_item = 8;
+}
+
+message SettingsCheck {
+  string key = 1;
+  string label = 2;
+  string path = 3;
+  string status = 4;
+  string message = 5;
 }

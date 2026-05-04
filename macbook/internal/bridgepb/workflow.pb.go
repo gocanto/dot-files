@@ -857,6 +857,382 @@ func (x *RunLogResponse) GetEvents() []*WorkflowEvent {
 	return nil
 }
 
+type GetSettingsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSettingsRequest) Reset() {
+	*x = GetSettingsRequest{}
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSettingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSettingsRequest) ProtoMessage() {}
+
+func (x *GetSettingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSettingsRequest.ProtoReflect.Descriptor instead.
+func (*GetSettingsRequest) Descriptor() ([]byte, []int) {
+	return file_packages_bridge_proto_workflow_proto_rawDescGZIP(), []int{13}
+}
+
+type ValidateSettingsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Settings      *RuntimeSettings       `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ValidateSettingsRequest) Reset() {
+	*x = ValidateSettingsRequest{}
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValidateSettingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValidateSettingsRequest) ProtoMessage() {}
+
+func (x *ValidateSettingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValidateSettingsRequest.ProtoReflect.Descriptor instead.
+func (*ValidateSettingsRequest) Descriptor() ([]byte, []int) {
+	return file_packages_bridge_proto_workflow_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *ValidateSettingsRequest) GetSettings() *RuntimeSettings {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+type SettingsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Settings      *RuntimeSettings       `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	Checks        []*SettingsCheck       `protobuf:"bytes,2,rep,name=checks,proto3" json:"checks,omitempty"`
+	Valid         bool                   `protobuf:"varint,3,opt,name=valid,proto3" json:"valid,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SettingsResponse) Reset() {
+	*x = SettingsResponse{}
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SettingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SettingsResponse) ProtoMessage() {}
+
+func (x *SettingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SettingsResponse.ProtoReflect.Descriptor instead.
+func (*SettingsResponse) Descriptor() ([]byte, []int) {
+	return file_packages_bridge_proto_workflow_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *SettingsResponse) GetSettings() *RuntimeSettings {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+func (x *SettingsResponse) GetChecks() []*SettingsCheck {
+	if x != nil {
+		return x.Checks
+	}
+	return nil
+}
+
+func (x *SettingsResponse) GetValid() bool {
+	if x != nil {
+		return x.Valid
+	}
+	return false
+}
+
+type SettingsValidationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Settings      *RuntimeSettings       `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	Checks        []*SettingsCheck       `protobuf:"bytes,2,rep,name=checks,proto3" json:"checks,omitempty"`
+	Valid         bool                   `protobuf:"varint,3,opt,name=valid,proto3" json:"valid,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SettingsValidationResponse) Reset() {
+	*x = SettingsValidationResponse{}
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SettingsValidationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SettingsValidationResponse) ProtoMessage() {}
+
+func (x *SettingsValidationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SettingsValidationResponse.ProtoReflect.Descriptor instead.
+func (*SettingsValidationResponse) Descriptor() ([]byte, []int) {
+	return file_packages_bridge_proto_workflow_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *SettingsValidationResponse) GetSettings() *RuntimeSettings {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+func (x *SettingsValidationResponse) GetChecks() []*SettingsCheck {
+	if x != nil {
+		return x.Checks
+	}
+	return nil
+}
+
+func (x *SettingsValidationResponse) GetValid() bool {
+	if x != nil {
+		return x.Valid
+	}
+	return false
+}
+
+type RuntimeSettings struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	RepoRoot          string                 `protobuf:"bytes,1,opt,name=repo_root,json=repoRoot,proto3" json:"repo_root,omitempty"`
+	AppsConfigPath    string                 `protobuf:"bytes,2,opt,name=apps_config_path,json=appsConfigPath,proto3" json:"apps_config_path,omitempty"`
+	SecretsConfigPath string                 `protobuf:"bytes,3,opt,name=secrets_config_path,json=secretsConfigPath,proto3" json:"secrets_config_path,omitempty"`
+	GeneratedAppsPath string                 `protobuf:"bytes,4,opt,name=generated_apps_path,json=generatedAppsPath,proto3" json:"generated_apps_path,omitempty"`
+	ArchiveRoot       string                 `protobuf:"bytes,5,opt,name=archive_root,json=archiveRoot,proto3" json:"archive_root,omitempty"`
+	WorkflowDbPath    string                 `protobuf:"bytes,6,opt,name=workflow_db_path,json=workflowDbPath,proto3" json:"workflow_db_path,omitempty"`
+	OpVault           string                 `protobuf:"bytes,7,opt,name=op_vault,json=opVault,proto3" json:"op_vault,omitempty"`
+	OpItem            string                 `protobuf:"bytes,8,opt,name=op_item,json=opItem,proto3" json:"op_item,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *RuntimeSettings) Reset() {
+	*x = RuntimeSettings{}
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RuntimeSettings) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RuntimeSettings) ProtoMessage() {}
+
+func (x *RuntimeSettings) ProtoReflect() protoreflect.Message {
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RuntimeSettings.ProtoReflect.Descriptor instead.
+func (*RuntimeSettings) Descriptor() ([]byte, []int) {
+	return file_packages_bridge_proto_workflow_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *RuntimeSettings) GetRepoRoot() string {
+	if x != nil {
+		return x.RepoRoot
+	}
+	return ""
+}
+
+func (x *RuntimeSettings) GetAppsConfigPath() string {
+	if x != nil {
+		return x.AppsConfigPath
+	}
+	return ""
+}
+
+func (x *RuntimeSettings) GetSecretsConfigPath() string {
+	if x != nil {
+		return x.SecretsConfigPath
+	}
+	return ""
+}
+
+func (x *RuntimeSettings) GetGeneratedAppsPath() string {
+	if x != nil {
+		return x.GeneratedAppsPath
+	}
+	return ""
+}
+
+func (x *RuntimeSettings) GetArchiveRoot() string {
+	if x != nil {
+		return x.ArchiveRoot
+	}
+	return ""
+}
+
+func (x *RuntimeSettings) GetWorkflowDbPath() string {
+	if x != nil {
+		return x.WorkflowDbPath
+	}
+	return ""
+}
+
+func (x *RuntimeSettings) GetOpVault() string {
+	if x != nil {
+		return x.OpVault
+	}
+	return ""
+}
+
+func (x *RuntimeSettings) GetOpItem() string {
+	if x != nil {
+		return x.OpItem
+	}
+	return ""
+}
+
+type SettingsCheck struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	Path          string                 `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
+	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	Message       string                 `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SettingsCheck) Reset() {
+	*x = SettingsCheck{}
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SettingsCheck) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SettingsCheck) ProtoMessage() {}
+
+func (x *SettingsCheck) ProtoReflect() protoreflect.Message {
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SettingsCheck.ProtoReflect.Descriptor instead.
+func (*SettingsCheck) Descriptor() ([]byte, []int) {
+	return file_packages_bridge_proto_workflow_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *SettingsCheck) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *SettingsCheck) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *SettingsCheck) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *SettingsCheck) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *SettingsCheck) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_packages_bridge_proto_workflow_proto protoreflect.FileDescriptor
 
 const file_packages_bridge_proto_workflow_proto_rawDesc = "" +
@@ -928,12 +1304,40 @@ const file_packages_bridge_proto_workflow_proto_rawDesc = "" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\"w\n" +
 	"\x0eRunLogResponse\x12-\n" +
 	"\x03run\x18\x01 \x01(\v2\x1b.macos.bridge.v1.RunSummaryR\x03run\x126\n" +
-	"\x06events\x18\x02 \x03(\v2\x1e.macos.bridge.v1.WorkflowEventR\x06events2\xe2\x02\n" +
+	"\x06events\x18\x02 \x03(\v2\x1e.macos.bridge.v1.WorkflowEventR\x06events\"\x14\n" +
+	"\x12GetSettingsRequest\"W\n" +
+	"\x17ValidateSettingsRequest\x12<\n" +
+	"\bsettings\x18\x01 \x01(\v2 .macos.bridge.v1.RuntimeSettingsR\bsettings\"\x9e\x01\n" +
+	"\x10SettingsResponse\x12<\n" +
+	"\bsettings\x18\x01 \x01(\v2 .macos.bridge.v1.RuntimeSettingsR\bsettings\x126\n" +
+	"\x06checks\x18\x02 \x03(\v2\x1e.macos.bridge.v1.SettingsCheckR\x06checks\x12\x14\n" +
+	"\x05valid\x18\x03 \x01(\bR\x05valid\"\xa8\x01\n" +
+	"\x1aSettingsValidationResponse\x12<\n" +
+	"\bsettings\x18\x01 \x01(\v2 .macos.bridge.v1.RuntimeSettingsR\bsettings\x126\n" +
+	"\x06checks\x18\x02 \x03(\v2\x1e.macos.bridge.v1.SettingsCheckR\x06checks\x12\x14\n" +
+	"\x05valid\x18\x03 \x01(\bR\x05valid\"\xb9\x02\n" +
+	"\x0fRuntimeSettings\x12\x1b\n" +
+	"\trepo_root\x18\x01 \x01(\tR\brepoRoot\x12(\n" +
+	"\x10apps_config_path\x18\x02 \x01(\tR\x0eappsConfigPath\x12.\n" +
+	"\x13secrets_config_path\x18\x03 \x01(\tR\x11secretsConfigPath\x12.\n" +
+	"\x13generated_apps_path\x18\x04 \x01(\tR\x11generatedAppsPath\x12!\n" +
+	"\farchive_root\x18\x05 \x01(\tR\varchiveRoot\x12(\n" +
+	"\x10workflow_db_path\x18\x06 \x01(\tR\x0eworkflowDbPath\x12\x19\n" +
+	"\bop_vault\x18\a \x01(\tR\aopVault\x12\x17\n" +
+	"\aop_item\x18\b \x01(\tR\x06opItem\"}\n" +
+	"\rSettingsCheck\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12\x12\n" +
+	"\x04path\x18\x03 \x01(\tR\x04path\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12\x18\n" +
+	"\amessage\x18\x05 \x01(\tR\amessage2\xa4\x04\n" +
 	"\x0eWorkflowBridge\x12^\n" +
 	"\rListWorkflows\x12%.macos.bridge.v1.ListWorkflowsRequest\x1a&.macos.bridge.v1.ListWorkflowsResponse\x12T\n" +
 	"\vRunWorkflow\x12#.macos.bridge.v1.RunWorkflowRequest\x1a\x1e.macos.bridge.v1.WorkflowEvent0\x01\x12O\n" +
 	"\bListRuns\x12 .macos.bridge.v1.ListRunsRequest\x1a!.macos.bridge.v1.ListRunsResponse\x12I\n" +
-	"\x06RunLog\x12\x1e.macos.bridge.v1.RunLogRequest\x1a\x1f.macos.bridge.v1.RunLogResponseB-Z+github.com/gocanto/mac-os/internal/bridgepbb\x06proto3"
+	"\x06RunLog\x12\x1e.macos.bridge.v1.RunLogRequest\x1a\x1f.macos.bridge.v1.RunLogResponse\x12U\n" +
+	"\vGetSettings\x12#.macos.bridge.v1.GetSettingsRequest\x1a!.macos.bridge.v1.SettingsResponse\x12i\n" +
+	"\x10ValidateSettings\x12(.macos.bridge.v1.ValidateSettingsRequest\x1a+.macos.bridge.v1.SettingsValidationResponseB-Z+github.com/gocanto/mac-os/internal/bridgepbb\x06proto3"
 
 var (
 	file_packages_bridge_proto_workflow_proto_rawDescOnce sync.Once
@@ -947,21 +1351,27 @@ func file_packages_bridge_proto_workflow_proto_rawDescGZIP() []byte {
 	return file_packages_bridge_proto_workflow_proto_rawDescData
 }
 
-var file_packages_bridge_proto_workflow_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_packages_bridge_proto_workflow_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_packages_bridge_proto_workflow_proto_goTypes = []any{
-	(*ListWorkflowsRequest)(nil),  // 0: macos.bridge.v1.ListWorkflowsRequest
-	(*ListWorkflowsResponse)(nil), // 1: macos.bridge.v1.ListWorkflowsResponse
-	(*Workflow)(nil),              // 2: macos.bridge.v1.Workflow
-	(*Phase)(nil),                 // 3: macos.bridge.v1.Phase
-	(*Confirmation)(nil),          // 4: macos.bridge.v1.Confirmation
-	(*ConfirmationOption)(nil),    // 5: macos.bridge.v1.ConfirmationOption
-	(*RunWorkflowRequest)(nil),    // 6: macos.bridge.v1.RunWorkflowRequest
-	(*WorkflowEvent)(nil),         // 7: macos.bridge.v1.WorkflowEvent
-	(*ListRunsRequest)(nil),       // 8: macos.bridge.v1.ListRunsRequest
-	(*ListRunsResponse)(nil),      // 9: macos.bridge.v1.ListRunsResponse
-	(*RunSummary)(nil),            // 10: macos.bridge.v1.RunSummary
-	(*RunLogRequest)(nil),         // 11: macos.bridge.v1.RunLogRequest
-	(*RunLogResponse)(nil),        // 12: macos.bridge.v1.RunLogResponse
+	(*ListWorkflowsRequest)(nil),       // 0: macos.bridge.v1.ListWorkflowsRequest
+	(*ListWorkflowsResponse)(nil),      // 1: macos.bridge.v1.ListWorkflowsResponse
+	(*Workflow)(nil),                   // 2: macos.bridge.v1.Workflow
+	(*Phase)(nil),                      // 3: macos.bridge.v1.Phase
+	(*Confirmation)(nil),               // 4: macos.bridge.v1.Confirmation
+	(*ConfirmationOption)(nil),         // 5: macos.bridge.v1.ConfirmationOption
+	(*RunWorkflowRequest)(nil),         // 6: macos.bridge.v1.RunWorkflowRequest
+	(*WorkflowEvent)(nil),              // 7: macos.bridge.v1.WorkflowEvent
+	(*ListRunsRequest)(nil),            // 8: macos.bridge.v1.ListRunsRequest
+	(*ListRunsResponse)(nil),           // 9: macos.bridge.v1.ListRunsResponse
+	(*RunSummary)(nil),                 // 10: macos.bridge.v1.RunSummary
+	(*RunLogRequest)(nil),              // 11: macos.bridge.v1.RunLogRequest
+	(*RunLogResponse)(nil),             // 12: macos.bridge.v1.RunLogResponse
+	(*GetSettingsRequest)(nil),         // 13: macos.bridge.v1.GetSettingsRequest
+	(*ValidateSettingsRequest)(nil),    // 14: macos.bridge.v1.ValidateSettingsRequest
+	(*SettingsResponse)(nil),           // 15: macos.bridge.v1.SettingsResponse
+	(*SettingsValidationResponse)(nil), // 16: macos.bridge.v1.SettingsValidationResponse
+	(*RuntimeSettings)(nil),            // 17: macos.bridge.v1.RuntimeSettings
+	(*SettingsCheck)(nil),              // 18: macos.bridge.v1.SettingsCheck
 }
 var file_packages_bridge_proto_workflow_proto_depIdxs = []int32{
 	2,  // 0: macos.bridge.v1.ListWorkflowsResponse.workflows:type_name -> macos.bridge.v1.Workflow
@@ -972,19 +1382,28 @@ var file_packages_bridge_proto_workflow_proto_depIdxs = []int32{
 	10, // 5: macos.bridge.v1.ListRunsResponse.runs:type_name -> macos.bridge.v1.RunSummary
 	10, // 6: macos.bridge.v1.RunLogResponse.run:type_name -> macos.bridge.v1.RunSummary
 	7,  // 7: macos.bridge.v1.RunLogResponse.events:type_name -> macos.bridge.v1.WorkflowEvent
-	0,  // 8: macos.bridge.v1.WorkflowBridge.ListWorkflows:input_type -> macos.bridge.v1.ListWorkflowsRequest
-	6,  // 9: macos.bridge.v1.WorkflowBridge.RunWorkflow:input_type -> macos.bridge.v1.RunWorkflowRequest
-	8,  // 10: macos.bridge.v1.WorkflowBridge.ListRuns:input_type -> macos.bridge.v1.ListRunsRequest
-	11, // 11: macos.bridge.v1.WorkflowBridge.RunLog:input_type -> macos.bridge.v1.RunLogRequest
-	1,  // 12: macos.bridge.v1.WorkflowBridge.ListWorkflows:output_type -> macos.bridge.v1.ListWorkflowsResponse
-	7,  // 13: macos.bridge.v1.WorkflowBridge.RunWorkflow:output_type -> macos.bridge.v1.WorkflowEvent
-	9,  // 14: macos.bridge.v1.WorkflowBridge.ListRuns:output_type -> macos.bridge.v1.ListRunsResponse
-	12, // 15: macos.bridge.v1.WorkflowBridge.RunLog:output_type -> macos.bridge.v1.RunLogResponse
-	12, // [12:16] is the sub-list for method output_type
-	8,  // [8:12] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	17, // 8: macos.bridge.v1.ValidateSettingsRequest.settings:type_name -> macos.bridge.v1.RuntimeSettings
+	17, // 9: macos.bridge.v1.SettingsResponse.settings:type_name -> macos.bridge.v1.RuntimeSettings
+	18, // 10: macos.bridge.v1.SettingsResponse.checks:type_name -> macos.bridge.v1.SettingsCheck
+	17, // 11: macos.bridge.v1.SettingsValidationResponse.settings:type_name -> macos.bridge.v1.RuntimeSettings
+	18, // 12: macos.bridge.v1.SettingsValidationResponse.checks:type_name -> macos.bridge.v1.SettingsCheck
+	0,  // 13: macos.bridge.v1.WorkflowBridge.ListWorkflows:input_type -> macos.bridge.v1.ListWorkflowsRequest
+	6,  // 14: macos.bridge.v1.WorkflowBridge.RunWorkflow:input_type -> macos.bridge.v1.RunWorkflowRequest
+	8,  // 15: macos.bridge.v1.WorkflowBridge.ListRuns:input_type -> macos.bridge.v1.ListRunsRequest
+	11, // 16: macos.bridge.v1.WorkflowBridge.RunLog:input_type -> macos.bridge.v1.RunLogRequest
+	13, // 17: macos.bridge.v1.WorkflowBridge.GetSettings:input_type -> macos.bridge.v1.GetSettingsRequest
+	14, // 18: macos.bridge.v1.WorkflowBridge.ValidateSettings:input_type -> macos.bridge.v1.ValidateSettingsRequest
+	1,  // 19: macos.bridge.v1.WorkflowBridge.ListWorkflows:output_type -> macos.bridge.v1.ListWorkflowsResponse
+	7,  // 20: macos.bridge.v1.WorkflowBridge.RunWorkflow:output_type -> macos.bridge.v1.WorkflowEvent
+	9,  // 21: macos.bridge.v1.WorkflowBridge.ListRuns:output_type -> macos.bridge.v1.ListRunsResponse
+	12, // 22: macos.bridge.v1.WorkflowBridge.RunLog:output_type -> macos.bridge.v1.RunLogResponse
+	15, // 23: macos.bridge.v1.WorkflowBridge.GetSettings:output_type -> macos.bridge.v1.SettingsResponse
+	16, // 24: macos.bridge.v1.WorkflowBridge.ValidateSettings:output_type -> macos.bridge.v1.SettingsValidationResponse
+	19, // [19:25] is the sub-list for method output_type
+	13, // [13:19] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_packages_bridge_proto_workflow_proto_init() }
@@ -998,7 +1417,7 @@ func file_packages_bridge_proto_workflow_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_packages_bridge_proto_workflow_proto_rawDesc), len(file_packages_bridge_proto_workflow_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

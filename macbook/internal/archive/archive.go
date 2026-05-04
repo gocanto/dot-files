@@ -44,7 +44,10 @@ func DefaultLocalRoot(home string) string {
 }
 
 func LatestLocalSnapshot(home string) (string, bool, error) {
-	root := DefaultLocalRoot(home)
+	return LatestSnapshot(DefaultLocalRoot(home))
+}
+
+func LatestSnapshot(root string) (string, bool, error) {
 	entries, err := os.ReadDir(root)
 
 	if err != nil {
