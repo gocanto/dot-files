@@ -1,7 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../src/App.vue";
-import type { MacOSApi, RunEvent, Workflow } from "../src/types/api";
+import type { MacOSApi, RunEvent, SettingsResponse, Workflow } from "../src/types/api";
 
 const workflows: Workflow[] = [
   {
@@ -88,6 +88,8 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
     chooseDirectory: vi.fn().mockResolvedValue("/chosen"),
     chooseFile: vi.fn().mockResolvedValue("/chosen/file.yaml"),
     chooseSaveFile: vi.fn().mockResolvedValue("/chosen/workflows.sqlite3"),
+    getUserPreferences: vi.fn().mockResolvedValue({ theme: "light" }),
+    saveUserPreferences: vi.fn().mockImplementation(async (theme: string) => ({ theme, updatedAt: new Date().toISOString() })),
     runWorkflow: vi.fn().mockImplementation(async (_request, onEvent: (event: RunEvent) => void) => {
       onEvent({ runId: "run-2", seq: 1, type: "phase_started", phaseId: "run-health-checks", phaseName: "Run health checks", status: "running" });
       onEvent({ runId: "run-2", seq: 2, type: "phase_output", phaseId: "run-health-checks", phaseName: "Run health checks", message: "healthy" });
@@ -220,6 +222,27 @@ describe("App", () => {
     expect(wrapper.html()).toContain("shiki");
   });
 
+  it("filters workflows by sidebar category", async () => {
+    installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Check Setup");
+    expect(wrapper.text()).toContain("Install Apps");
+
+    await wrapper.findAll("button").find((button) => button.text().includes("Snapshots"))?.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("No snapshot workflows match this view.");
+
+    await wrapper.findAll("button").find((button) => button.text().includes("Health Checks"))?.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Check Setup");
+    expect(wrapper.text()).not.toContain("No health-check workflows match this view.");
+  });
+
   it("renders settings and saves changed repo configuration", async () => {
     const api = installApi();
 
@@ -241,6 +264,48 @@ describe("App", () => {
       }),
     );
     expect(wrapper.text()).toContain("Settings saved");
+  });
+
+  it("shows skeletons while settings load on entering Settings", async () => {
+    const settledResponse: SettingsResponse = {
+      valid: true,
+      settings: {
+        repoRoot: "/repo",
+        appsConfigPath: "/repo/apps.yaml",
+        secretsConfigPath: "/repo/secrets.yaml",
+        generatedAppsPath: "/repo/apps.generated.yaml",
+        archiveRoot: "/archive",
+        workflowDbPath: "/db.sqlite3",
+        opVault: "Private",
+        opItem: "Mac Migration Archive",
+      },
+      checks: [{ key: "repo_root", label: "Repository root", path: "/repo", status: "ok", message: "ok" }],
+    };
+    let call = 0;
+    let resolveSecond: ((value: SettingsResponse) => void) | undefined;
+    installApi({
+      settings: vi.fn((): Promise<SettingsResponse> => {
+        call += 1;
+        if (call === 1) return Promise.resolve(settledResponse);
+        return new Promise<SettingsResponse>((resolve) => {
+          resolveSecond = resolve;
+        });
+      }),
+    });
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper.findAll("button").find((button) => button.text().includes("Settings"))?.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.findAll('[data-testid="settings-checks-skeleton"]').length).toBeGreaterThan(0);
+
+    resolveSecond?.(settledResponse);
+    await flushPromises();
+
+    expect(wrapper.findAll('[data-testid="settings-checks-skeleton"]').length).toBe(0);
+    expect(wrapper.find<HTMLInputElement>('[data-testid="settings-repo-root"]').element.value).toBe("/repo");
   });
 
   it("shows settings validation failures without clearing input", async () => {

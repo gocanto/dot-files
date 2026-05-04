@@ -89,6 +89,11 @@ export interface SettingsResponse {
   valid: boolean;
 }
 
+export interface UserPreferencesResponse {
+  theme: string;
+  updatedAt: string;
+}
+
 export interface WorkflowBridgeClient extends Client {
   listWorkflows(
     request: Record<string, never>,
@@ -104,6 +109,14 @@ export interface WorkflowBridgeClient extends Client {
   validateSettings(
     request: { settings: RuntimeSettings },
     callback: (error: ServiceError | null, response: SettingsResponse) => void,
+  ): void;
+  getUserPreferences(
+    request: Record<string, never>,
+    callback: (error: ServiceError | null, response: UserPreferencesResponse) => void,
+  ): void;
+  saveUserPreferences(
+    request: { theme: string },
+    callback: (error: ServiceError | null, response: UserPreferencesResponse) => void,
   ): void;
 }
 

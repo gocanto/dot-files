@@ -85,6 +85,11 @@ export interface SettingsResponse {
   valid: boolean;
 }
 
+export interface UserPreferences {
+  theme: string;
+  updatedAt?: string;
+}
+
 export interface MacOSApi {
   workflows(): Promise<Workflow[]>;
   runWorkflow(request: RunRequest, onEvent: (event: RunEvent) => void): Promise<{ exitCode: number }>;
@@ -96,6 +101,8 @@ export interface MacOSApi {
   chooseDirectory(defaultPath?: string): Promise<string | null>;
   chooseFile(defaultPath?: string): Promise<string | null>;
   chooseSaveFile(defaultPath?: string): Promise<string | null>;
+  getUserPreferences(): Promise<UserPreferences>;
+  saveUserPreferences(theme: string): Promise<UserPreferences>;
 }
 
 declare global {

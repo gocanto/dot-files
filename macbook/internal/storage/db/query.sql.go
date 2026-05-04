@@ -105,6 +105,24 @@ func (q *Queries) GetRun(ctx context.Context, id string) (WorkflowRun, error) {
 	return i, err
 }
 
+const getUserPreferences = `-- name: GetUserPreferences :one
+SELECT theme, updated_at
+FROM user_preferences
+WHERE id = 1
+`
+
+type GetUserPreferencesRow struct {
+	Theme     string `json:"theme"`
+	UpdatedAt string `json:"updated_at"`
+}
+
+func (q *Queries) GetUserPreferences(ctx context.Context) (GetUserPreferencesRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserPreferences)
+	var i GetUserPreferencesRow
+	err := row.Scan(&i.Theme, &i.UpdatedAt)
+	return i, err
+}
+
 const insertEvent = `-- name: InsertEvent :exec
 INSERT INTO workflow_events (
   run_id,
@@ -241,4 +259,22 @@ func (q *Queries) ListRuns(ctx context.Context, limit int64) ([]WorkflowRun, err
 		return nil, err
 	}
 	return items, nil
+}
+
+const upsertUserPreferences = `-- name: UpsertUserPreferences :exec
+INSERT INTO user_preferences (id, theme, updated_at)
+VALUES (1, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+  theme = excluded.theme,
+  updated_at = excluded.updated_at
+`
+
+type UpsertUserPreferencesParams struct {
+	Theme     string `json:"theme"`
+	UpdatedAt string `json:"updated_at"`
+}
+
+func (q *Queries) UpsertUserPreferences(ctx context.Context, arg UpsertUserPreferencesParams) error {
+	_, err := q.db.ExecContext(ctx, upsertUserPreferences, arg.Theme, arg.UpdatedAt)
+	return err
 }

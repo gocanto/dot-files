@@ -8,6 +8,12 @@ import (
 	"database/sql"
 )
 
+type UserPreference struct {
+	ID        int64  `json:"id"`
+	Theme     string `json:"theme"`
+	UpdatedAt string `json:"updated_at"`
+}
+
 type WorkflowEvent struct {
 	ID        int64          `json:"id"`
 	RunID     string         `json:"run_id"`

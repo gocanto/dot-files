@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,8 @@ import (
 	"github.com/gocanto/mac-os/internal/workflowdomain"
 	_ "modernc.org/sqlite"
 )
+
+const DefaultTheme = "light"
 
 //go:embed schema.sql
 var schemaFS embed.FS
@@ -62,6 +65,11 @@ type EventRecord struct {
 type RunLog struct {
 	Run    RunSummary    `json:"run"`
 	Events []EventRecord `json:"events"`
+}
+
+type UserPreferences struct {
+	Theme     string `json:"theme"`
+	UpdatedAt string `json:"updatedAt,omitempty"`
 }
 
 type Recorder struct {
@@ -197,6 +205,39 @@ func (s *Store) RunLog(ctx context.Context, runID string) (RunLog, error) {
 	}
 
 	return RunLog{Run: runSummary(run), Events: events}, nil
+}
+
+func (s *Store) GetUserPreferences(ctx context.Context) (UserPreferences, error) {
+	row, err := s.queries.GetUserPreferences(ctx)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return UserPreferences{Theme: DefaultTheme}, nil
+	}
+
+	if err != nil {
+		return UserPreferences{}, err
+	}
+
+	return UserPreferences{Theme: row.Theme, UpdatedAt: row.UpdatedAt}, nil
+}
+
+func (s *Store) SaveUserPreferences(ctx context.Context, prefs UserPreferences) (UserPreferences, error) {
+	theme := prefs.Theme
+
+	if theme == "" {
+		theme = DefaultTheme
+	}
+
+	updatedAt := s.now().UTC().Format(time.RFC3339Nano)
+
+	if err := s.queries.UpsertUserPreferences(ctx, db.UpsertUserPreferencesParams{
+		Theme:     theme,
+		UpdatedAt: updatedAt,
+	}); err != nil {
+		return UserPreferences{}, err
+	}
+
+	return UserPreferences{Theme: theme, UpdatedAt: updatedAt}, nil
 }
 
 func NewRecorder(store *Store, runID string, also func(workflowdomain.Event) error) *Recorder {

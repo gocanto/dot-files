@@ -72,3 +72,15 @@ SELECT
 FROM workflow_events
 WHERE run_id = ?
 ORDER BY seq ASC;
+
+-- name: GetUserPreferences :one
+SELECT theme, updated_at
+FROM user_preferences
+WHERE id = 1;
+
+-- name: UpsertUserPreferences :exec
+INSERT INTO user_preferences (id, theme, updated_at)
+VALUES (1, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+  theme = excluded.theme,
+  updated_at = excluded.updated_at;

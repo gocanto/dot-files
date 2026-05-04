@@ -19,12 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	WorkflowBridge_ListWorkflows_FullMethodName    = "/macos.bridge.v1.WorkflowBridge/ListWorkflows"
-	WorkflowBridge_RunWorkflow_FullMethodName      = "/macos.bridge.v1.WorkflowBridge/RunWorkflow"
-	WorkflowBridge_ListRuns_FullMethodName         = "/macos.bridge.v1.WorkflowBridge/ListRuns"
-	WorkflowBridge_RunLog_FullMethodName           = "/macos.bridge.v1.WorkflowBridge/RunLog"
-	WorkflowBridge_GetSettings_FullMethodName      = "/macos.bridge.v1.WorkflowBridge/GetSettings"
-	WorkflowBridge_ValidateSettings_FullMethodName = "/macos.bridge.v1.WorkflowBridge/ValidateSettings"
+	WorkflowBridge_ListWorkflows_FullMethodName       = "/macos.bridge.v1.WorkflowBridge/ListWorkflows"
+	WorkflowBridge_RunWorkflow_FullMethodName         = "/macos.bridge.v1.WorkflowBridge/RunWorkflow"
+	WorkflowBridge_ListRuns_FullMethodName            = "/macos.bridge.v1.WorkflowBridge/ListRuns"
+	WorkflowBridge_RunLog_FullMethodName              = "/macos.bridge.v1.WorkflowBridge/RunLog"
+	WorkflowBridge_GetSettings_FullMethodName         = "/macos.bridge.v1.WorkflowBridge/GetSettings"
+	WorkflowBridge_ValidateSettings_FullMethodName    = "/macos.bridge.v1.WorkflowBridge/ValidateSettings"
+	WorkflowBridge_GetUserPreferences_FullMethodName  = "/macos.bridge.v1.WorkflowBridge/GetUserPreferences"
+	WorkflowBridge_SaveUserPreferences_FullMethodName = "/macos.bridge.v1.WorkflowBridge/SaveUserPreferences"
 )
 
 // WorkflowBridgeClient is the client API for WorkflowBridge service.
@@ -37,6 +39,8 @@ type WorkflowBridgeClient interface {
 	RunLog(ctx context.Context, in *RunLogRequest, opts ...grpc.CallOption) (*RunLogResponse, error)
 	GetSettings(ctx context.Context, in *GetSettingsRequest, opts ...grpc.CallOption) (*SettingsResponse, error)
 	ValidateSettings(ctx context.Context, in *ValidateSettingsRequest, opts ...grpc.CallOption) (*SettingsValidationResponse, error)
+	GetUserPreferences(ctx context.Context, in *GetUserPreferencesRequest, opts ...grpc.CallOption) (*UserPreferencesResponse, error)
+	SaveUserPreferences(ctx context.Context, in *SaveUserPreferencesRequest, opts ...grpc.CallOption) (*UserPreferencesResponse, error)
 }
 
 type workflowBridgeClient struct {
@@ -116,6 +120,26 @@ func (c *workflowBridgeClient) ValidateSettings(ctx context.Context, in *Validat
 	return out, nil
 }
 
+func (c *workflowBridgeClient) GetUserPreferences(ctx context.Context, in *GetUserPreferencesRequest, opts ...grpc.CallOption) (*UserPreferencesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UserPreferencesResponse)
+	err := c.cc.Invoke(ctx, WorkflowBridge_GetUserPreferences_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workflowBridgeClient) SaveUserPreferences(ctx context.Context, in *SaveUserPreferencesRequest, opts ...grpc.CallOption) (*UserPreferencesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UserPreferencesResponse)
+	err := c.cc.Invoke(ctx, WorkflowBridge_SaveUserPreferences_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WorkflowBridgeServer is the server API for WorkflowBridge service.
 // All implementations must embed UnimplementedWorkflowBridgeServer
 // for forward compatibility.
@@ -126,6 +150,8 @@ type WorkflowBridgeServer interface {
 	RunLog(context.Context, *RunLogRequest) (*RunLogResponse, error)
 	GetSettings(context.Context, *GetSettingsRequest) (*SettingsResponse, error)
 	ValidateSettings(context.Context, *ValidateSettingsRequest) (*SettingsValidationResponse, error)
+	GetUserPreferences(context.Context, *GetUserPreferencesRequest) (*UserPreferencesResponse, error)
+	SaveUserPreferences(context.Context, *SaveUserPreferencesRequest) (*UserPreferencesResponse, error)
 	mustEmbedUnimplementedWorkflowBridgeServer()
 }
 
@@ -153,6 +179,12 @@ func (UnimplementedWorkflowBridgeServer) GetSettings(context.Context, *GetSettin
 }
 func (UnimplementedWorkflowBridgeServer) ValidateSettings(context.Context, *ValidateSettingsRequest) (*SettingsValidationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ValidateSettings not implemented")
+}
+func (UnimplementedWorkflowBridgeServer) GetUserPreferences(context.Context, *GetUserPreferencesRequest) (*UserPreferencesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUserPreferences not implemented")
+}
+func (UnimplementedWorkflowBridgeServer) SaveUserPreferences(context.Context, *SaveUserPreferencesRequest) (*UserPreferencesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveUserPreferences not implemented")
 }
 func (UnimplementedWorkflowBridgeServer) mustEmbedUnimplementedWorkflowBridgeServer() {}
 func (UnimplementedWorkflowBridgeServer) testEmbeddedByValue()                        {}
@@ -276,6 +308,42 @@ func _WorkflowBridge_ValidateSettings_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WorkflowBridge_GetUserPreferences_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserPreferencesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowBridgeServer).GetUserPreferences(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowBridge_GetUserPreferences_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowBridgeServer).GetUserPreferences(ctx, req.(*GetUserPreferencesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkflowBridge_SaveUserPreferences_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveUserPreferencesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowBridgeServer).SaveUserPreferences(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowBridge_SaveUserPreferences_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowBridgeServer).SaveUserPreferences(ctx, req.(*SaveUserPreferencesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WorkflowBridge_ServiceDesc is the grpc.ServiceDesc for WorkflowBridge service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -302,6 +370,14 @@ var WorkflowBridge_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ValidateSettings",
 			Handler:    _WorkflowBridge_ValidateSettings_Handler,
+		},
+		{
+			MethodName: "GetUserPreferences",
+			Handler:    _WorkflowBridge_GetUserPreferences_Handler,
+		},
+		{
+			MethodName: "SaveUserPreferences",
+			Handler:    _WorkflowBridge_SaveUserPreferences_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

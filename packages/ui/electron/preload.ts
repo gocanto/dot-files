@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld("macOS", {
   settings: () => ipcRenderer.invoke("settings:get"),
   validateSettings: (settings: RuntimeSettings) => ipcRenderer.invoke("settings:validate", settings),
   saveSettings: (settings: RuntimeSettings) => ipcRenderer.invoke("settings:save", settings),
+  getUserPreferences: () => ipcRenderer.invoke("preferences:get"),
+  saveUserPreferences: (theme: string) => ipcRenderer.invoke("preferences:save", theme),
   chooseDirectory: (defaultPath?: string) => ipcRenderer.invoke("settings:choose-directory", defaultPath),
   chooseFile: (defaultPath?: string) => ipcRenderer.invoke("settings:choose-file", defaultPath),
   chooseSaveFile: (defaultPath?: string) => ipcRenderer.invoke("settings:choose-save-file", defaultPath),

@@ -11,6 +11,8 @@ service WorkflowBridge {
   rpc RunLog(RunLogRequest) returns (RunLogResponse);
   rpc GetSettings(GetSettingsRequest) returns (SettingsResponse);
   rpc ValidateSettings(ValidateSettingsRequest) returns (SettingsValidationResponse);
+  rpc GetUserPreferences(GetUserPreferencesRequest) returns (UserPreferencesResponse);
+  rpc SaveUserPreferences(SaveUserPreferencesRequest) returns (UserPreferencesResponse);
 }
 
 message ListWorkflowsRequest {}
@@ -132,4 +134,15 @@ message SettingsCheck {
   string path = 3;
   string status = 4;
   string message = 5;
+}
+
+message GetUserPreferencesRequest {}
+
+message SaveUserPreferencesRequest {
+  string theme = 1;
+}
+
+message UserPreferencesResponse {
+  string theme = 1;
+  string updated_at = 2;
 }

@@ -1,4 +1,4 @@
-import type { MacOSApi, RunEvent, RunLog, RunSummary, RuntimeSettings, SettingsResponse, Workflow } from "../types/api";
+import type { MacOSApi, RunEvent, RunLog, RunSummary, RuntimeSettings, SettingsResponse, UserPreferences, Workflow } from "../types/api";
 
 const fallbackWorkflows: Workflow[] = [
   {
@@ -40,6 +40,7 @@ export function installBrowserFallback() {
   }
 
   const fallbackRuns: RunLog[] = [];
+  let fallbackPreferences: UserPreferences = { theme: "light" };
   let fallbackSettings: RuntimeSettings = {
     repoRoot: "/repo",
     appsConfigPath: "/repo/apps.yaml",
@@ -75,6 +76,12 @@ export function installBrowserFallback() {
     chooseDirectory: async (defaultPath) => defaultPath ?? fallbackSettings.repoRoot,
     chooseFile: async (defaultPath) => defaultPath ?? fallbackSettings.appsConfigPath,
     chooseSaveFile: async (defaultPath) => defaultPath ?? fallbackSettings.workflowDbPath,
+    getUserPreferences: async () => fallbackPreferences,
+    saveUserPreferences: async (theme) => {
+      fallbackPreferences = { theme, updatedAt: new Date().toISOString() };
+
+      return fallbackPreferences;
+    },
     runLog: async (runId) => {
       const run = fallbackRuns.find((entry) => entry.run.id === runId);
 

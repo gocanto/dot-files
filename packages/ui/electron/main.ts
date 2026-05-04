@@ -3,6 +3,7 @@ import {
   createWorkflowBridgeClient,
   type RuntimeSettings,
   type SettingsResponse,
+  type UserPreferencesResponse,
   unixTarget,
   waitForReady,
   type RunWorkflowRequest,
@@ -97,6 +98,14 @@ ipcMain.handle("settings:validate", async (_event, settings: RuntimeSettings) =>
 );
 
 ipcMain.handle("settings:save", async (_event, settings: RuntimeSettings) => saveSettings(settings));
+
+ipcMain.handle("preferences:get", async () =>
+  unary<UserPreferencesResponse>((callback) => client().getUserPreferences({}, callback)),
+);
+
+ipcMain.handle("preferences:save", async (_event, theme: string) =>
+  unary<UserPreferencesResponse>((callback) => client().saveUserPreferences({ theme }, callback)),
+);
 
 ipcMain.handle("settings:choose-directory", async (_event, defaultPath?: string) => {
   const options: OpenDialogOptions = {

@@ -134,6 +134,42 @@ func (s workflowBridgeServer) ValidateSettings(_ context.Context, req *bridgepb.
 	}, nil
 }
 
+func (s workflowBridgeServer) GetUserPreferences(ctx context.Context, _ *bridgepb.GetUserPreferencesRequest) (*bridgepb.UserPreferencesResponse, error) {
+	store, err := s.openStore(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer store.Close()
+
+	prefs, err := store.GetUserPreferences(ctx)
+
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "read user preferences: %v", err)
+	}
+
+	return &bridgepb.UserPreferencesResponse{Theme: prefs.Theme, UpdatedAt: prefs.UpdatedAt}, nil
+}
+
+func (s workflowBridgeServer) SaveUserPreferences(ctx context.Context, req *bridgepb.SaveUserPreferencesRequest) (*bridgepb.UserPreferencesResponse, error) {
+	store, err := s.openStore(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer store.Close()
+
+	prefs, err := store.SaveUserPreferences(ctx, storage.UserPreferences{Theme: req.GetTheme()})
+
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "save user preferences: %v", err)
+	}
+
+	return &bridgepb.UserPreferencesResponse{Theme: prefs.Theme, UpdatedAt: prefs.UpdatedAt}, nil
+}
+
 func (s workflowBridgeServer) openStore(ctx context.Context) (*storage.Store, error) {
 	store, err := storage.Open(ctx, s.app.settings.WorkflowDBPath)
 

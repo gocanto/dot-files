@@ -26,3 +26,9 @@ CREATE TABLE IF NOT EXISTS workflow_events (
 
 CREATE INDEX IF NOT EXISTS idx_workflow_runs_started_at ON workflow_runs(started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_workflow_events_run_id_seq ON workflow_events(run_id, seq);
+
+CREATE TABLE IF NOT EXISTS user_preferences (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  theme TEXT NOT NULL DEFAULT 'light',
+  updated_at TEXT NOT NULL
+);

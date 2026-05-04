@@ -3,18 +3,33 @@ import {
   Activity,
   AlertTriangle,
   Apple,
+  ArchiveRestore,
+  ArrowLeft,
+  Beer,
+  Camera,
   CheckCircle2,
   Circle,
+  CircleSlash,
   Database,
+  Download,
+  Eye,
+  FileCode2,
   FileText,
   FolderOpen,
+  Github,
   HardDrive,
   History,
   Inbox,
   KeyRound,
+  Link2,
   Loader2,
+  Lock,
+  ListChecks,
+  MinusCircle,
+  Moon,
   MoreVertical,
   Play,
+  Printer,
   RefreshCw,
   RotateCcw,
   Save,
@@ -22,7 +37,10 @@ import {
   Send,
   Settings,
   ShieldCheck,
+  Sun,
   TerminalSquare,
+  Trash2,
+  Wand2,
 } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import {
@@ -37,7 +55,9 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge, type BadgeVariants } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import OutputBlock from "@/components/OutputBlock.vue";
+import WorkflowCardList from "@/components/WorkflowCardList.vue";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,10 +86,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { loadThemeFromBackend, useTheme } from "@/composables/useTheme";
 import { cn } from "@/lib/utils";
+import { confirmationStyle } from "@/lib/confirmationDisplay";
+import { phaseStatusPillClass, statusPillClass } from "@/lib/phaseDisplay";
+import { getWorkflowDetail, workflowDetailHaystack, workflowsInCategory, type WorkflowCategory } from "@/lib/workflowDetails";
 import type { ConfirmationOption, Phase, RunEvent, RunLog, RunSummary, RuntimeSettings, SettingsResponse, Workflow } from "./types/api";
 
 type SectionId = "workflows" | "logs" | "this-mac" | "snapshots" | "health" | "settings";
+
+const { theme, toggleTheme } = useTheme();
 
 const section = ref<SectionId>("workflows");
 const profile = ref("current-mac");
@@ -93,6 +119,9 @@ const noteText = ref("");
 const settingsResponse = ref<SettingsResponse | null>(null);
 const settingsForm = ref<RuntimeSettings>(emptySettings());
 const settingsSaving = ref(false);
+const settingsLoading = ref(false);
+const settingsValidating = ref(false);
+const settingsPickerField = ref<keyof RuntimeSettings | null>(null);
 const settingsMessage = ref("");
 const settingsError = ref("");
 
@@ -108,7 +137,23 @@ const secondaryNavItems = computed(() => [
   { id: "settings" as const, label: "Settings", icon: Settings },
 ]);
 
+const categorySectionMeta: Record<"this-mac" | "snapshots" | "health", { title: string; emptyMessage: string }> = {
+  "this-mac": { title: "This Mac", emptyMessage: "No This Mac workflows match this view." },
+  snapshots: { title: "Snapshots", emptyMessage: "No snapshot workflows match this view." },
+  health: { title: "Health Checks", emptyMessage: "No health-check workflows match this view." },
+};
+
+const categoryMeta = computed(() => {
+  if (section.value === "this-mac" || section.value === "snapshots" || section.value === "health") {
+    return categorySectionMeta[section.value];
+  }
+  return null;
+});
+
+const settingsWorkflows = computed(() => workflowsInCategory(workflows.value, "settings"));
+
 const selectedWorkflow = computed(() => workflows.value.find((workflow) => workflow.id === selectedWorkflowId.value));
+const selectedWorkflowDetail = computed(() => (selectedWorkflow.value ? getWorkflowDetail(selectedWorkflow.value.id) : null));
 const selectedRun = computed(() => runs.value.find((run) => run.id === selectedRunId.value));
 const settingsDirty = computed(() => JSON.stringify(settingsForm.value) !== JSON.stringify(settingsResponse.value?.settings ?? emptySettings()));
 const settingsChecks = computed(() => settingsResponse.value?.checks ?? []);
@@ -153,16 +198,27 @@ const displayPhases = computed(() => {
 
 const normalizedSearch = computed(() => searchQuery.value.trim().toLowerCase());
 
+const sectionWorkflows = computed(() => {
+  if (section.value === "workflows") return workflows.value;
+  if (section.value === "logs") return [];
+  return workflowsInCategory(workflows.value, section.value as WorkflowCategory);
+});
+
 const matchingWorkflows = computed(() => {
   const query = normalizedSearch.value;
+  const source = sectionWorkflows.value;
   const filtered = query
-    ? workflows.value.filter((workflow) =>
-        [workflow.name, workflow.description, workflow.changesMac]
+    ? source.filter((workflow) =>
+        [workflow.name, workflow.description, workflow.changesMac, workflowDetailHaystack(workflow.id)]
           .join(" ")
           .toLowerCase()
           .includes(query),
       )
-    : workflows.value;
+    : source;
+
+  if (section.value !== "workflows") {
+    return filtered;
+  }
 
   if (workflowTab.value === "safe") {
     return filtered.filter((workflow) => workflow.changesMac === "No");
@@ -225,6 +281,7 @@ const selectedRunOutput = computed(() =>
 
 onMounted(async () => {
   await loadAll();
+  await loadThemeFromBackend();
 });
 
 async function loadAll() {
@@ -249,6 +306,7 @@ async function loadAll() {
 function selectSection(next: SectionId) {
   section.value = next;
   searchQuery.value = "";
+  selectedWorkflowId.value = "";
 
   if (next === "logs") {
     void refreshRuns();
@@ -347,17 +405,29 @@ function emptySettings(): RuntimeSettings {
 }
 
 async function loadSettings() {
-  const response = await window.macOS.settings();
+  settingsLoading.value = true;
 
-  settingsResponse.value = response;
-  settingsForm.value = { ...response.settings };
-  settingsError.value = "";
+  try {
+    const response = await window.macOS.settings();
+
+    settingsResponse.value = response;
+    settingsForm.value = { ...response.settings };
+    settingsError.value = "";
+  } finally {
+    settingsLoading.value = false;
+  }
 }
 
 async function validateSettings() {
   settingsMessage.value = "";
   settingsError.value = "";
-  settingsResponse.value = await window.macOS.validateSettings({ ...settingsForm.value });
+  settingsValidating.value = true;
+
+  try {
+    settingsResponse.value = await window.macOS.validateSettings({ ...settingsForm.value });
+  } finally {
+    settingsValidating.value = false;
+  }
 }
 
 async function saveSettings() {
@@ -392,26 +462,44 @@ function resetSettingsForm() {
 }
 
 async function chooseDirectory(field: keyof RuntimeSettings) {
-  const path = await window.macOS.chooseDirectory(settingsForm.value[field]);
+  settingsPickerField.value = field;
 
-  if (path) {
-    settingsForm.value = { ...settingsForm.value, [field]: path };
+  try {
+    const path = await window.macOS.chooseDirectory(settingsForm.value[field]);
+
+    if (path) {
+      settingsForm.value = { ...settingsForm.value, [field]: path };
+    }
+  } finally {
+    settingsPickerField.value = null;
   }
 }
 
 async function chooseFile(field: keyof RuntimeSettings) {
-  const path = await window.macOS.chooseFile(settingsForm.value[field]);
+  settingsPickerField.value = field;
 
-  if (path) {
-    settingsForm.value = { ...settingsForm.value, [field]: path };
+  try {
+    const path = await window.macOS.chooseFile(settingsForm.value[field]);
+
+    if (path) {
+      settingsForm.value = { ...settingsForm.value, [field]: path };
+    }
+  } finally {
+    settingsPickerField.value = null;
   }
 }
 
 async function chooseSaveFile(field: keyof RuntimeSettings) {
-  const path = await window.macOS.chooseSaveFile(settingsForm.value[field]);
+  settingsPickerField.value = field;
 
-  if (path) {
-    settingsForm.value = { ...settingsForm.value, [field]: path };
+  try {
+    const path = await window.macOS.chooseSaveFile(settingsForm.value[field]);
+
+    if (path) {
+      settingsForm.value = { ...settingsForm.value, [field]: path };
+    }
+  } finally {
+    settingsPickerField.value = null;
   }
 }
 
@@ -420,6 +508,57 @@ function phaseStatus(phase: Phase) {
   const finish = [...events].reverse().find((event) => event.type === "phase_finished" || event.type === "phase_skipped");
 
   return finish?.status ?? events.at(-1)?.status ?? (enabledPhaseIds.value.has(phase.id) ? "pending" : "skipped");
+}
+
+const phaseIcons: Record<string, typeof Download> = {
+  "check-install-prerequisites": ListChecks,
+  "install-homebrew-packages": Beer,
+  "set-up-github-access-and-signing": Github,
+  "install-app-store-apps": Apple,
+  "show-manual-app-install-notes": FileText,
+  "restore-private-secrets-from-1password": Lock,
+  "prepare-existing-dotfiles": FolderOpen,
+  "install-oh-my-zsh": TerminalSquare,
+  "link-dotfiles": Link2,
+  "apply-macos-settings": Wand2,
+  "apply-tracked-macos-settings": Wand2,
+  "run-health-checks": Activity,
+  "restore-supported-app-configs-from-latest-snapshot": ArchiveRestore,
+  "restore-supported-app-settings": ArchiveRestore,
+  "save-supported-app-settings-snapshot": Camera,
+  "generate-installed-app-list-candidate": FileCode2,
+  "print-generated-homebrew-package-list": Printer,
+};
+
+function phaseIcon(id: string) {
+  return phaseIcons[id] ?? Circle;
+}
+
+const statusIcons: Record<string, typeof Circle> = {
+  pending: Circle,
+  running: Loader2,
+  completed: CheckCircle2,
+  ok: CheckCircle2,
+  failed: AlertTriangle,
+  stopped: CircleSlash,
+  skipped: MinusCircle,
+};
+
+function statusIcon(status: string) {
+  return statusIcons[status] ?? Circle;
+}
+
+const confirmationIcons: Record<string, typeof Play> = {
+  "preview-only": Eye,
+  "run-now": Play,
+  "already-erased-run-now": Play,
+  "run-without-erasing": Play,
+  "erase-first": Trash2,
+  back: ArrowLeft,
+};
+
+function confirmationIcon(id: string) {
+  return confirmationIcons[id] ?? Play;
 }
 
 function badgeVariant(status: string): BadgeVariants["variant"] {
@@ -545,7 +684,7 @@ function initials(value: string) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      :class="cn(section === item.id && 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground')"
+                      :class="cn(section === item.id && 'bg-accent text-accent-foreground hover:bg-accent dark:hover:bg-accent')"
                       @click="selectSection(item.id)"
                     >
                       <component :is="item.icon" class="size-4" />
@@ -562,7 +701,7 @@ function initials(value: string) {
                   v-else
                   variant="ghost"
                   size="sm"
-                  :class="cn('justify-start', section === item.id && 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground')"
+                  :class="cn('justify-start', section === item.id && 'bg-accent text-accent-foreground hover:bg-accent dark:hover:bg-accent')"
                   @click="selectSection(item.id)"
                 >
                   <component :is="item.icon" class="mr-2 size-4" />
@@ -583,7 +722,7 @@ function initials(value: string) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      :class="cn(section === item.id && 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground')"
+                      :class="cn(section === item.id && 'bg-accent text-accent-foreground hover:bg-accent dark:hover:bg-accent')"
                       @click="selectSection(item.id)"
                     >
                       <component :is="item.icon" class="size-4" />
@@ -597,7 +736,7 @@ function initials(value: string) {
                   v-else
                   variant="ghost"
                   size="sm"
-                  :class="cn('justify-start', section === item.id && 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground')"
+                  :class="cn('justify-start', section === item.id && 'bg-accent text-accent-foreground hover:bg-accent dark:hover:bg-accent')"
                   @click="selectSection(item.id)"
                 >
                   <component :is="item.icon" class="mr-2 size-4" />
@@ -657,39 +796,38 @@ function initials(value: string) {
                   </form>
                 </div>
                 <ScrollArea class="min-h-0 flex-1">
-                  <div class="flex flex-col gap-2 p-4 pt-0">
-                    <button
-                      v-for="workflow in matchingWorkflows"
-                      :key="workflow.id"
-                      :class="cn(
-                        'flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-all hover:bg-accent',
-                        selectedWorkflowId === workflow.id && 'bg-muted',
-                      )"
-                      @click="selectWorkflow(workflow)"
-                    >
-                      <div class="flex w-full flex-col gap-1">
-                        <div class="flex min-w-0 items-center gap-2">
-                          <div class="truncate font-semibold">{{ workflow.name }}</div>
-                          <span v-if="workflow.id === selectedWorkflowId" class="flex size-2 rounded-full bg-primary" />
-                          <Badge class="ml-auto" :variant="badgeVariant(workflow.changesMac)">
-                            {{ workflow.changesMac }}
-                          </Badge>
-                        </div>
-                        <div class="text-xs font-medium text-muted-foreground">
-                          {{ workflow.phases.length }} phases
-                        </div>
-                      </div>
-                      <div class="line-clamp-2 text-xs leading-5 text-muted-foreground">
-                        {{ workflow.description }}
-                      </div>
-                    </button>
-
-                    <div v-if="matchingWorkflows.length === 0" class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-                      No workflows match this view.
-                    </div>
-                  </div>
+                  <WorkflowCardList
+                    :workflows="matchingWorkflows"
+                    :selected-id="selectedWorkflowId"
+                    @select="selectWorkflow"
+                  />
                 </ScrollArea>
               </Tabs>
+            </template>
+
+            <template v-else-if="categoryMeta">
+              <div class="flex h-full min-h-0 flex-col">
+                <div class="flex items-center px-4 py-2">
+                  <h1 class="text-xl font-bold">{{ categoryMeta.title }}</h1>
+                </div>
+                <Separator />
+                <div class="bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                  <form @submit.prevent>
+                    <div class="relative">
+                      <Search class="absolute left-2 top-2.5 size-4 text-muted-foreground" />
+                      <Input v-model="searchQuery" data-testid="app-search" placeholder="Search workflows" class="pl-8" />
+                    </div>
+                  </form>
+                </div>
+                <ScrollArea class="min-h-0 flex-1">
+                  <WorkflowCardList
+                    :workflows="matchingWorkflows"
+                    :selected-id="selectedWorkflowId"
+                    :empty-message="categoryMeta.emptyMessage"
+                    @select="selectWorkflow"
+                  />
+                </ScrollArea>
+              </div>
             </template>
 
             <template v-else-if="section === 'logs'">
@@ -747,7 +885,7 @@ function initials(value: string) {
             <template v-else-if="section === 'settings'">
               <div class="flex items-center px-4 py-2">
                 <h1 class="text-xl font-bold">Settings</h1>
-                <Badge class="ml-auto" :variant="settingsResponse?.valid ? 'default' : 'destructive'">
+                <Badge variant="outline" :class="cn('ml-auto', statusPillClass(settingsResponse?.valid ? 'ok' : 'failed'))">
                   {{ settingsResponse?.valid ? "valid" : "needs review" }}
                 </Badge>
               </div>
@@ -769,23 +907,17 @@ function initials(value: string) {
                     <Badge :variant="group.count === 0 ? 'secondary' : 'destructive'">{{ group.count }}</Badge>
                   </div>
                 </div>
-              </ScrollArea>
-            </template>
-
-            <template v-else>
-              <div class="flex items-center px-4 py-2">
-                <h1 class="text-xl font-bold capitalize">{{ section.replace("-", " ") }}</h1>
-              </div>
-              <Separator />
-              <div class="bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <div class="relative">
-                  <Search class="absolute left-2 top-2.5 size-4 text-muted-foreground" />
-                  <Input v-model="searchQuery" placeholder="Search" class="pl-8" />
+                <Separator />
+                <div class="px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Workflows
                 </div>
-              </div>
-              <div class="grid min-h-0 flex-1 place-items-center p-8 text-center text-sm text-muted-foreground">
-                Select Workflows or Logs to manage live app data.
-              </div>
+                <WorkflowCardList
+                  :workflows="settingsWorkflows"
+                  :selected-id="selectedWorkflowId"
+                  empty-message="No settings workflows available."
+                  @select="selectWorkflow"
+                />
+              </ScrollArea>
             </template>
           </div>
         </ResizablePanel>
@@ -828,6 +960,17 @@ function initials(value: string) {
               </div>
 
               <div class="ml-auto flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger as-child>
+                    <Button variant="ghost" size="icon" @click="toggleTheme">
+                      <Sun v-if="theme === 'dark'" class="size-4" />
+                      <Moon v-else class="size-4" />
+                      <span class="sr-only">Toggle theme</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Toggle theme</TooltipContent>
+                </Tooltip>
+
                 <Tooltip>
                   <TooltipTrigger as-child>
                     <Button variant="ghost" size="icon" :disabled="section !== 'logs'" @click="refreshRuns">
@@ -904,7 +1047,7 @@ function initials(value: string) {
               </div>
             </div>
 
-            <template v-else-if="section === 'workflows' && selectedWorkflow">
+            <template v-else-if="(section === 'workflows' || categoryMeta) && selectedWorkflow">
               <div class="flex items-start p-4">
                 <div class="flex items-start gap-4 text-sm">
                   <Avatar size="sm">
@@ -914,7 +1057,8 @@ function initials(value: string) {
                     <div class="font-semibold">{{ selectedWorkflow.name }}</div>
                     <div class="line-clamp-1 text-xs">{{ selectedWorkflow.description }}</div>
                     <div class="line-clamp-1 text-xs">
-                      <span class="font-medium">Changes Mac:</span> {{ selectedWorkflow.changesMac }}
+                      <span class="font-medium">Action:</span> {{ getWorkflowDetail(selectedWorkflow.id).action || selectedWorkflow.changesMac }}
+                      <span class="text-muted-foreground">· Changes Mac: {{ selectedWorkflow.changesMac }}</span>
                     </div>
                   </div>
                 </div>
@@ -925,6 +1069,36 @@ function initials(value: string) {
 
               <ScrollArea class="min-h-0 flex-1">
                 <div class="grid gap-5 p-4">
+                  <section v-if="selectedWorkflowDetail && (selectedWorkflowDetail.purpose || selectedWorkflowDetail.details || selectedWorkflowDetail.whenToRun || selectedWorkflowDetail.sideEffects.length || selectedWorkflowDetail.prerequisites.length)">
+                    <h2 class="mb-2 text-sm font-semibold">About this workflow</h2>
+                    <div class="grid gap-3 rounded-lg border bg-muted/40 p-3">
+                      <div v-if="selectedWorkflowDetail.purpose">
+                        <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Purpose</div>
+                        <p class="mt-1 text-sm leading-6">{{ selectedWorkflowDetail.purpose }}</p>
+                      </div>
+                      <div v-if="selectedWorkflowDetail.details">
+                        <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">What it does</div>
+                        <p class="mt-1 text-sm leading-6">{{ selectedWorkflowDetail.details }}</p>
+                      </div>
+                      <div v-if="selectedWorkflowDetail.whenToRun">
+                        <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">When to run</div>
+                        <p class="mt-1 text-sm leading-6">{{ selectedWorkflowDetail.whenToRun }}</p>
+                      </div>
+                      <div v-if="selectedWorkflowDetail.sideEffects.length">
+                        <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Side effects</div>
+                        <ul class="mt-1 list-disc pl-5 text-sm leading-6">
+                          <li v-for="effect in selectedWorkflowDetail.sideEffects" :key="effect">{{ effect }}</li>
+                        </ul>
+                      </div>
+                      <div v-if="selectedWorkflowDetail.prerequisites.length">
+                        <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Prerequisites</div>
+                        <ul class="mt-1 list-disc pl-5 text-sm leading-6">
+                          <li v-for="prereq in selectedWorkflowDetail.prerequisites" :key="prereq">{{ prereq }}</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </section>
+
                   <section>
                     <div class="mb-2 flex items-center justify-between gap-3">
                       <h2 class="text-sm font-semibold">Phases</h2>
@@ -937,10 +1111,14 @@ function initials(value: string) {
                         class="flex w-full items-center gap-3 border-b px-3 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-accent"
                         @click="togglePhase(phase)"
                       >
-                        <CheckCircle2 v-if="enabledPhaseIds.has(phase.id)" class="size-4 text-primary" />
-                        <Circle v-else class="size-4 text-muted-foreground" />
+                        <CheckCircle2 v-if="enabledPhaseIds.has(phase.id)" class="size-4 shrink-0 text-primary" />
+                        <Circle v-else class="size-4 shrink-0 text-muted-foreground" />
+                        <component :is="phaseIcon(phase.id)" class="size-4 shrink-0 text-muted-foreground" />
                         <span class="min-w-0 flex-1 truncate">{{ phase.name }}</span>
-                        <Badge :variant="badgeVariant(phaseStatus(phase))">{{ phaseStatus(phase) }}</Badge>
+                        <Badge variant="outline" :class="phaseStatusPillClass(phaseStatus(phase))">
+                          <component :is="statusIcon(phaseStatus(phase))" :class="phaseStatus(phase) === 'running' ? 'animate-spin' : ''" />
+                          {{ phaseStatus(phase) }}
+                        </Badge>
                       </button>
                     </div>
                   </section>
@@ -953,21 +1131,21 @@ function initials(value: string) {
                         v-for="option in selectedWorkflow.confirmation.options"
                         :key="option.id"
                         variant="outline"
-                        class="h-auto justify-between gap-3 whitespace-normal px-3 py-2 text-left"
+                        :class="cn('h-auto justify-start gap-3 whitespace-normal px-3 py-2 text-left', confirmationStyle(option.id).buttonClass)"
                         @click="openConfirmation(option)"
                       >
-                        <span class="min-w-0">
+                        <component :is="confirmationIcon(option.id)" :class="cn('size-4 shrink-0', confirmationStyle(option.id).iconClass)" />
+                        <span class="min-w-0 flex-1">
                           <span class="block font-medium">{{ option.label }}</span>
                           <span class="block text-xs text-muted-foreground">{{ option.description }}</span>
                         </span>
-                        <Play v-if="option.continue" class="size-4 text-muted-foreground" />
                       </Button>
                     </div>
                   </section>
 
                   <section>
                     <h2 class="mb-2 text-sm font-semibold">Output</h2>
-                    <ScrollArea class="h-72 rounded-lg border bg-primary text-primary-foreground">
+                    <ScrollArea class="h-72 rounded-lg border bg-[#121212] text-[#dbd7caee]">
                       <OutputBlock :code="outputText" empty-text="No workflow output yet." class="text-xs leading-5" />
                     </ScrollArea>
                   </section>
@@ -1013,7 +1191,7 @@ function initials(value: string) {
                   </Badge>
                 </div>
                 <Separator />
-                <ScrollArea class="min-h-0 flex-1">
+                <ScrollArea class="min-h-0 flex-1 bg-[#121212] text-[#dbd7caee]">
                   <OutputBlock :code="selectedRunOutput" empty-text="No log output recorded." class="text-sm leading-6" />
                 </ScrollArea>
                 <Separator />
@@ -1056,130 +1234,176 @@ function initials(value: string) {
                     </div>
                   </div>
                 </div>
-                <Badge class="ml-auto" :variant="settingsResponse?.valid ? 'default' : 'destructive'">
+                <Skeleton v-if="settingsLoading || settingsSaving || settingsValidating" class="ml-auto h-5 w-16" />
+                <Badge v-else variant="outline" :class="cn('ml-auto', statusPillClass(settingsResponse?.valid ? 'ok' : 'failed'))">
                   {{ settingsResponse?.valid ? "valid" : "invalid" }}
                 </Badge>
               </div>
               <Separator />
               <ScrollArea class="min-h-0 flex-1">
                 <div class="grid gap-6 p-4">
-                  <section class="grid gap-3">
-                    <h2 class="text-sm font-semibold">Repository</h2>
-                    <div class="grid gap-2">
-                      <Label for="repo-root">Repo root</Label>
-                      <div class="flex gap-2">
-                        <Input id="repo-root" v-model="settingsForm.repoRoot" data-testid="settings-repo-root" />
-                        <Tooltip>
-                          <TooltipTrigger as-child>
-                            <Button type="button" variant="outline" size="icon" @click="chooseDirectory('repoRoot')">
-                              <FolderOpen class="size-4" />
-                              <span class="sr-only">Choose repo root</span>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Choose repo root</TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </div>
-                  </section>
-
-                  <section class="grid gap-3">
-                    <h2 class="text-sm font-semibold">Manifests</h2>
-                    <div class="grid gap-2">
-                      <Label for="apps-config">Apps manifest</Label>
-                      <div class="flex gap-2">
-                        <Input id="apps-config" v-model="settingsForm.appsConfigPath" data-testid="settings-apps-config" />
-                        <Button type="button" variant="outline" size="icon" @click="chooseFile('appsConfigPath')">
-                          <FileText class="size-4" />
-                          <span class="sr-only">Choose apps manifest</span>
-                        </Button>
-                      </div>
-                    </div>
-                    <div class="grid gap-2">
-                      <Label for="secrets-config">Secrets manifest</Label>
-                      <div class="flex gap-2">
-                        <Input id="secrets-config" v-model="settingsForm.secretsConfigPath" />
-                        <Button type="button" variant="outline" size="icon" @click="chooseFile('secretsConfigPath')">
-                          <FileText class="size-4" />
-                          <span class="sr-only">Choose secrets manifest</span>
-                        </Button>
-                      </div>
-                    </div>
-                    <div class="grid gap-2">
-                      <Label for="generated-apps">Generated apps output</Label>
-                      <div class="flex gap-2">
-                        <Input id="generated-apps" v-model="settingsForm.generatedAppsPath" />
-                        <Button type="button" variant="outline" size="icon" @click="chooseSaveFile('generatedAppsPath')">
-                          <Save class="size-4" />
-                          <span class="sr-only">Choose generated apps output</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </section>
-
-                  <section class="grid gap-3">
-                    <h2 class="text-sm font-semibold">Storage</h2>
-                    <div class="grid gap-2">
-                      <Label for="workflow-db">Workflow SQLite database</Label>
-                      <div class="flex gap-2">
-                        <Input id="workflow-db" v-model="settingsForm.workflowDbPath" data-testid="settings-workflow-db" />
-                        <Button type="button" variant="outline" size="icon" @click="chooseSaveFile('workflowDbPath')">
-                          <Database class="size-4" />
-                          <span class="sr-only">Choose workflow database</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </section>
-
-                  <section class="grid gap-3">
-                    <h2 class="text-sm font-semibold">Operations</h2>
-                    <div class="grid gap-2">
-                      <Label for="archive-root">Archive root</Label>
-                      <div class="flex gap-2">
-                        <Input id="archive-root" v-model="settingsForm.archiveRoot" />
-                        <Button type="button" variant="outline" size="icon" @click="chooseDirectory('archiveRoot')">
-                          <FolderOpen class="size-4" />
-                          <span class="sr-only">Choose archive root</span>
-                        </Button>
-                      </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle class="text-sm">Repository</CardTitle>
+                    </CardHeader>
+                    <CardContent class="grid gap-3">
                       <div class="grid gap-2">
-                        <Label for="op-vault">1Password vault</Label>
-                        <Input id="op-vault" v-model="settingsForm.opVault" />
-                      </div>
-                      <div class="grid gap-2">
-                        <Label for="op-item">1Password item</Label>
-                        <Input id="op-item" v-model="settingsForm.opItem" />
-                      </div>
-                    </div>
-                  </section>
-
-                  <section class="grid gap-3">
-                    <div class="flex items-center justify-between gap-3">
-                      <h2 class="text-sm font-semibold">Validation</h2>
-                      <Button type="button" variant="ghost" size="sm" @click="validateSettings">Validate</Button>
-                    </div>
-                    <div class="overflow-hidden rounded-lg border">
-                      <div
-                        v-for="check in settingsChecks"
-                        :key="check.key"
-                        class="grid gap-1 border-b px-3 py-3 text-sm last:border-b-0"
-                      >
-                        <div class="flex items-center gap-2">
-                          <span class="font-medium">{{ check.label }}</span>
-                          <Badge class="ml-auto" :variant="check.status === 'ok' ? 'secondary' : 'destructive'">{{ check.status }}</Badge>
+                        <Label for="repo-root">Repo root</Label>
+                        <div class="flex gap-2">
+                          <Skeleton v-if="settingsLoading || settingsPickerField === 'repoRoot'" class="h-9 w-full" />
+                          <Input v-else id="repo-root" v-model="settingsForm.repoRoot" data-testid="settings-repo-root" />
+                          <Tooltip>
+                            <TooltipTrigger as-child>
+                              <Button type="button" variant="outline" size="icon" :disabled="settingsLoading || settingsPickerField !== null" @click="chooseDirectory('repoRoot')">
+                                <FolderOpen class="size-4" />
+                                <span class="sr-only">Choose repo root</span>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Choose repo root</TooltipContent>
+                          </Tooltip>
                         </div>
-                        <div class="truncate text-xs text-muted-foreground">{{ check.path }}</div>
-                        <div v-if="check.message && check.message !== 'ok'" class="text-xs text-destructive">{{ check.message }}</div>
                       </div>
-                    </div>
-                    <div v-if="settingsError" class="rounded-lg border border-destructive/40 p-3 text-sm text-destructive">
-                      {{ settingsError }}
-                    </div>
-                    <div v-if="settingsMessage" class="rounded-lg border p-3 text-sm text-muted-foreground">
-                      {{ settingsMessage }}
-                    </div>
-                  </section>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle class="text-sm">Manifests</CardTitle>
+                    </CardHeader>
+                    <CardContent class="grid gap-3">
+                      <div class="grid gap-2">
+                        <Label for="apps-config">Apps manifest</Label>
+                        <div class="flex gap-2">
+                          <Skeleton v-if="settingsLoading || settingsPickerField === 'appsConfigPath'" class="h-9 w-full" />
+                          <Input v-else id="apps-config" v-model="settingsForm.appsConfigPath" data-testid="settings-apps-config" />
+                          <Button type="button" variant="outline" size="icon" :disabled="settingsLoading || settingsPickerField !== null" @click="chooseFile('appsConfigPath')">
+                            <FileText class="size-4" />
+                            <span class="sr-only">Choose apps manifest</span>
+                          </Button>
+                        </div>
+                      </div>
+                      <div class="grid gap-2">
+                        <Label for="secrets-config">Secrets manifest</Label>
+                        <div class="flex gap-2">
+                          <Skeleton v-if="settingsLoading || settingsPickerField === 'secretsConfigPath'" class="h-9 w-full" />
+                          <Input v-else id="secrets-config" v-model="settingsForm.secretsConfigPath" />
+                          <Button type="button" variant="outline" size="icon" :disabled="settingsLoading || settingsPickerField !== null" @click="chooseFile('secretsConfigPath')">
+                            <FileText class="size-4" />
+                            <span class="sr-only">Choose secrets manifest</span>
+                          </Button>
+                        </div>
+                      </div>
+                      <div class="grid gap-2">
+                        <Label for="generated-apps">Generated apps output</Label>
+                        <div class="flex gap-2">
+                          <Skeleton v-if="settingsLoading || settingsPickerField === 'generatedAppsPath'" class="h-9 w-full" />
+                          <Input v-else id="generated-apps" v-model="settingsForm.generatedAppsPath" />
+                          <Button type="button" variant="outline" size="icon" :disabled="settingsLoading || settingsPickerField !== null" @click="chooseSaveFile('generatedAppsPath')">
+                            <Save class="size-4" />
+                            <span class="sr-only">Choose generated apps output</span>
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle class="text-sm">Storage</CardTitle>
+                    </CardHeader>
+                    <CardContent class="grid gap-3">
+                      <div class="grid gap-2">
+                        <Label for="workflow-db">Workflow SQLite database</Label>
+                        <div class="flex gap-2">
+                          <Skeleton v-if="settingsLoading || settingsPickerField === 'workflowDbPath'" class="h-9 w-full" />
+                          <Input v-else id="workflow-db" v-model="settingsForm.workflowDbPath" data-testid="settings-workflow-db" />
+                          <Button type="button" variant="outline" size="icon" :disabled="settingsLoading || settingsPickerField !== null" @click="chooseSaveFile('workflowDbPath')">
+                            <Database class="size-4" />
+                            <span class="sr-only">Choose workflow database</span>
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle class="text-sm">Operations</CardTitle>
+                    </CardHeader>
+                    <CardContent class="grid gap-3">
+                      <div class="grid gap-2">
+                        <Label for="archive-root">Archive root</Label>
+                        <div class="flex gap-2">
+                          <Skeleton v-if="settingsLoading || settingsPickerField === 'archiveRoot'" class="h-9 w-full" />
+                          <Input v-else id="archive-root" v-model="settingsForm.archiveRoot" />
+                          <Button type="button" variant="outline" size="icon" :disabled="settingsLoading || settingsPickerField !== null" @click="chooseDirectory('archiveRoot')">
+                            <FolderOpen class="size-4" />
+                            <span class="sr-only">Choose archive root</span>
+                          </Button>
+                        </div>
+                      </div>
+                      <div class="grid grid-cols-2 gap-3">
+                        <div class="grid gap-2">
+                          <Label for="op-vault">1Password vault</Label>
+                          <Skeleton v-if="settingsLoading" class="h-9 w-full" />
+                          <Input v-else id="op-vault" v-model="settingsForm.opVault" />
+                        </div>
+                        <div class="grid gap-2">
+                          <Label for="op-item">1Password item</Label>
+                          <Skeleton v-if="settingsLoading" class="h-9 w-full" />
+                          <Input v-else id="op-item" v-model="settingsForm.opItem" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader class="flex flex-row items-center justify-between gap-3 space-y-0">
+                      <CardTitle class="text-sm">Validation</CardTitle>
+                      <Button type="button" variant="ghost" size="sm" :disabled="settingsLoading || settingsValidating || settingsSaving" @click="validateSettings">
+                        <Loader2 v-if="settingsValidating" class="size-4 animate-spin" />
+                        Validate
+                      </Button>
+                    </CardHeader>
+                    <CardContent class="grid gap-3">
+                      <div class="overflow-hidden rounded-lg border">
+                        <template v-if="settingsLoading || settingsValidating || settingsSaving">
+                          <div
+                            v-for="i in 4"
+                            :key="`skeleton-check-${i}`"
+                            class="grid gap-2 border-b px-3 py-3 last:border-b-0"
+                            data-testid="settings-checks-skeleton"
+                          >
+                            <div class="flex items-center gap-2">
+                              <Skeleton class="h-4 w-32" />
+                              <Skeleton class="ml-auto h-5 w-12" />
+                            </div>
+                            <Skeleton class="h-3 w-3/4" />
+                          </div>
+                        </template>
+                        <template v-else>
+                          <div
+                            v-for="check in settingsChecks"
+                            :key="check.key"
+                            class="grid gap-1 border-b px-3 py-3 text-sm last:border-b-0"
+                          >
+                            <div class="flex items-center gap-2">
+                              <span class="font-medium">{{ check.label }}</span>
+                              <Badge class="ml-auto" :variant="check.status === 'ok' ? 'secondary' : 'destructive'">{{ check.status }}</Badge>
+                            </div>
+                            <div class="truncate text-xs text-muted-foreground">{{ check.path }}</div>
+                            <div v-if="check.message && check.message !== 'ok'" class="text-xs text-destructive">{{ check.message }}</div>
+                          </div>
+                        </template>
+                      </div>
+                      <div v-if="settingsError" class="rounded-lg border border-destructive/40 p-3 text-sm text-destructive">
+                        {{ settingsError }}
+                      </div>
+                      <div v-if="settingsMessage" class="rounded-lg border p-3 text-sm text-muted-foreground">
+                        {{ settingsMessage }}
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
               </ScrollArea>
               <Separator />

@@ -1,0 +1,611 @@
+apps:
+    - name: 1Password
+      bundle_id: com.1password.1password
+      install_method: brew
+      package: 1password
+      config_mode: manual
+      onepassword_fields:
+        - restore_notes
+    - name: Activity Monitor
+      bundle_id: com.apple.ActivityMonitor
+      install_method: system
+      config_mode: manual
+    - name: Air
+      bundle_id: com.jetbrains.air
+      install_method: manual
+      package: https://www.jetbrains.com/ai/
+      config_mode: manual
+    - name: AirPort Utility
+      bundle_id: com.apple.airport.airportutility
+      install_method: system
+      config_mode: manual
+    - name: Amphetamine
+      bundle_id: com.if.Amphetamine
+      install_method: manual
+      config_mode: manual
+    - name: App Store
+      bundle_id: com.apple.AppStore
+      install_method: system
+      config_mode: manual
+    - name: Apps
+      bundle_id: com.apple.apps.launcher
+      install_method: system
+      config_mode: manual
+    - name: Audio MIDI Setup
+      bundle_id: com.apple.audio.AudioMIDISetup
+      install_method: system
+      config_mode: manual
+    - name: Automator
+      bundle_id: com.apple.Automator
+      install_method: system
+      config_mode: manual
+    - name: Bluetooth File Exchange
+      bundle_id: com.apple.BluetoothFileExchange
+      install_method: system
+      config_mode: manual
+    - name: Books
+      bundle_id: com.apple.iBooksX
+      install_method: system
+      config_mode: manual
+    - name: Boot Camp Assistant
+      bundle_id: com.apple.bootcampassistant
+      install_method: system
+      config_mode: manual
+    - name: Bruno
+      bundle_id: com.usebruno.app
+      install_method: brew
+      package: bruno
+      config_mode: auto
+      config_paths:
+        - source: ~/Library/Preferences/com.usebruno.app.plist
+          target: bruno/Preferences/com.usebruno.app.plist
+    - name: Caffeine
+      bundle_id: net.domzilla.caffeine
+      install_method: manual
+      package: https://intelliscapesolutions.com/apps/caffeine
+      config_mode: auto
+      config_paths:
+        - source: ~/Library/Preferences/net.domzilla.caffeine.plist
+          target: caffeine/Preferences/net.domzilla.caffeine.plist
+    - name: Calculator
+      bundle_id: com.apple.calculator
+      install_method: system
+      config_mode: manual
+    - name: Calendar
+      bundle_id: com.apple.iCal
+      install_method: system
+      config_mode: manual
+    - name: Chess
+      bundle_id: com.apple.Chess
+      install_method: system
+      config_mode: manual
+    - name: Claude
+      bundle_id: com.anthropic.claudefordesktop
+      install_method: brew
+      package: claude
+      config_mode: reference
+      config_paths:
+        - source: ~/Library/Preferences/com.anthropic.claudefordesktop.plist
+          target: claude/Preferences/com.anthropic.claudefordesktop.plist
+    - name: Claude Code URL Handler
+      bundle_id: com.anthropic.claude-code-url-handler
+      install_method: brew
+      package: claude-code
+      config_mode: manual
+    - name: Clock
+      bundle_id: com.apple.clock
+      install_method: system
+      config_mode: manual
+    - name: Clop
+      bundle_id: com.lowtechguys.Clop
+      install_method: manual
+      package: https://lowtechguys.com/clop/
+      config_mode: auto
+      config_paths:
+        - source: ~/Library/Preferences/com.lowtechguys.Clop.plist
+          target: clop/Preferences/com.lowtechguys.Clop.plist
+    - name: Codex
+      bundle_id: com.openai.codex
+      install_method: brew
+      package: codex
+      config_mode: reference
+      config_paths:
+        - source: ~/Library/Preferences/com.openai.codex.plist
+          target: codex/Preferences/com.openai.codex.plist
+    - name: CodexBar
+      bundle_id: com.steipete.codexbar
+      install_method: brew
+      package: codexbar
+      config_mode: auto
+      config_paths:
+        - source: ~/Library/Preferences/com.steipete.codexbar.plist
+          target: codexbar/Preferences/com.steipete.codexbar.plist
+    - name: ColorSync Utility
+      bundle_id: com.apple.ColorSyncUtility
+      install_method: system
+      config_mode: manual
+    - name: Console
+      bundle_id: com.apple.Console
+      install_method: system
+      config_mode: manual
+    - name: Contacts
+      bundle_id: com.apple.AddressBook
+      install_method: system
+      config_mode: manual
+    - name: DBeaver
+      bundle_id: org.jkiss.dbeaver.core.product
+      install_method: brew
+      package: dbeaver-community
+      config_mode: reference
+      config_paths:
+        - source: ~/Library/Preferences/org.jkiss.dbeaver.core.product.plist
+          target: dbeaver/Preferences/org.jkiss.dbeaver.core.product.plist
+    - name: Dictionary
+      bundle_id: com.apple.Dictionary
+      install_method: system
+      config_mode: manual
+    - name: Digital Color Meter
+      bundle_id: com.apple.DigitalColorMeter
+      install_method: system
+      config_mode: manual
+    - name: Discord
+      bundle_id: com.hnc.Discord
+      install_method: brew
+      package: discord
+      config_mode: manual
+    - name: Disk Utility
+      bundle_id: com.apple.DiskUtility
+      install_method: system
+      config_mode: manual
+    - name: Docker
+      bundle_id: com.docker.docker
+      install_method: brew
+      package: docker
+      config_mode: reference
+      config_paths:
+        - source: ~/Library/Preferences/com.electron.dockerdesktop.plist
+          target: docker/Preferences/com.electron.dockerdesktop.plist
+    - name: FaceTime
+      bundle_id: com.apple.FaceTime
+      install_method: system
+      config_mode: manual
+    - name: FindMy
+      bundle_id: com.apple.findmy
+      install_method: system
+      config_mode: manual
+    - name: Font Book
+      bundle_id: com.apple.FontBook
+      install_method: system
+      config_mode: manual
+    - name: Freeform
+      bundle_id: com.apple.freeform
+      install_method: system
+      config_mode: manual
+    - name: Games
+      bundle_id: com.apple.games
+      install_method: system
+      config_mode: manual
+    - name: Gemini
+      bundle_id: com.google.GeminiMacOS
+      install_method: manual
+      package: https://gemini.google.com/app/download
+      config_mode: reference
+      config_paths:
+        - source: ~/Library/Preferences/com.google.GeminiMacOS.plist
+          target: gemini/Preferences/com.google.GeminiMacOS.plist
+    - name: Ghostty
+      bundle_id: com.mitchellh.ghostty
+      install_method: brew
+      package: ghostty
+      config_mode: auto
+      config_paths:
+        - source: ~/.config/ghostty/config
+          target: ghostty/config
+        - source: ~/Library/Preferences/com.mitchellh.ghostty.plist
+          target: ghostty/Preferences/com.mitchellh.ghostty.plist
+    - name: GoLand
+      bundle_id: com.jetbrains.goland
+      install_method: manual
+      config_mode: manual
+    - name: Google Chrome
+      bundle_id: com.google.Chrome
+      install_method: brew
+      package: google-chrome
+      config_mode: manual
+    - name: Grammarly Desktop
+      bundle_id: com.grammarly.ProjectLlama
+      install_method: manual
+      package: https://www.grammarly.com/desktop/mac
+      config_mode: reference
+      config_paths:
+        - source: ~/Library/Preferences/com.grammarly.ProjectLlama.plist
+          target: grammarly/Preferences/com.grammarly.ProjectLlama.plist
+    - name: Grapher
+      bundle_id: com.apple.grapher
+      install_method: system
+      config_mode: manual
+    - name: Hand Mirror
+      bundle_id: net.rafaelconde.Hand-Mirror
+      install_method: mas
+      package: "1502839586"
+      config_mode: manual
+    - name: Helium
+      bundle_id: net.imput.helium
+      install_method: manual
+      package: https://github.com/JadenGeller/Helium
+      config_mode: auto
+      config_paths:
+        - source: ~/Library/Preferences/net.imput.helium.plist
+          target: helium/Preferences/net.imput.helium.plist
+    - name: Herd
+      bundle_id: de.beyondco.herd
+      install_method: manual
+      package: https://herd.laravel.com/
+      config_mode: reference
+      config_paths:
+        - source: ~/Library/Preferences/de.beyondco.herd.plist
+          target: herd/Preferences/de.beyondco.herd.plist
+    - name: Home
+      bundle_id: com.apple.Home
+      install_method: system
+      config_mode: manual
+    - name: Ice
+      bundle_id: com.jordanbaird.Ice
+      install_method: brew
+      package: jordanbaird-ice
+      config_mode: auto
+      config_paths:
+        - source: ~/Library/Preferences/com.jordanbaird.Ice.plist
+          target: ice/Preferences/com.jordanbaird.Ice.plist
+    - name: Image Capture
+      bundle_id: com.apple.Image_Capture
+      install_method: system
+      config_mode: manual
+    - name: Image Playground
+      bundle_id: com.apple.GenerativePlaygroundApp
+      install_method: system
+      config_mode: manual
+    - name: Insta360 Link Controller
+      bundle_id: com.insta360.linkcontroller
+      install_method: manual
+      package: https://www.insta360.com/download/insta360-link
+      config_mode: manual
+    - name: iPhone Mirroring
+      bundle_id: com.apple.ScreenContinuity
+      install_method: system
+      config_mode: manual
+    - name: iTerm2
+      bundle_id: com.googlecode.iterm2
+      install_method: brew
+      package: iterm2
+      config_mode: auto
+      config_paths:
+        - source: ~/Library/Preferences/com.googlecode.iterm2.plist
+          target: iterm2/Preferences/com.googlecode.iterm2.plist
+    - name: JetBrains Toolbox
+      bundle_id: com.jetbrains.toolbox
+      install_method: brew
+      package: jetbrains-toolbox
+      config_mode: reference
+      config_paths:
+        - source: ~/Library/Application Support/JetBrains
+          target: jetbrains/Application Support/JetBrains
+    - name: Journal
+      bundle_id: com.apple.journal
+      install_method: system
+      config_mode: manual
+    - name: Latest
+      bundle_id: com.max-langer.Latest
+      install_method: brew
+      package: latest
+      config_mode: manual
+    - name: LinearMouse
+      bundle_id: com.lujjjh.LinearMouse
+      install_method: brew
+      package: linearmouse
+      config_mode: auto
+      config_paths:
+        - source: ~/Library/Preferences/com.lujjjh.LinearMouse.plist
+          target: linearmouse/Preferences/com.lujjjh.LinearMouse.plist
+    - name: Magnet
+      bundle_id: com.crowdcafe.windowmagnet
+      install_method: mas
+      package: "441258766"
+      config_mode: auto
+      config_paths:
+        - source: ~/Library/Preferences/com.crowdcafe.windowmagnet.plist
+          target: magnet/Preferences/com.crowdcafe.windowmagnet.plist
+    - name: Magnifier
+      bundle_id: com.apple.Magnifier
+      install_method: system
+      config_mode: manual
+    - name: Mail
+      bundle_id: com.apple.mail
+      install_method: system
+      config_mode: manual
+    - name: Maps
+      bundle_id: com.apple.Maps
+      install_method: system
+      config_mode: manual
+    - name: MarkEdit
+      bundle_id: app.cyan.markedit
+      install_method: brew
+      package: markedit
+      config_mode: manual
+    - name: MeetingBar
+      bundle_id: leits.MeetingBar
+      install_method: mas
+      package: "1532419400"
+      config_mode: manual
+    - name: Messages
+      bundle_id: com.apple.MobileSMS
+      install_method: system
+      config_mode: manual
+    - name: Microsoft Teams
+      bundle_id: com.microsoft.teams2
+      install_method: brew
+      package: microsoft-teams
+      config_mode: manual
+    - name: Migration Assistant
+      bundle_id: com.apple.MigrateAssistant
+      install_method: system
+      config_mode: manual
+    - name: Mission Control
+      bundle_id: com.apple.exposelauncher
+      install_method: system
+      config_mode: manual
+    - name: Music
+      bundle_id: com.apple.Music
+      install_method: system
+      config_mode: manual
+    - name: News
+      bundle_id: com.apple.news
+      install_method: system
+      config_mode: manual
+    - name: Ngrok
+      install_method: brew
+      package: ngrok
+      config_mode: manual
+    - name: NordVPN
+      bundle_id: com.nordvpn.NordVPN
+      install_method: mas
+      package: "905953485"
+      config_mode: manual
+    - name: Notes
+      bundle_id: com.apple.Notes
+      install_method: system
+      config_mode: manual
+    - name: Notion
+      bundle_id: notion.id
+      install_method: brew
+      package: notion
+      config_mode: reference
+      config_paths:
+        - source: ~/Library/Preferences/notion.id.plist
+          target: notion/Preferences/notion.id.plist
+    - name: Passwords
+      bundle_id: com.apple.Passwords
+      install_method: system
+      config_mode: manual
+    - name: Phone
+      bundle_id: com.apple.mobilephone
+      install_method: system
+      config_mode: manual
+    - name: Photo Booth
+      bundle_id: com.apple.PhotoBooth
+      install_method: system
+      config_mode: manual
+    - name: Photos
+      bundle_id: com.apple.Photos
+      install_method: system
+      config_mode: manual
+    - name: PhpStorm
+      bundle_id: com.jetbrains.PhpStorm
+      install_method: manual
+      config_mode: manual
+    - name: Pixelmator Pro
+      bundle_id: com.pixelmatorteam.pixelmator.x
+      install_method: mas
+      package: "1289583905"
+      config_mode: manual
+    - name: Podcasts
+      bundle_id: com.apple.podcasts
+      install_method: system
+      config_mode: manual
+    - name: Postman
+      bundle_id: com.postmanlabs.mac
+      install_method: brew
+      package: postman
+      config_mode: reference
+      config_paths:
+        - source: ~/Library/Preferences/com.postmanlabs.mac.plist
+          target: postman/Preferences/com.postmanlabs.mac.plist
+    - name: Preview
+      bundle_id: com.apple.Preview
+      install_method: system
+      config_mode: manual
+    - name: Print Center
+      bundle_id: com.apple.printcenter
+      install_method: system
+      config_mode: manual
+    - name: QuickTime Player
+      bundle_id: com.apple.QuickTimePlayerX
+      install_method: system
+      config_mode: manual
+    - name: Raycast
+      bundle_id: com.raycast.macos
+      install_method: brew
+      package: raycast
+      config_mode: reference
+      config_paths:
+        - source: ~/Library/Preferences/com.raycast.macos.plist
+          target: raycast/Preferences/com.raycast.macos.plist
+    - name: Reminders
+      bundle_id: com.apple.reminders
+      install_method: system
+      config_mode: manual
+    - name: Safari
+      bundle_id: com.apple.Safari
+      install_method: system
+      config_mode: manual
+    - name: Screen Sharing
+      bundle_id: com.apple.ScreenSharing
+      install_method: system
+      config_mode: manual
+    - name: Screenshot
+      bundle_id: com.apple.screenshot.launcher
+      install_method: system
+      config_mode: manual
+    - name: Script Editor
+      bundle_id: com.apple.ScriptEditor2
+      install_method: system
+      config_mode: manual
+    - name: Shortcuts
+      bundle_id: com.apple.shortcuts
+      install_method: system
+      config_mode: manual
+    - name: Siri
+      bundle_id: com.apple.siri.launcher
+      install_method: system
+      config_mode: manual
+    - name: Slack
+      bundle_id: com.tinyspeck.slackmacgap
+      install_method: mas
+      package: "803453959"
+      config_mode: manual
+    - name: Spotify
+      bundle_id: com.spotify.client
+      install_method: brew
+      package: spotify
+      config_mode: manual
+    - name: Stats
+      bundle_id: eu.exelban.Stats
+      install_method: brew
+      package: stats
+      config_mode: auto
+      config_paths:
+        - source: ~/Library/Preferences/eu.exelban.Stats.plist
+          target: stats/Preferences/eu.exelban.Stats.plist
+    - name: Stickies
+      bundle_id: com.apple.Stickies
+      install_method: system
+      config_mode: manual
+    - name: Stocks
+      bundle_id: com.apple.stocks
+      install_method: system
+      config_mode: manual
+    - name: Sublime Text
+      bundle_id: com.sublimetext.4
+      install_method: brew
+      package: sublime-text
+      config_mode: auto
+      config_paths:
+        - source: ~/Library/Application Support/Sublime Text/Packages/User
+          target: sublime-text/Packages/User
+        - source: ~/Library/Preferences/com.sublimetext.4.plist
+          target: sublime-text/Preferences/com.sublimetext.4.plist
+    - name: System Information
+      bundle_id: com.apple.SystemProfiler
+      install_method: system
+      config_mode: manual
+    - name: System Settings
+      bundle_id: com.apple.systempreferences
+      install_method: system
+      config_mode: manual
+    - name: T3 Code Alpha
+      bundle_id: com.t3tools.t3code
+      install_method: manual
+      package: https://t3.chat/
+      config_mode: reference
+      config_paths:
+        - source: ~/Library/Preferences/com.t3tools.t3code.plist
+          target: t3-code/Preferences/com.t3tools.t3code.plist
+    - name: Telegram
+      bundle_id: ru.keepcoder.Telegram
+      install_method: mas
+      package: "747648890"
+      config_mode: manual
+    - name: Terminal
+      bundle_id: com.apple.Terminal
+      install_method: system
+      config_mode: manual
+    - name: TextEdit
+      bundle_id: com.apple.TextEdit
+      install_method: system
+      config_mode: manual
+    - name: Time Machine
+      bundle_id: com.apple.backup.launcher
+      install_method: system
+      config_mode: manual
+    - name: Tips
+      bundle_id: com.apple.helpviewer
+      install_method: system
+      config_mode: manual
+    - name: TrashMe
+      bundle_id: com.jibapps.TrashMe
+      install_method: manual
+      package: https://www.jibapps.com/apps/trashme/
+      config_mode: auto
+      config_paths:
+        - source: ~/Library/Preferences/com.jibapps.TrashMe.plist
+          target: trashme/Preferences/com.jibapps.TrashMe.plist
+    - name: TrashMe 3
+      bundle_id: com.jibapps.TrashMe3
+      install_method: mas
+      package: "1490879410"
+      config_mode: manual
+    - name: TV
+      bundle_id: com.apple.TV
+      install_method: system
+      config_mode: manual
+    - name: Visual Studio Code
+      bundle_id: com.microsoft.VSCode
+      install_method: brew
+      package: visual-studio-code
+      config_mode: auto
+      config_paths:
+        - source: ~/Library/Application Support/Code/User/settings.json
+          target: editors/vscode/settings.json
+        - source: ~/.vscode/extensions/extensions.json
+          target: editors/vscode/extensions.json
+    - name: VoiceMemos
+      bundle_id: com.apple.VoiceMemos
+      install_method: system
+      config_mode: manual
+    - name: VoiceOver Utility
+      bundle_id: com.apple.VoiceOverUtility
+      install_method: system
+      config_mode: manual
+    - name: Weather
+      bundle_id: com.apple.weather
+      install_method: system
+      config_mode: manual
+    - name: WebStorm
+      bundle_id: com.jetbrains.WebStorm
+      install_method: manual
+      config_mode: manual
+    - name: WhatsApp
+      bundle_id: net.whatsapp.WhatsApp
+      install_method: mas
+      package: "310633997"
+      config_mode: manual
+    - name: Xcode
+      bundle_id: com.apple.dt.Xcode
+      install_method: mas
+      package: "497799835"
+      config_mode: manual
+    - name: Xnip
+      bundle_id: com.zzd.Xnip
+      install_method: mas
+      package: "1221250572"
+      config_mode: manual
+    - name: Zone Bar
+      bundle_id: com.sindresorhus.Zone-Bar
+      install_method: mas
+      package: "6755328989"
+      config_mode: manual
+    - name: Zoom
+      bundle_id: us.zoom.xos
+      install_method: brew
+      package: zoom
+      config_mode: manual

@@ -1233,6 +1233,138 @@ func (x *SettingsCheck) GetMessage() string {
 	return ""
 }
 
+type GetUserPreferencesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserPreferencesRequest) Reset() {
+	*x = GetUserPreferencesRequest{}
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserPreferencesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserPreferencesRequest) ProtoMessage() {}
+
+func (x *GetUserPreferencesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserPreferencesRequest.ProtoReflect.Descriptor instead.
+func (*GetUserPreferencesRequest) Descriptor() ([]byte, []int) {
+	return file_packages_bridge_proto_workflow_proto_rawDescGZIP(), []int{19}
+}
+
+type SaveUserPreferencesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Theme         string                 `protobuf:"bytes,1,opt,name=theme,proto3" json:"theme,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveUserPreferencesRequest) Reset() {
+	*x = SaveUserPreferencesRequest{}
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveUserPreferencesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveUserPreferencesRequest) ProtoMessage() {}
+
+func (x *SaveUserPreferencesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveUserPreferencesRequest.ProtoReflect.Descriptor instead.
+func (*SaveUserPreferencesRequest) Descriptor() ([]byte, []int) {
+	return file_packages_bridge_proto_workflow_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *SaveUserPreferencesRequest) GetTheme() string {
+	if x != nil {
+		return x.Theme
+	}
+	return ""
+}
+
+type UserPreferencesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Theme         string                 `protobuf:"bytes,1,opt,name=theme,proto3" json:"theme,omitempty"`
+	UpdatedAt     string                 `protobuf:"bytes,2,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UserPreferencesResponse) Reset() {
+	*x = UserPreferencesResponse{}
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserPreferencesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserPreferencesResponse) ProtoMessage() {}
+
+func (x *UserPreferencesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_packages_bridge_proto_workflow_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UserPreferencesResponse.ProtoReflect.Descriptor instead.
+func (*UserPreferencesResponse) Descriptor() ([]byte, []int) {
+	return file_packages_bridge_proto_workflow_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *UserPreferencesResponse) GetTheme() string {
+	if x != nil {
+		return x.Theme
+	}
+	return ""
+}
+
+func (x *UserPreferencesResponse) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
 var File_packages_bridge_proto_workflow_proto protoreflect.FileDescriptor
 
 const file_packages_bridge_proto_workflow_proto_rawDesc = "" +
@@ -1330,14 +1462,23 @@ const file_packages_bridge_proto_workflow_proto_rawDesc = "" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12\x12\n" +
 	"\x04path\x18\x03 \x01(\tR\x04path\x12\x16\n" +
 	"\x06status\x18\x04 \x01(\tR\x06status\x12\x18\n" +
-	"\amessage\x18\x05 \x01(\tR\amessage2\xa4\x04\n" +
+	"\amessage\x18\x05 \x01(\tR\amessage\"\x1b\n" +
+	"\x19GetUserPreferencesRequest\"2\n" +
+	"\x1aSaveUserPreferencesRequest\x12\x14\n" +
+	"\x05theme\x18\x01 \x01(\tR\x05theme\"N\n" +
+	"\x17UserPreferencesResponse\x12\x14\n" +
+	"\x05theme\x18\x01 \x01(\tR\x05theme\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x02 \x01(\tR\tupdatedAt2\xfe\x05\n" +
 	"\x0eWorkflowBridge\x12^\n" +
 	"\rListWorkflows\x12%.macos.bridge.v1.ListWorkflowsRequest\x1a&.macos.bridge.v1.ListWorkflowsResponse\x12T\n" +
 	"\vRunWorkflow\x12#.macos.bridge.v1.RunWorkflowRequest\x1a\x1e.macos.bridge.v1.WorkflowEvent0\x01\x12O\n" +
 	"\bListRuns\x12 .macos.bridge.v1.ListRunsRequest\x1a!.macos.bridge.v1.ListRunsResponse\x12I\n" +
 	"\x06RunLog\x12\x1e.macos.bridge.v1.RunLogRequest\x1a\x1f.macos.bridge.v1.RunLogResponse\x12U\n" +
 	"\vGetSettings\x12#.macos.bridge.v1.GetSettingsRequest\x1a!.macos.bridge.v1.SettingsResponse\x12i\n" +
-	"\x10ValidateSettings\x12(.macos.bridge.v1.ValidateSettingsRequest\x1a+.macos.bridge.v1.SettingsValidationResponseB-Z+github.com/gocanto/mac-os/internal/bridgepbb\x06proto3"
+	"\x10ValidateSettings\x12(.macos.bridge.v1.ValidateSettingsRequest\x1a+.macos.bridge.v1.SettingsValidationResponse\x12j\n" +
+	"\x12GetUserPreferences\x12*.macos.bridge.v1.GetUserPreferencesRequest\x1a(.macos.bridge.v1.UserPreferencesResponse\x12l\n" +
+	"\x13SaveUserPreferences\x12+.macos.bridge.v1.SaveUserPreferencesRequest\x1a(.macos.bridge.v1.UserPreferencesResponseB-Z+github.com/gocanto/mac-os/internal/bridgepbb\x06proto3"
 
 var (
 	file_packages_bridge_proto_workflow_proto_rawDescOnce sync.Once
@@ -1351,7 +1492,7 @@ func file_packages_bridge_proto_workflow_proto_rawDescGZIP() []byte {
 	return file_packages_bridge_proto_workflow_proto_rawDescData
 }
 
-var file_packages_bridge_proto_workflow_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_packages_bridge_proto_workflow_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_packages_bridge_proto_workflow_proto_goTypes = []any{
 	(*ListWorkflowsRequest)(nil),       // 0: macos.bridge.v1.ListWorkflowsRequest
 	(*ListWorkflowsResponse)(nil),      // 1: macos.bridge.v1.ListWorkflowsResponse
@@ -1372,6 +1513,9 @@ var file_packages_bridge_proto_workflow_proto_goTypes = []any{
 	(*SettingsValidationResponse)(nil), // 16: macos.bridge.v1.SettingsValidationResponse
 	(*RuntimeSettings)(nil),            // 17: macos.bridge.v1.RuntimeSettings
 	(*SettingsCheck)(nil),              // 18: macos.bridge.v1.SettingsCheck
+	(*GetUserPreferencesRequest)(nil),  // 19: macos.bridge.v1.GetUserPreferencesRequest
+	(*SaveUserPreferencesRequest)(nil), // 20: macos.bridge.v1.SaveUserPreferencesRequest
+	(*UserPreferencesResponse)(nil),    // 21: macos.bridge.v1.UserPreferencesResponse
 }
 var file_packages_bridge_proto_workflow_proto_depIdxs = []int32{
 	2,  // 0: macos.bridge.v1.ListWorkflowsResponse.workflows:type_name -> macos.bridge.v1.Workflow
@@ -1393,14 +1537,18 @@ var file_packages_bridge_proto_workflow_proto_depIdxs = []int32{
 	11, // 16: macos.bridge.v1.WorkflowBridge.RunLog:input_type -> macos.bridge.v1.RunLogRequest
 	13, // 17: macos.bridge.v1.WorkflowBridge.GetSettings:input_type -> macos.bridge.v1.GetSettingsRequest
 	14, // 18: macos.bridge.v1.WorkflowBridge.ValidateSettings:input_type -> macos.bridge.v1.ValidateSettingsRequest
-	1,  // 19: macos.bridge.v1.WorkflowBridge.ListWorkflows:output_type -> macos.bridge.v1.ListWorkflowsResponse
-	7,  // 20: macos.bridge.v1.WorkflowBridge.RunWorkflow:output_type -> macos.bridge.v1.WorkflowEvent
-	9,  // 21: macos.bridge.v1.WorkflowBridge.ListRuns:output_type -> macos.bridge.v1.ListRunsResponse
-	12, // 22: macos.bridge.v1.WorkflowBridge.RunLog:output_type -> macos.bridge.v1.RunLogResponse
-	15, // 23: macos.bridge.v1.WorkflowBridge.GetSettings:output_type -> macos.bridge.v1.SettingsResponse
-	16, // 24: macos.bridge.v1.WorkflowBridge.ValidateSettings:output_type -> macos.bridge.v1.SettingsValidationResponse
-	19, // [19:25] is the sub-list for method output_type
-	13, // [13:19] is the sub-list for method input_type
+	19, // 19: macos.bridge.v1.WorkflowBridge.GetUserPreferences:input_type -> macos.bridge.v1.GetUserPreferencesRequest
+	20, // 20: macos.bridge.v1.WorkflowBridge.SaveUserPreferences:input_type -> macos.bridge.v1.SaveUserPreferencesRequest
+	1,  // 21: macos.bridge.v1.WorkflowBridge.ListWorkflows:output_type -> macos.bridge.v1.ListWorkflowsResponse
+	7,  // 22: macos.bridge.v1.WorkflowBridge.RunWorkflow:output_type -> macos.bridge.v1.WorkflowEvent
+	9,  // 23: macos.bridge.v1.WorkflowBridge.ListRuns:output_type -> macos.bridge.v1.ListRunsResponse
+	12, // 24: macos.bridge.v1.WorkflowBridge.RunLog:output_type -> macos.bridge.v1.RunLogResponse
+	15, // 25: macos.bridge.v1.WorkflowBridge.GetSettings:output_type -> macos.bridge.v1.SettingsResponse
+	16, // 26: macos.bridge.v1.WorkflowBridge.ValidateSettings:output_type -> macos.bridge.v1.SettingsValidationResponse
+	21, // 27: macos.bridge.v1.WorkflowBridge.GetUserPreferences:output_type -> macos.bridge.v1.UserPreferencesResponse
+	21, // 28: macos.bridge.v1.WorkflowBridge.SaveUserPreferences:output_type -> macos.bridge.v1.UserPreferencesResponse
+	21, // [21:29] is the sub-list for method output_type
+	13, // [13:21] is the sub-list for method input_type
 	13, // [13:13] is the sub-list for extension type_name
 	13, // [13:13] is the sub-list for extension extendee
 	0,  // [0:13] is the sub-list for field type_name
@@ -1417,7 +1565,7 @@ func file_packages_bridge_proto_workflow_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_packages_bridge_proto_workflow_proto_rawDesc), len(file_packages_bridge_proto_workflow_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   19,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
