@@ -33,7 +33,7 @@ func walkForRepoRoot(start string) (string, bool) {
 			return dir, true
 		}
 
-		macOSDir := filepath.Join(dir, "mac-os")
+		macOSDir := filepath.Join(dir, "macbook")
 
 		if hasRepoMarkers(macOSDir) {
 			return macOSDir, true

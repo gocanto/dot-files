@@ -141,7 +141,26 @@ func (a app) captureArchive(opts options) error {
 }
 
 func (a app) restoreAppConfigs(opts options) error {
-	return a.apps().RestoreConfigs(apps.Options{DryRun: opts.dryRun, Apps: opts.apps, ArchivePath: opts.archivePath, ConfigPath: opts.configPath})
+	archivePath := opts.archivePath
+
+	if opts.useLatestArchive && archivePath == "" {
+		latest, ok, err := archive.LatestLocalSnapshot(a.home)
+
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			fmt.Fprintf(a.stdout, "skipped: no local app settings snapshot found under %s\n", archive.DefaultLocalRoot(a.home))
+
+			return nil
+		}
+
+		archivePath = latest
+		fmt.Fprintf(a.stdout, "using latest local app settings snapshot: %s\n", archivePath)
+	}
+
+	return a.apps().RestoreConfigs(apps.Options{DryRun: opts.dryRun, Apps: opts.apps, ArchivePath: archivePath, ConfigPath: opts.configPath})
 }
 
 func (a app) updateInstalledAppList(opts options) error {

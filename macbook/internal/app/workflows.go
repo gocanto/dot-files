@@ -24,10 +24,28 @@ func (a app) factoryInstallPhases(opts options) []tui.Phase {
 	}
 }
 
+func (a app) hostUpdatePhases(opts options) []tui.Phase {
+	return []tui.Phase{
+		{Name: "Check/install prerequisites", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).ensurePrerequisites(opts) }},
+		{Name: "Install Homebrew packages", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).applyHomebrewBundle(opts) }},
+		{Name: "Set up GitHub access and signing", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).setupGitHub(opts) }},
+		{Name: "Install App Store apps", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).applyAppStoreApps(opts) }},
+		{Name: "Show manual app install notes", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).reportManualApps(opts) }},
+		{Name: "Restore private secrets from 1Password", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).restorePrivateSecrets(opts) }},
+		{Name: "Install oh-my-zsh", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).ensureOhMyZsh(opts) }},
+		{Name: "Link dotfiles", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).applyStow(opts) }},
+		{Name: "Restore supported app configs from latest snapshot", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).restoreAppConfigs(opts) }},
+		{Name: "Apply macOS settings", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).applyMacOSDefaults(opts) }},
+		{Name: "Run health checks", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).runDoctor(opts) }},
+	}
+}
+
 func (a app) tuiWorkflows() []tui.Workflow {
 	dryRunOpts := options{dryRun: true, opVault: defaultOPVault, opItem: defaultOPItem}
 	factoryOpts := options{apps: true, opVault: defaultOPVault, opItem: defaultOPItem}
 	factoryDryRunOpts := options{dryRun: true, apps: true, opVault: defaultOPVault, opItem: defaultOPItem}
+	hostUpdateOpts := options{apps: true, useLatestArchive: true, opVault: defaultOPVault, opItem: defaultOPItem}
+	hostUpdateDryRunOpts := options{dryRun: true, apps: true, useLatestArchive: true, opVault: defaultOPVault, opItem: defaultOPItem}
 	appDryRunOpts := options{dryRun: true, apps: true}
 	appLiveOpts := options{apps: true}
 	updateAppsDryRunOpts := options{dryRun: true}
@@ -42,6 +60,18 @@ func (a app) tuiWorkflows() []tui.Workflow {
 			ChangesMac:   "Yes",
 			Phases:       a.factoryInstallPhases(factoryDryRunOpts),
 			Confirmation: a.setupConfirmation(factoryDryRunOpts, factoryOpts),
+		},
+		{
+			Name:        "Update This Mac",
+			Description: "Update this host from tracked repo policy and the latest local app settings snapshot without importing current dotfiles back into the repo.",
+			ChangesMac:  "Yes",
+			Phases:      a.hostUpdatePhases(hostUpdateDryRunOpts),
+			Confirmation: workflowConfirmation(
+				"Update This Mac",
+				"Apply tracked packages, apps, private secrets, dotfiles, app configs from the latest local snapshot, macOS settings, and health checks. Preview shows the full update plan without changing files or settings.",
+				a.hostUpdatePhases(hostUpdateDryRunOpts),
+				a.hostUpdatePhases(hostUpdateOpts),
+			),
 		},
 		{
 			Name:        "Save App Settings Snapshot",

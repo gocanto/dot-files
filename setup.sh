@@ -210,12 +210,12 @@ run_tui() {
 	log "opening mac-os TUI"
 
 	if [[ "$DRY_RUN" -eq 1 ]]; then
-		printf 'would run: go run ./mac-os/cmd/mac-os\n'
+		printf 'would run: go run ./macbook/cmd/mac-os\n'
 		return 0
 	fi
 
 	cd "$root"
-	go run ./mac-os/cmd/mac-os
+	go run ./macbook/cmd/mac-os
 }
 
 ensure_macos

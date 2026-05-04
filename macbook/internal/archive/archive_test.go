@@ -76,3 +76,50 @@ apps:
 		t.Fatalf("dry-run output missing app config plan\n%s", got)
 	}
 }
+
+func TestLatestLocalSnapshotSelectsNewestTimestampedDirectory(t *testing.T) {
+	home := t.TempDir()
+	root := DefaultLocalRoot(home)
+
+	for _, dir := range []string{
+		filepath.Join(root, "20260102-030405"),
+		filepath.Join(root, "20260103-030405"),
+		filepath.Join(root, "notes"),
+	} {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := os.WriteFile(filepath.Join(root, "20260104-030405.tar.gz.age"), []byte("encrypted\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, ok, err := LatestLocalSnapshot(home)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !ok {
+		t.Fatal("expected latest snapshot")
+	}
+
+	want := filepath.Join(root, "20260103-030405")
+
+	if got != want {
+		t.Fatalf("LatestLocalSnapshot() = %q, want %q", got, want)
+	}
+}
+
+func TestLatestLocalSnapshotMissingRootSkips(t *testing.T) {
+	got, ok, err := LatestLocalSnapshot(t.TempDir())
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if ok || got != "" {
+		t.Fatalf("LatestLocalSnapshot() = %q, %v; want empty false", got, ok)
+	}
+}

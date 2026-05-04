@@ -1,0 +1,10 @@
+{
+  "name": "macbook",
+  "private": true,
+  "scripts": {
+    "build": "go build -o dist/mac-os ./cmd/mac-os",
+    "test": "go test ./...",
+    "dev": "go run ./cmd/mac-os",
+    "format": "make -C .. format"
+  }
+}

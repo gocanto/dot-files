@@ -65,6 +65,7 @@ func TestTUIWorkflowsUsePlainMenuLabels(t *testing.T) {
 
 	wantNames := []string{
 		"Set Up This Mac",
+		"Update This Mac",
 		"Save App Settings Snapshot",
 		"Restore App Settings",
 		"Update Installed App List",
@@ -90,6 +91,63 @@ func TestTUIWorkflowsUsePlainMenuLabels(t *testing.T) {
 
 		if workflow.Description == "" || workflow.ChangesMac == "" || workflow.Confirmation == nil {
 			t.Fatalf("workflow missing explanation metadata: %#v", workflow)
+		}
+	}
+}
+
+func TestUpdateThisMacWorkflowUsesFullHostUpdatePhases(t *testing.T) {
+	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
+	workflows := a.tuiWorkflows()
+
+	var workflow *tui.Workflow
+
+	for i := range workflows {
+		if workflows[i].Name == "Update This Mac" {
+			workflow = &workflows[i]
+
+			break
+		}
+	}
+
+	if workflow == nil {
+		t.Fatalf("missing Update This Mac workflow: %#v", workflows)
+	}
+
+	if workflow.Confirmation == nil || len(workflow.Confirmation.Options) != 3 {
+		t.Fatalf("workflow confirmation = %#v", workflow.Confirmation)
+	}
+
+	want := []string{
+		"Check/install prerequisites",
+		"Install Homebrew packages",
+		"Set up GitHub access and signing",
+		"Install App Store apps",
+		"Show manual app install notes",
+		"Restore private secrets from 1Password",
+		"Install oh-my-zsh",
+		"Link dotfiles",
+		"Restore supported app configs from latest snapshot",
+		"Apply macOS settings",
+		"Run health checks",
+	}
+
+	for _, optionIndex := range []int{0, 1} {
+		phases := workflow.Confirmation.Options[optionIndex].Phases
+
+		if len(phases) != len(want) {
+			t.Fatalf("option %d phase count = %d, want %d: %#v", optionIndex, len(phases), len(want), phases)
+		}
+
+		for i, wantName := range want {
+			if phases[i].Name != wantName {
+				t.Fatalf("option %d phase[%d] = %q, want %q", optionIndex, i, phases[i].Name, wantName)
+			}
+		}
+	}
+
+	for _, phase := range workflow.Confirmation.Options[1].Phases {
+		if phase.Name == "Prepare existing dotfiles" {
+			t.Fatalf("Update This Mac must not import host dotfiles into the repo: %#v", workflow.Confirmation.Options[1].Phases)
 		}
 	}
 }
@@ -276,6 +334,78 @@ func TestUpdateInstalledAppListWorkflowUsesPreviewCandidate(t *testing.T) {
 
 	if workflow.Confirmation.Options[1].Phases[0].Name != "Generate installed app list candidate" {
 		t.Fatalf("run phases = %#v", workflow.Confirmation.Options[1].Phases)
+	}
+}
+
+func TestRestoreAppConfigsUsesLatestLocalSnapshot(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	repo := filepath.Join(tmp, "repo")
+	oldSnapshot := filepath.Join(home, ".local", "state", "macos-settings-archives", "20260102-030405")
+	latestSnapshot := filepath.Join(home, ".local", "state", "macos-settings-archives", "20260103-030405")
+
+	for _, dir := range []string{
+		repo,
+		filepath.Join(oldSnapshot, "apps", "ghostty"),
+		filepath.Join(latestSnapshot, "apps", "ghostty"),
+	} {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	config := []byte(`
+apps:
+  - name: Ghostty
+    install_method: brew
+    package: ghostty
+    config_mode: auto
+    config_paths:
+      - source: ~/.config/ghostty/config
+        target: apps/ghostty/config
+`)
+
+	if err := os.WriteFile(filepath.Join(repo, "apps.yaml"), config, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(oldSnapshot, "apps", "ghostty", "config"), []byte("old\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(latestSnapshot, "apps", "ghostty", "config"), []byte("latest\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	a := newApp(home, repo, strings.NewReader(""), &stdout, io.Discard, stubRunner{})
+
+	if err := a.restoreAppConfigs(options{dryRun: true, apps: true, useLatestArchive: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	got := stdout.String()
+
+	for _, want := range []string{
+		"using latest local app settings snapshot: " + latestSnapshot,
+		"would restore app config: " + filepath.Join(latestSnapshot, "apps", "ghostty", "config"),
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("stdout missing %q\n%s", want, got)
+		}
+	}
+}
+
+func TestRestoreAppConfigsSkipsWhenLatestLocalSnapshotIsMissing(t *testing.T) {
+	var stdout bytes.Buffer
+	a := newApp(t.TempDir(), "/repo", strings.NewReader(""), &stdout, io.Discard, stubRunner{})
+
+	if err := a.restoreAppConfigs(options{dryRun: true, apps: true, useLatestArchive: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(stdout.String(), "skipped: no local app settings snapshot found under") {
+		t.Fatalf("stdout = %s", stdout.String())
 	}
 }
 
@@ -545,7 +675,7 @@ func TestFactoryInstallIncludesOhMyZshBeforeStow(t *testing.T) {
 
 func TestFindRepoRootFromOuterRepoUsesMacOSDir(t *testing.T) {
 	dir := t.TempDir()
-	macOSDir := filepath.Join(dir, "mac-os")
+	macOSDir := filepath.Join(dir, "macbook")
 
 	if err := os.MkdirAll(filepath.Join(macOSDir, "stow"), 0o700); err != nil {
 		t.Fatal(err)

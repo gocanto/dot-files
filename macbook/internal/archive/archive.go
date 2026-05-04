@@ -1,6 +1,7 @@
 package archive
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -37,6 +38,50 @@ type Service struct {
 }
 
 const DefaultRoot = ".local/state/macos-settings-archives"
+
+func DefaultLocalRoot(home string) string {
+	return filepath.Join(home, DefaultRoot)
+}
+
+func LatestLocalSnapshot(home string) (string, bool, error) {
+	root := DefaultLocalRoot(home)
+	entries, err := os.ReadDir(root)
+
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", false, nil
+		}
+
+		return "", false, err
+	}
+
+	var latestName string
+
+	var latestTime time.Time
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		timestamp, err := time.Parse("20060102-150405", entry.Name())
+
+		if err != nil {
+			continue
+		}
+
+		if latestName == "" || timestamp.After(latestTime) {
+			latestName = entry.Name()
+			latestTime = timestamp
+		}
+	}
+
+	if latestName == "" {
+		return "", false, nil
+	}
+
+	return filepath.Join(root, latestName), true, nil
+}
 
 func (s Service) Capture(opts Options) error {
 	root, err := s.ResolveRoot(opts)

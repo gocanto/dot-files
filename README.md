@@ -87,10 +87,10 @@ After bootstrap, the setup flow runs through a Bubble Tea terminal dashboard.
 You can also open it directly:
 
 ```sh
-go run ./mac-os/cmd/mac-os
+go run ./macbook/cmd/mac-os
 ```
 
-From inside the `mac-os` directory, this shorter form also works:
+From inside the `macbook` directory, this shorter form also works:
 
 ```sh
 go run ./cmd/mac-os
@@ -115,9 +115,10 @@ can change files or settings offer `Preview only` before `Run now`.
 | Workflow | Purpose |
 | --- | --- |
 | `Set Up This Mac` | One-pass restore path for a new machine. |
+| `Update This Mac` | Updates the current host from tracked repo policy and the latest local app settings snapshot. |
 | `Save App Settings Snapshot` | Captures supported app settings for review or later restore. |
 | `Restore App Settings` | Restores allowlisted app settings from a private archive. |
-| `Update Installed App List` | Scans installed apps and writes `mac-os/apps.generated.yaml` for review. |
+| `Update Installed App List` | Scans installed apps and writes `macbook/apps.generated.yaml` for review. |
 | `Apply macOS Settings` | Applies curated macOS defaults. |
 | `Check Setup` | Verifies prerequisites and developer tools. |
 | `Show Homebrew Packages` | Prints the generated Homebrew package plan. |
@@ -130,9 +131,15 @@ session exists, the GitHub and private secret phases prompt for `op signin`.
 If you choose `Erase first`, the workflow validates administrator access, opens
 Apple's Erase Assistant settings, and stops before install phases run.
 
+`Update This Mac` is for an existing host. It updates packages, apps, private
+secrets, Stow links, allowlisted app configs from the newest unencrypted local
+snapshot in `$HOME/.local/state/macos-settings-archives`, macOS settings, and
+health checks. It does not import current `$HOME` dotfiles back into
+`macbook/stow`.
+
 ## Dotfiles And Stow
 
-Tracked dotfiles live under `mac-os/stow`. The setup workflow links safe shell,
+Tracked dotfiles live under `macbook/stow`. The setup workflow links safe shell,
 Git, and Vim configuration into `$HOME` with Stow.
 
 Before linking, the Stow phase scans `$HOME` for existing symlinks that point
@@ -146,10 +153,10 @@ restored locally from 1Password.
 
 ## App Restore Policy
 
-`mac-os/apps.yaml` is the source of truth for app install and restore behavior.
+`macbook/apps.yaml` is the source of truth for app install and restore behavior.
 The `Update Installed App List` workflow never rewrites that file directly. It
 scans installed GUI apps, Homebrew casks, and Mac App Store apps, then writes a
-review candidate to `mac-os/apps.generated.yaml`.
+review candidate to `macbook/apps.generated.yaml`.
 
 ### Install Methods
 
@@ -249,18 +256,34 @@ of blindly replayed.
 
 ## Developer Notes
 
+Install the JavaScript workspace tooling:
+
+```sh
+pnpm install
+```
+
+Run the Turborepo tasks from the repository root:
+
+```sh
+pnpm turbo run build
+pnpm turbo run test
+pnpm check
+```
+
 Run the TUI directly from the repository root:
 
 ```sh
-go run ./mac-os/cmd/mac-os
+go run ./macbook/cmd/mac-os
 ```
 
-Run tests from the `mac-os` module:
+Run Go tests from the repository root:
 
 ```sh
-cd mac-os
-go test ./...
+go test ./macbook/...
 ```
+
+The root `go test ./...` pattern is not used because `go.work` only includes
+the `./macbook` module.
 
 Format Go code from the repository root:
 
