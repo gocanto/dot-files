@@ -94,6 +94,16 @@ describe("App", () => {
     expect(wrapper.text()).toContain("Run health checks");
   });
 
+  it("shows skeletons while initial data is loading", () => {
+    installApi({
+      workflows: vi.fn(() => new Promise<Workflow[]>(() => {})),
+    });
+
+    const wrapper = mount(App);
+
+    expect(wrapper.findAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
+  });
+
   it("filters workflow list with search and workflow tabs", async () => {
     installApi();
 
