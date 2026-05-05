@@ -21,12 +21,17 @@ const repoRoot = resolve(__dirname, "..", "..", "..");
 const macbookDir = join(repoRoot, "macbook");
 
 let mainWindow: BrowserWindow | null = null;
+let devToolsWindow: BrowserWindow | null = null;
 let bridgeClient: WorkflowBridgeClient | null = null;
 let bridgeProcess: ChildProcess | null = null;
 let bridgeSocketPath = "";
 const externalBridgeSocketPath = process.env.MAC_OS_BRIDGE_SOCKET?.trim() ?? "";
 let bridgeStartup: Promise<void> | null = null;
 let savedSettings: Partial<RuntimeSettings> = {};
+const appWindowWidth = 2000;
+const appWindowHeight = 1280;
+const devToolsWindowWidth = 400;
+const devToolsWindowHeight = 400;
 
 const singleInstanceLock = app.requestSingleInstanceLock();
 
@@ -42,6 +47,7 @@ if (!singleInstanceLock) {
       mainWindow.restore();
     }
 
+    mainWindow.center();
     mainWindow.focus();
   });
 }
@@ -53,10 +59,12 @@ function createWindow() {
   }
 
   mainWindow = new BrowserWindow({
-    width: 2000,
-    height: 1500,
-    minWidth: 1024,
-    minHeight: 800,
+    width: appWindowWidth,
+    height: appWindowHeight,
+    center: true,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
     title: "Mac OS Manager",
     vibrancy: "sidebar",
     visualEffectState: "active",
@@ -69,6 +77,10 @@ function createWindow() {
   });
 
   mainWindow.on("closed", () => {
+    if (devToolsWindow && !devToolsWindow.isDestroyed()) {
+      devToolsWindow.close();
+    }
+
     mainWindow = null;
   });
 
@@ -76,10 +88,45 @@ function createWindow() {
 
   if (devServer) {
     void mainWindow.loadURL(devServer);
-    mainWindow.webContents.openDevTools();
   } else {
     void mainWindow.loadFile(join(repoRoot, "packages", "ui", "dist", "index.html"));
   }
+}
+
+function openDevToolsPanel(parentWindow: BrowserWindow) {
+  if (devToolsWindow && !devToolsWindow.isDestroyed()) {
+    devToolsWindow.close();
+  }
+
+  devToolsWindow = new BrowserWindow({
+    width: devToolsWindowWidth,
+    height: devToolsWindowHeight,
+    minWidth: devToolsWindowWidth,
+    minHeight: devToolsWindowHeight,
+    maxWidth: devToolsWindowWidth,
+    maxHeight: devToolsWindowHeight,
+    resizable: false,
+    show: false,
+    title: "Mac OS Manager DevTools",
+  });
+
+  devToolsWindow.on("closed", () => {
+    devToolsWindow = null;
+  });
+
+  devToolsWindow.once("ready-to-show", () => {
+    const parentBounds = parentWindow.getBounds();
+    devToolsWindow?.setBounds({
+      x: parentBounds.x + parentBounds.width,
+      y: parentBounds.y,
+      width: devToolsWindowWidth,
+      height: devToolsWindowHeight,
+    });
+    devToolsWindow?.show();
+  });
+
+  parentWindow.webContents.setDevToolsWebContents(devToolsWindow.webContents);
+  parentWindow.webContents.openDevTools({ mode: "detach" });
 }
 
 app.whenReady().then(() => {
@@ -165,6 +212,13 @@ ipcMain.handle("settings:choose-save-file", async (_event, defaultPath?: string)
 
 ipcMain.handle("system:macName", () => os.userInfo().username);
 ipcMain.handle("system:macHostname", () => os.hostname());
+ipcMain.handle("system:openDevTools", () => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  openDevToolsPanel(mainWindow);
+});
 
 ipcMain.handle("workflow:run", async (event, request: RunWorkflowRequest, eventChannel: string) => {
   const c = await client();

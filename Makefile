@@ -13,7 +13,7 @@ GO_FMT_EXEC := $(GO_FMT_COMPOSE) exec -T $(GO_FMT_SERVICE) $(GO_FMT_BIN)
 .PHONY: dev format format-start format-stop format-login
 
 dev:
-	@node $(UI_DIR)/scripts/dev.mjs
+	@pnpm --dir $(UI_DIR) exec tsx scripts/dev.ts
 
 format: format-start
 	@echo "go-fmt format in $(ROOT_PATH)"; \

@@ -21,7 +21,16 @@ function readCachedTheme(): Theme | null {
 const theme = ref<Theme>(readCachedTheme() ?? "light");
 
 function applyTheme(t: Theme): void {
-  globalThis.document?.documentElement.classList.toggle("dark", t === "dark");
+  const root = globalThis.document?.documentElement;
+
+  if (!root) {
+    return;
+  }
+
+  root.classList.toggle("dark", t === "dark");
+  root.dataset.colorMode = t;
+  root.dataset.lightTheme = "light";
+  root.dataset.darkTheme = "dark";
 }
 
 function writeCache(t: Theme): void {

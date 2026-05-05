@@ -101,6 +101,7 @@ export interface MacOSApi {
   chooseDirectory(defaultPath?: string): Promise<string | null>;
   chooseFile(defaultPath?: string): Promise<string | null>;
   chooseSaveFile(defaultPath?: string): Promise<string | null>;
+  openDevTools(): Promise<void>;
   macName(): Promise<string>;
   macHostname(): Promise<string>;
   getUserPreferences(): Promise<UserPreferences>;

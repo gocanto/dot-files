@@ -100,6 +100,7 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
     chooseDirectory: vi.fn().mockResolvedValue("/chosen"),
     chooseFile: vi.fn().mockResolvedValue("/chosen/file.yaml"),
     chooseSaveFile: vi.fn().mockResolvedValue("/chosen/workflows.sqlite3"),
+    openDevTools: vi.fn().mockResolvedValue(undefined),
     macName: vi.fn().mockResolvedValue("Local Mac"),
     macHostname: vi.fn().mockResolvedValue("localhost"),
     getUserPreferences: vi.fn().mockResolvedValue({ theme: "light" }),
@@ -152,7 +153,25 @@ describe("App", () => {
 
     const wrapper = mount(App);
 
+    expect(wrapper.find('[data-testid="initial-shell-skeleton"]').exists()).toBe(true);
     expect(wrapper.findAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
+    expect(wrapper.text()).not.toContain("No template workflows registered.");
+  });
+
+  it("replaces the initial shell with loaded data", async () => {
+    const api = installApi();
+
+    const wrapper = mount(App);
+
+    expect(wrapper.find('[data-testid="initial-shell-skeleton"]').exists()).toBe(true);
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="initial-shell-skeleton"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain("Preview Template");
+    expect(wrapper.text()).toContain("Mac: Local Mac");
+    expect(wrapper.text()).toContain("localhost");
+    expect(api.macName).toHaveBeenCalled();
+    expect(api.macHostname).toHaveBeenCalled();
   });
 
   it("filters workflow list with search and category nav", async () => {

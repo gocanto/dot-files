@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld("macOS", {
   chooseDirectory: (defaultPath?: string) => ipcRenderer.invoke("settings:choose-directory", defaultPath),
   chooseFile: (defaultPath?: string) => ipcRenderer.invoke("settings:choose-file", defaultPath),
   chooseSaveFile: (defaultPath?: string) => ipcRenderer.invoke("settings:choose-save-file", defaultPath),
+  openDevTools: () => ipcRenderer.invoke("system:openDevTools"),
   runWorkflow: (request: RunRequest, onEvent: (event: RunEvent) => void) => {
     const channel = `workflow:event:${crypto.randomUUID()}`;
     const listener = (_: Electron.IpcRendererEvent, event: RunEvent) => onEvent(event);

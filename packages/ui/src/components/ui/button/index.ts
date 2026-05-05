@@ -11,11 +11,11 @@ export const buttonVariants = cva(
         default:
           "bg-success hover:bg-[var(--success-hover)] active:bg-[var(--success-active)] text-success-foreground border-[var(--btn-border-translucent)]",
         secondary:
-          "bg-secondary hover:bg-[#eff2f5] active:bg-[#e6eaef] text-secondary-foreground border-border dark:hover:bg-[#262c36] dark:active:bg-[#2a313c]",
+          "bg-secondary hover:bg-[var(--button-secondary-hover)] active:bg-[var(--button-secondary-active)] text-secondary-foreground border-border",
         outline:
           "bg-transparent text-primary hover:bg-primary hover:text-primary-foreground border-border",
         destructive:
-          "bg-transparent text-destructive hover:bg-destructive hover:text-white border-border dark:hover:bg-[#b62324]",
+          "bg-transparent text-destructive hover:bg-[var(--button-destructive-hover)] hover:text-white border-border",
         ghost:
           "bg-transparent border-transparent text-foreground hover:bg-muted",
         link:

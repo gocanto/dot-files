@@ -70,13 +70,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { ToastViewport, type ToastItem, type ToastTone } from "@/components/ui/toast";
 import {
   Tooltip,
   TooltipContent,
@@ -111,6 +114,7 @@ const runEvents = ref<RunEvent[]>([]);
 const running = ref(false);
 const workflowsLoading = ref(true);
 const runsLoading = ref(true);
+const initialLoading = ref(true);
 const runLogLoading = ref(false);
 const loadError = ref("");
 const navCollapsed = ref(false);
@@ -127,6 +131,7 @@ const settingsValidating = ref(false);
 const settingsPickerField = ref<keyof RuntimeSettings | null>(null);
 const settingsMessage = ref("");
 const settingsError = ref("");
+const toasts = ref<ToastItem[]>([]);
 
 const stepNavItems = computed(() => [
   { id: "template" as const, label: "Template", icon: FileText, count: workflowsLoading.value ? null : workflowsInCategory(workflows.value, "template").length },
@@ -282,6 +287,18 @@ const outputText = computed(() =>
     .join("\n"),
 );
 
+const workflowProgress = computed(() => {
+  const phases = displayPhases.value;
+
+  if (phases.length === 0) {
+    return 0;
+  }
+
+  const completed = phases.filter((phase) => ["completed", "ok", "skipped"].includes(phaseStatus(phase))).length;
+
+  return Math.round((completed / phases.length) * 100);
+});
+
 const selectedRunOutput = computed(() =>
   selectedRunLog.value?.events
     .map((event) => event.message || `${event.type} ${event.status || ""}`.trim())
@@ -295,8 +312,58 @@ onMounted(() => {
 
 async function loadAll() {
   loadError.value = "";
-  workflowsLoading.value = true;
-  runsLoading.value = true;
+  const isInitialLoad = initialLoading.value;
+
+  if (!isInitialLoad) {
+    workflowsLoading.value = true;
+    runsLoading.value = true;
+  }
+
+  if (isInitialLoad) {
+    const [workflowsResult, runsResult, settingsResult, themeResult, macNameResult, macHostnameResult] = await Promise.allSettled([
+      window.macOS.workflows(),
+      window.macOS.runs(25),
+      window.macOS.settings(),
+      loadThemeFromBackend(),
+      window.macOS.macName(),
+      window.macOS.macHostname(),
+    ]);
+
+    if (workflowsResult.status === "fulfilled") {
+      workflows.value = workflowsResult.value;
+      selectedWorkflowId.value = workflowsResult.value[0]?.id ?? "";
+      resetEnabledPhases();
+    } else {
+      loadError.value = errorMessage(workflowsResult.reason);
+    }
+
+    if (runsResult.status === "fulfilled") {
+      runs.value = runsResult.value;
+    } else {
+      console.error("Failed to load runs", runsResult.reason);
+    }
+
+    if (settingsResult.status === "fulfilled") {
+      settingsResponse.value = settingsResult.value;
+      settingsForm.value = { ...settingsResult.value.settings };
+      settingsError.value = "";
+    } else {
+      console.error("Failed to load settings", settingsResult.reason);
+    }
+
+    if (themeResult.status === "rejected") {
+      console.error("Failed to load theme preference", themeResult.reason);
+    }
+
+    macName.value = macNameResult.status === "fulfilled" ? macNameResult.value : "Mac";
+    macHostname.value = macHostnameResult.status === "fulfilled" ? macHostnameResult.value : "local";
+    workflowsLoading.value = false;
+    runsLoading.value = false;
+    settingsLoading.value = false;
+    initialLoading.value = false;
+
+    return;
+  }
 
   const workflowsPromise = window.macOS
     .workflows()
@@ -332,10 +399,29 @@ async function loadAll() {
 
   const themePromise = loadThemeFromBackend();
 
-  window.macOS.macName().then((name) => { macName.value = name; });
-  window.macOS.macHostname().then((name) => { macHostname.value = name; });
+  const macNamePromise = window.macOS
+    .macName()
+    .then((name) => {
+      macName.value = name;
+    })
+    .catch(() => {
+      macName.value ||= "Mac";
+    });
 
-  await Promise.allSettled([workflowsPromise, runsPromise, settingsPromise, themePromise]);
+  const macHostnamePromise = window.macOS
+    .macHostname()
+    .then((name) => {
+      macHostname.value = name;
+    })
+    .catch(() => {
+      macHostname.value ||= "local";
+    });
+
+  await Promise.allSettled([workflowsPromise, runsPromise, settingsPromise, themePromise, macNamePromise, macHostnamePromise]);
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function selectSection(next: SectionId) {
@@ -357,6 +443,14 @@ function selectStepSetting(key: StepSettingsKey) {
   selectedWorkflowId.value = "";
   selectedSettingsKey.value = key;
   void loadSettings();
+}
+
+async function openDevTools() {
+  try {
+    await window.macOS.openDevTools();
+  } catch (error) {
+    pushToast("Failed to open DevTools", errorMessage(error), "error");
+  }
 }
 
 function selectWorkflow(workflow: Workflow) {
@@ -411,6 +505,7 @@ async function runSelected(option: ConfirmationOption) {
   const enabledIds = phases.filter((phase) => enabledPhaseIds.value.has(phase.id)).map((phase) => phase.id);
 
   try {
+    pushToast("Workflow started", selectedWorkflow.value.name, "loading");
     await window.macOS.runWorkflow(
       {
         workflowId: selectedWorkflow.value.id,
@@ -419,6 +514,9 @@ async function runSelected(option: ConfirmationOption) {
       },
       (event) => runEvents.value.push(event),
     );
+    pushToast("Workflow completed", selectedWorkflow.value.name, "success");
+  } catch (error) {
+    pushToast("Workflow failed", errorMessage(error), "error");
   } finally {
     running.value = false;
     await refreshRuns();
@@ -491,18 +589,36 @@ async function saveSettings() {
 
     if (!response.valid) {
       settingsError.value = "Fix the highlighted settings before saving.";
+      pushToast("Settings need review", settingsError.value, "error");
       return;
     }
 
     settingsForm.value = { ...response.settings };
     settingsMessage.value = "Settings saved. The workflow bridge was restarted.";
+    pushToast("Settings saved", "The workflow bridge was restarted.", "success");
     workflows.value = await window.macOS.workflows();
     runs.value = await window.macOS.runs(25);
   } catch (error) {
     settingsError.value = error instanceof Error ? error.message : String(error);
+    pushToast("Settings save failed", settingsError.value, "error");
   } finally {
     settingsSaving.value = false;
   }
+}
+
+function pushToast(title: string, description?: string, tone: ToastTone = "info") {
+  const id = crypto.randomUUID();
+  const previous = tone === "loading" ? toasts.value : toasts.value.filter((toast) => toast.tone !== "loading");
+
+  toasts.value = [...previous.slice(-2), { id, title, description, tone }];
+
+  if (tone !== "loading") {
+    window.setTimeout(() => dismissToast(id), 5000);
+  }
+}
+
+function dismissToast(id: string) {
+  toasts.value = toasts.value.filter((toast) => toast.id !== id);
 }
 
 function resetSettingsForm() {
@@ -700,7 +816,87 @@ function initials(value: string) {
 <template>
   <TooltipProvider :delay-duration="0">
     <div class="h-screen overflow-hidden bg-background text-foreground">
-      <ResizablePanelGroup direction="horizontal" class="h-screen max-h-screen items-stretch">
+      <div v-if="initialLoading" data-testid="initial-shell-skeleton" class="grid h-screen grid-cols-[230px_410px_1fr] overflow-hidden">
+        <aside class="border-r bg-sidebar">
+          <div class="flex h-12 items-center gap-2 px-3">
+            <Skeleton class="size-4 rounded" />
+            <div class="grid flex-1 gap-1">
+              <Skeleton class="h-4 w-24" />
+              <Skeleton class="h-3 w-32" />
+            </div>
+          </div>
+          <Separator />
+          <div class="grid gap-1 p-2">
+            <div v-for="index in 5" :key="`nav-shell-${index}`" class="flex h-8 items-center gap-2 rounded-md px-2">
+              <Skeleton class="size-4 rounded" />
+              <Skeleton class="h-4 w-28" />
+              <Skeleton v-if="index < 4" class="ml-auto h-4 w-5 rounded" />
+            </div>
+          </div>
+        </aside>
+
+        <section class="border-r">
+          <div class="flex h-12 items-center px-4">
+            <Skeleton class="h-6 w-28" />
+          </div>
+          <Separator />
+          <div class="p-4">
+            <Skeleton class="h-9 w-full" />
+          </div>
+          <div class="grid gap-2 px-4">
+            <div v-for="index in 6" :key="`list-shell-${index}`" class="rounded-lg border p-3">
+              <div class="flex items-center gap-3">
+                <Skeleton class="h-4 w-40" />
+                <Skeleton class="ml-auto h-5 w-12 rounded-full" />
+              </div>
+              <Skeleton class="mt-3 h-3 w-24" />
+              <Skeleton class="mt-3 h-3 w-full" />
+              <Skeleton class="mt-2 h-3 w-4/5" />
+            </div>
+          </div>
+        </section>
+
+        <section class="flex min-h-0 flex-col">
+          <div class="flex h-12 items-center gap-2 px-2">
+            <Skeleton v-for="index in 3" :key="`toolbar-left-${index}`" class="size-8 rounded-md" />
+            <div class="ml-auto flex gap-2">
+              <Skeleton v-for="index in 3" :key="`toolbar-right-${index}`" class="size-8 rounded-md" />
+            </div>
+          </div>
+          <Separator />
+          <div class="flex items-start p-4">
+            <Skeleton class="size-10 rounded-full" />
+            <div class="ml-4 grid flex-1 gap-2">
+              <Skeleton class="h-4 w-48" />
+              <Skeleton class="h-3 w-72" />
+              <Skeleton class="h-3 w-40" />
+            </div>
+            <Skeleton class="h-5 w-20 rounded-full" />
+          </div>
+          <Separator />
+          <div class="grid gap-5 p-4">
+            <section>
+              <div class="mb-2 flex items-center justify-between">
+                <Skeleton class="h-4 w-20" />
+                <Skeleton class="h-8 w-16" />
+              </div>
+              <div class="overflow-hidden rounded-lg border">
+                <div v-for="index in 4" :key="`phase-shell-${index}`" class="flex items-center gap-3 border-b px-3 py-3 last:border-b-0">
+                  <Skeleton class="size-4 rounded-full" />
+                  <Skeleton class="h-4 flex-1" />
+                  <Skeleton class="h-5 w-16 rounded-full" />
+                </div>
+              </div>
+            </section>
+            <section>
+              <Skeleton class="mb-2 h-4 w-28" />
+              <Skeleton class="h-72 w-full rounded-lg" />
+            </section>
+          </div>
+        </section>
+      </div>
+
+      <ResizablePanelGroup v-else direction="horizontal" class="h-screen max-h-screen items-stretch">
         <ResizablePanel
           id="mac-nav"
           :default-size="18"
@@ -864,6 +1060,16 @@ function initials(value: string) {
                         <div class="min-w-0 flex-1">
                           <div class="font-medium">{{ settingsKeyLabels[key] }}</div>
                           <div class="truncate text-xs text-muted-foreground">{{ settingsForm[key] || "not set" }}</div>
+                        </div>
+                      </button>
+                      <button
+                        class="flex items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-all hover:bg-accent"
+                        @click="openDevTools"
+                      >
+                        <TerminalSquare class="size-4 text-muted-foreground" />
+                        <div class="min-w-0 flex-1">
+                          <div class="font-medium">DevTools</div>
+                          <div class="truncate text-xs text-muted-foreground">Open developer tools</div>
                         </div>
                       </button>
                     </template>
@@ -1232,7 +1438,10 @@ function initials(value: string) {
                   <section>
                     <div class="mb-2 flex items-center justify-between gap-3">
                       <h2 class="text-sm font-semibold">Phases</h2>
-                      <Button variant="ghost" size="sm" @click="resetEnabledPhases">Reset</Button>
+                      <div class="flex items-center gap-3">
+                        <Progress :value="workflowProgress" class="w-28" />
+                        <Button variant="ghost" size="sm" @click="resetEnabledPhases">Reset</Button>
+                      </div>
                     </div>
                     <div class="overflow-hidden rounded-lg border">
                       <button
@@ -1534,20 +1743,27 @@ function initials(value: string) {
                             <Skeleton class="h-3 w-3/4" />
                           </div>
                         </template>
-                        <template v-else>
-                          <div
-                            v-for="check in settingsChecks"
-                            :key="check.key"
-                            class="grid gap-1 border-b px-3 py-3 text-sm last:border-b-0"
-                          >
-                            <div class="flex items-center gap-2">
-                              <span class="font-medium">{{ check.label }}</span>
-                              <Badge class="ml-auto" :variant="check.status === 'ok' ? 'secondary' : 'destructive'">{{ check.status }}</Badge>
-                            </div>
-                            <div class="truncate text-xs text-muted-foreground">{{ check.path }}</div>
-                            <div v-if="check.message && check.message !== 'ok'" class="text-xs text-destructive">{{ check.message }}</div>
-                          </div>
-                        </template>
+                        <Table v-else>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Check</TableHead>
+                              <TableHead>Path</TableHead>
+                              <TableHead class="w-24 text-right">Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            <TableRow v-for="check in settingsChecks" :key="check.key">
+                              <TableCell>
+                                <div class="font-medium">{{ check.label }}</div>
+                                <div v-if="check.message && check.message !== 'ok'" class="mt-1 text-xs text-destructive">{{ check.message }}</div>
+                              </TableCell>
+                              <TableCell class="max-w-0 truncate text-xs text-muted-foreground">{{ check.path }}</TableCell>
+                              <TableCell class="text-right">
+                                <Badge :variant="check.status === 'ok' ? 'secondary' : 'destructive'">{{ check.status }}</Badge>
+                              </TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
                       </div>
                       <div v-if="settingsError" class="rounded-lg border border-destructive/40 p-3 text-sm text-destructive">
                         {{ settingsError }}
@@ -1599,6 +1815,8 @@ function initials(value: string) {
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>
+
+    <ToastViewport :toasts="toasts" @dismiss="dismissToast" />
 
     <AlertDialog :open="pendingOption !== null" @update:open="updateConfirmationOpen">
       <AlertDialogContent>

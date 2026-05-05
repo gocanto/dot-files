@@ -13,12 +13,10 @@ export default defineConfig({
   },
   server: {
     host: "127.0.0.1",
-    port: 5173,
-    strictPort: true,
-    allowedHosts: ["dot-files-ui.test", "dot-files-ui.localhost"],
+    allowedHosts: ["dot-files-ui.localhost"],
     hmr: {
       protocol: "wss",
-      host: "dot-files-ui.test",
+      host: "dot-files-ui.localhost",
       clientPort: 1355,
     },
   },

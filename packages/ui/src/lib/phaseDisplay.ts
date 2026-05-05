@@ -1,11 +1,11 @@
 const statusPillClasses: Record<string, string> = {
-  pending: "border-slate-400/30 bg-slate-400/10 text-slate-600 dark:text-slate-300",
-  running: "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-300",
-  completed: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
-  ok: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
-  failed: "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300",
-  stopped: "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300",
-  skipped: "border-zinc-400/30 bg-zinc-400/10 text-zinc-600 dark:text-zinc-300",
+  pending: "border-[var(--status-neutral-border)] bg-[var(--status-neutral-bg)] text-[var(--status-neutral-fg)]",
+  running: "border-[var(--status-running-border)] bg-[var(--status-running-bg)] text-[var(--status-running-fg)]",
+  completed: "border-[var(--status-success-border)] bg-[var(--status-success-bg)] text-[var(--status-success-fg)]",
+  ok: "border-[var(--status-success-border)] bg-[var(--status-success-bg)] text-[var(--status-success-fg)]",
+  failed: "border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] text-[var(--status-danger-fg)]",
+  stopped: "border-[var(--status-attention-border)] bg-[var(--status-attention-bg)] text-[var(--status-attention-fg)]",
+  skipped: "border-[var(--status-neutral-border)] bg-[var(--status-neutral-bg)] text-[var(--status-neutral-fg)]",
 };
 
 export function phaseStatusPillClass(status: string): string {

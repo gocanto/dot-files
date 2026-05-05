@@ -136,21 +136,21 @@ export function workflowsInCategory<T extends { id: string }>(workflows: T[], ca
 
 const actionPillClasses: Record<string, string> = {
   "preview-template":
-    "border-zinc-400/30 bg-zinc-400/10 text-zinc-600 dark:text-zinc-300",
+    "border-[var(--status-neutral-border)] bg-[var(--status-neutral-bg)] text-[var(--status-neutral-fg)]",
   "validate-template":
-    "border-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300",
+    "border-[var(--status-running-border)] bg-[var(--status-running-bg)] text-[var(--status-running-fg)]",
   "inspect-current":
-    "border-slate-400/30 bg-slate-400/10 text-slate-600 dark:text-slate-300",
+    "border-[var(--status-neutral-border)] bg-[var(--status-neutral-bg)] text-[var(--status-neutral-fg)]",
   "regenerate-installed-list":
-    "border-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300",
+    "border-[var(--status-running-border)] bg-[var(--status-running-bg)] text-[var(--status-running-fg)]",
   "save-snapshot":
-    "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
+    "border-[var(--status-success-border)] bg-[var(--status-success-bg)] text-[var(--status-success-fg)]",
   "converge-to-template":
-    "border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300",
+    "border-[var(--status-done-border)] bg-[var(--status-done-bg)] text-[var(--status-done-fg)]",
   "restore-snapshot":
-    "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300",
+    "border-[var(--status-attention-border)] bg-[var(--status-attention-bg)] text-[var(--status-attention-fg)]",
   "remove-untracked-apps":
-    "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300",
+    "border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] text-[var(--status-danger-fg)]",
 };
 
 export function workflowActionPillClass(id: string): string {
