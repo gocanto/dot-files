@@ -17,6 +17,7 @@ func TestContentIncludesDevToolsAndStow(t *testing.T) {
 		`brew "gnupg"`,
 		`cask "codex"`,
 		`cask "claude-code"`,
+		`cask "1password"`,
 		`cask "1password-cli"`,
 		`brew "mas"`,
 		`brew "opencode"`,

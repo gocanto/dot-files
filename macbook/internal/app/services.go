@@ -76,7 +76,7 @@ func (a app) reportManualApps(opts options) error {
 
 func (a app) setupGitHub(opts options) error {
 	if opts.dryRun {
-		fmt.Fprintf(a.stdout, "would validate 1Password CLI session: op whoami (and op signin if needed)\n")
+		fmt.Fprintf(a.stdout, "would validate 1Password CLI access: op vault list --format=json (and op signin if needed)\n")
 	} else if err := a.ensureOpSession(); err != nil {
 		return err
 	}
@@ -545,7 +545,7 @@ func (a app) restorePrivateSecrets(opts options) error {
 	}
 
 	if opts.dryRun {
-		fmt.Fprintf(a.stdout, "would validate 1Password CLI session: op whoami (and op signin if needed)\n")
+		fmt.Fprintf(a.stdout, "would validate 1Password CLI access: op vault list --format=json (and op signin if needed)\n")
 		fmt.Fprintf(a.stdout, "would decrypt private secrets from 1Password item %q in vault %q\n", opts.opItem, opts.opVault)
 
 		return svc.Decrypt(secretOpts)

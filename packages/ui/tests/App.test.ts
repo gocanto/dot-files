@@ -100,6 +100,10 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
     chooseDirectory: vi.fn().mockResolvedValue("/chosen"),
     chooseFile: vi.fn().mockResolvedValue("/chosen/file.yaml"),
     chooseSaveFile: vi.fn().mockResolvedValue("/chosen/workflows.sqlite3"),
+    listOpVaults: vi.fn().mockResolvedValue({ ok: true, vaults: [{ id: "v1", name: "Private" }] }),
+    listOpItems: vi.fn().mockResolvedValue({ ok: true, items: [{ id: "i1", title: "Mac Migration Archive" }] }),
+    signinOpCli: vi.fn().mockResolvedValue({ ok: true }),
+    installOpDependencies: vi.fn().mockResolvedValue({ ok: true }),
     openDevTools: vi.fn().mockResolvedValue(undefined),
     macName: vi.fn().mockResolvedValue("Local Mac"),
     macHostname: vi.fn().mockResolvedValue("localhost"),
@@ -125,9 +129,10 @@ function findDocumentButton(text: string) {
 }
 
 async function flushOutputHighlighting() {
-  await flushPromises();
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  await flushPromises();
+  for (let i = 0; i < 10; i += 1) {
+    await flushPromises();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
 }
 
 describe("App", () => {

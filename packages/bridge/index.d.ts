@@ -94,6 +94,20 @@ export interface UserPreferencesResponse {
   updatedAt: string;
 }
 
+export interface OpVault {
+  id: string;
+  name: string;
+}
+
+export interface OpItem {
+  id: string;
+  title: string;
+}
+
+export interface OpUnavailableError extends Error {
+  code: "op_unavailable";
+}
+
 export interface UnixTarget {
   socketPath: string;
 }
@@ -115,6 +129,8 @@ export interface WorkflowBridgeClient {
   validateSettings(request: { settings: RuntimeSettings }): Promise<SettingsResponse>;
   getUserPreferences(): Promise<UserPreferencesResponse>;
   saveUserPreferences(request: { theme: string }): Promise<UserPreferencesResponse>;
+  listOpVaults(): Promise<{ vaults: OpVault[] }>;
+  listOpItems(request: { vault: string }): Promise<{ items: OpItem[] }>;
   runWorkflow(request: RunWorkflowRequest): WorkflowRunStream;
 }
 

@@ -90,6 +90,21 @@ export interface UserPreferences {
   updatedAt?: string;
 }
 
+export interface OpVault {
+  id: string;
+  name: string;
+}
+
+export interface OpItem {
+  id: string;
+  title: string;
+}
+
+export type OpVaultsResult = { ok: true; vaults: OpVault[] } | { ok: false; code: string; message: string };
+export type OpItemsResult = { ok: true; items: OpItem[] } | { ok: false; code: string; message: string };
+export type OpSigninResult = { ok: true } | { ok: false; message: string };
+export type OpInstallResult = { ok: true } | { ok: false; message: string };
+
 export interface MacOSApi {
   workflows(): Promise<Workflow[]>;
   runWorkflow(request: RunRequest, onEvent: (event: RunEvent) => void): Promise<{ exitCode: number }>;
@@ -101,6 +116,10 @@ export interface MacOSApi {
   chooseDirectory(defaultPath?: string): Promise<string | null>;
   chooseFile(defaultPath?: string): Promise<string | null>;
   chooseSaveFile(defaultPath?: string): Promise<string | null>;
+  listOpVaults(): Promise<OpVaultsResult>;
+  listOpItems(vault: string): Promise<OpItemsResult>;
+  signinOpCli(): Promise<OpSigninResult>;
+  installOpDependencies(): Promise<OpInstallResult>;
   openDevTools(): Promise<void>;
   macName(): Promise<string>;
   macHostname(): Promise<string>;

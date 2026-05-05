@@ -73,6 +73,14 @@ class WorkflowBridgeClient {
     return this.request("POST", "/v1/preferences", { theme });
   }
 
+  listOpVaults() {
+    return this.request("GET", "/v1/onepassword/vaults");
+  }
+
+  listOpItems({ vault }) {
+    return this.request("GET", `/v1/onepassword/items?vault=${encodeURIComponent(vault)}`);
+  }
+
   runWorkflow(request) {
     const stream = new EventEmitter();
     const req = httpRequest({
@@ -150,7 +158,28 @@ class WorkflowBridgeClient {
               return;
             }
 
-            reject(new Error(`${method} ${path} failed (${res.statusCode}): ${raw}`));
+            const error = new Error(`${method} ${path} failed (${res.statusCode}): ${raw}`);
+            error.statusCode = res.statusCode;
+
+            if ((res.headers["content-type"] ?? "").includes("application/json")) {
+              try {
+                const parsed = JSON.parse(raw);
+
+                if (parsed && typeof parsed === "object") {
+                  if (typeof parsed.error === "string") {
+                    error.message = parsed.error;
+                  }
+
+                  if (typeof parsed.code === "string") {
+                    error.code = parsed.code;
+                  }
+                }
+              } catch {
+                // Fall through with the generic error message
+              }
+            }
+
+            reject(error);
           })
           .catch(reject);
       });

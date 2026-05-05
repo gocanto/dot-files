@@ -129,6 +129,7 @@ async function restart(reason: string): Promise<void> {
   await rm(backendSocketPath, { force: true });
 
   const devServerUrl = await startDevServer();
+  console.log(`\nDev server ready: ${devServerUrl}`);
 
   start("backend", ["go", ["run", "./cmd", "serve-http", "--socket", backendSocketPath, ...settingsArgs(await readSettings())], macbookDir]);
   await waitForBackend(backendSocketPath);

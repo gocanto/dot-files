@@ -76,6 +76,24 @@ export function installBrowserFallback() {
     chooseDirectory: async (defaultPath) => defaultPath ?? fallbackSettings.repoRoot,
     chooseFile: async (defaultPath) => defaultPath ?? fallbackSettings.appsConfigPath,
     chooseSaveFile: async (defaultPath) => defaultPath ?? fallbackSettings.workflowDbPath,
+    listOpVaults: async () => ({
+      ok: true,
+      vaults: [
+        { id: "v-private", name: "Private" },
+        { id: "v-shared", name: "Shared" },
+      ],
+    }),
+    listOpItems: async (vault) => ({
+      ok: true,
+      items: vault === "Private"
+        ? [
+            { id: "i-mac", title: "Mac Migration Archive" },
+            { id: "i-github", title: "GitHub" },
+          ]
+        : [{ id: "i-shared", title: "Team Secrets" }],
+    }),
+    signinOpCli: async () => ({ ok: true }),
+    installOpDependencies: async () => ({ ok: true }),
     openDevTools: async () => {
       window.open("", "mac-os-manager-devtools");
     },

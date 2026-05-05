@@ -180,6 +180,40 @@ ipcMain.handle("preferences:get", async () => (await client()).getUserPreference
 
 ipcMain.handle("preferences:save", async (_event, theme: string) => (await client()).saveUserPreferences({ theme }));
 
+ipcMain.handle("op:list-vaults", async () => {
+  try {
+    const response = await (await client()).listOpVaults();
+
+    return { ok: true as const, vaults: response.vaults ?? [] };
+  } catch (error) {
+    return opErrorEnvelope(error);
+  }
+});
+
+ipcMain.handle("op:list-items", async (_event, vault: string) => {
+  try {
+    const response = await (await client()).listOpItems({ vault });
+
+    return { ok: true as const, items: response.items ?? [] };
+  } catch (error) {
+    return opErrorEnvelope(error);
+  }
+});
+
+ipcMain.handle("op:signin", async () => {
+  return openTerminalCommand('op signin && echo "\\n[Signed in. You can close this window and return to Mac OS Manager.]"');
+});
+
+ipcMain.handle("op:install-dependencies", async () => {
+  return openTerminalCommand(
+    [
+      'if ! command -v brew >/dev/null 2>&1; then echo "Homebrew is required. Run ./setup.sh first, then retry."; exit 1; fi',
+      "brew install --cask 1password 1password-cli",
+      'echo "\\n[1Password and 1Password CLI install finished. Open 1Password, enable CLI integration if needed, then return to Mac OS Manager.]"',
+    ].join("; "),
+  );
+});
+
 ipcMain.handle("settings:choose-directory", async (_event, defaultPath?: string) => {
   const options: OpenDialogOptions = {
     defaultPath,
@@ -418,6 +452,48 @@ function cleanSettings(settings: Partial<RuntimeSettings>): Partial<RuntimeSetti
     opVault: settings.opVault ?? "",
     opItem: settings.opItem ?? "",
   };
+}
+
+function opErrorEnvelope(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const code = error && typeof error === "object" && "code" in error && typeof (error as { code: unknown }).code === "string" ? (error as { code: string }).code : "op_failed";
+
+  return { ok: false as const, code, message };
+}
+
+function openTerminalCommand(command: string): Promise<{ ok: true } | { ok: false; message: string }> {
+  return new Promise((resolveResult) => {
+    const script = [
+      'tell application "Terminal"',
+      "  activate",
+      `  do script "${appleScriptString(command)}"`,
+      "end tell",
+    ].join("\n");
+    const child = spawn("osascript", ["-e", script], { stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
+
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString("utf8");
+    });
+
+    child.on("error", (error) => {
+      resolveResult({ ok: false, message: error.message });
+    });
+
+    child.on("exit", (code) => {
+      if (code === 0) {
+        resolveResult({ ok: true });
+
+        return;
+      }
+
+      resolveResult({ ok: false, message: stderr.trim() || `osascript exited with code ${code ?? "unknown"}` });
+    });
+  });
+}
+
+function appleScriptString(value: string): string {
+  return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }
 
 function settingsArgs(settings: Partial<RuntimeSettings>) {

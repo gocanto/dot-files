@@ -27,6 +27,21 @@ interface RuntimeSettings {
   opItem: string;
 }
 
+interface OpVault {
+  id: string;
+  name: string;
+}
+
+interface OpItem {
+  id: string;
+  title: string;
+}
+
+type OpVaultsResult = { ok: true; vaults: OpVault[] } | { ok: false; code: string; message: string };
+type OpItemsResult = { ok: true; items: OpItem[] } | { ok: false; code: string; message: string };
+type OpSigninResult = { ok: true } | { ok: false; message: string };
+type OpInstallResult = { ok: true } | { ok: false; message: string };
+
 contextBridge.exposeInMainWorld("macOS", {
   macName: () => ipcRenderer.invoke("system:macName"),
   macHostname: () => ipcRenderer.invoke("system:macHostname"),
@@ -41,6 +56,10 @@ contextBridge.exposeInMainWorld("macOS", {
   chooseDirectory: (defaultPath?: string) => ipcRenderer.invoke("settings:choose-directory", defaultPath),
   chooseFile: (defaultPath?: string) => ipcRenderer.invoke("settings:choose-file", defaultPath),
   chooseSaveFile: (defaultPath?: string) => ipcRenderer.invoke("settings:choose-save-file", defaultPath),
+  listOpVaults: (): Promise<OpVaultsResult> => ipcRenderer.invoke("op:list-vaults"),
+  listOpItems: (vault: string): Promise<OpItemsResult> => ipcRenderer.invoke("op:list-items", vault),
+  signinOpCli: (): Promise<OpSigninResult> => ipcRenderer.invoke("op:signin"),
+  installOpDependencies: (): Promise<OpInstallResult> => ipcRenderer.invoke("op:install-dependencies"),
   openDevTools: () => ipcRenderer.invoke("system:openDevTools"),
   runWorkflow: (request: RunRequest, onEvent: (event: RunEvent) => void) => {
     const channel = `workflow:event:${crypto.randomUUID()}`;

@@ -13,6 +13,7 @@ GO_FMT_EXEC := $(GO_FMT_COMPOSE) exec -T $(GO_FMT_SERVICE) $(GO_FMT_BIN)
 .PHONY: dev format format-start format-stop format-login
 
 dev:
+	@echo "Dev server will be available at: $(PORTLESS_DEFAULT_DEV_SERVER_URL)"
 	@pnpm --dir $(UI_DIR) exec tsx scripts/dev.ts
 
 format: format-start
