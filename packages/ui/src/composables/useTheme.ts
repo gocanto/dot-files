@@ -18,11 +18,7 @@ function readCachedTheme(): Theme | null {
   }
 }
 
-function systemTheme(): Theme {
-  return globalThis.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-const theme = ref<Theme>(readCachedTheme() ?? systemTheme());
+const theme = ref<Theme>(readCachedTheme() ?? "light");
 
 function applyTheme(t: Theme): void {
   globalThis.document?.documentElement.classList.toggle("dark", t === "dark");

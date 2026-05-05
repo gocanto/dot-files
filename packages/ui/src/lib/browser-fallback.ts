@@ -76,6 +76,8 @@ export function installBrowserFallback() {
     chooseDirectory: async (defaultPath) => defaultPath ?? fallbackSettings.repoRoot,
     chooseFile: async (defaultPath) => defaultPath ?? fallbackSettings.appsConfigPath,
     chooseSaveFile: async (defaultPath) => defaultPath ?? fallbackSettings.workflowDbPath,
+    macName: async () => "Local Mac",
+    macHostname: async () => "localhost",
     getUserPreferences: async () => fallbackPreferences,
     saveUserPreferences: async (theme) => {
       fallbackPreferences = { theme, updatedAt: new Date().toISOString() };

@@ -100,6 +100,8 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
     chooseDirectory: vi.fn().mockResolvedValue("/chosen"),
     chooseFile: vi.fn().mockResolvedValue("/chosen/file.yaml"),
     chooseSaveFile: vi.fn().mockResolvedValue("/chosen/workflows.sqlite3"),
+    macName: vi.fn().mockResolvedValue("Local Mac"),
+    macHostname: vi.fn().mockResolvedValue("localhost"),
     getUserPreferences: vi.fn().mockResolvedValue({ theme: "light" }),
     saveUserPreferences: vi.fn().mockImplementation(async (theme: string) => ({ theme, updatedAt: new Date().toISOString() })),
     runWorkflow: vi.fn().mockImplementation(async (_request, onEvent: (event: RunEvent) => void) => {

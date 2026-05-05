@@ -24,8 +24,27 @@ let mainWindow: BrowserWindow | null = null;
 let bridgeClient: WorkflowBridgeClient | null = null;
 let bridgeProcess: ChildProcess | null = null;
 let bridgeSocketPath = "";
+const externalBridgeSocketPath = process.env.MAC_OS_BRIDGE_SOCKET?.trim() ?? "";
 let bridgeStartup: Promise<void> | null = null;
 let savedSettings: Partial<RuntimeSettings> = {};
+
+const singleInstanceLock = app.requestSingleInstanceLock();
+
+if (!singleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return;
+    }
+
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore();
+    }
+
+    mainWindow.focus();
+  });
+}
 
 function createWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -182,6 +201,15 @@ async function startWorkflowBridge() {
     return;
   }
 
+  if (externalBridgeSocketPath) {
+    const httpClient = createWorkflowBridgeClient(unixTarget(externalBridgeSocketPath));
+    await waitForReady(httpClient);
+    bridgeSocketPath = externalBridgeSocketPath;
+    bridgeClient = httpClient;
+
+    return;
+  }
+
   const command = goCommand();
   bridgeSocketPath = join(tmpdir(), `mac-os-${process.pid}-${Date.now()}.sock`);
 
@@ -229,10 +257,11 @@ function stopWorkflowBridge() {
   bridgeProcess?.kill();
   bridgeProcess = null;
 
-  if (bridgeSocketPath) {
+  if (bridgeSocketPath && bridgeSocketPath !== externalBridgeSocketPath) {
     rmSync(bridgeSocketPath, { force: true });
-    bridgeSocketPath = "";
   }
+
+  bridgeSocketPath = "";
 }
 
 function startBridgeIfNeeded(): Promise<void> {
@@ -274,24 +303,38 @@ async function saveSettings(settings: RuntimeSettings): Promise<SettingsResponse
   const nextSettings = validation.settings;
   let rollbackDatabaseMove = () => {};
 
-  stopWorkflowBridge();
-
   try {
     rollbackDatabaseMove = moveWorkflowDatabase(current.settings?.workflowDbPath, nextSettings.workflowDbPath);
     savedSettings = nextSettings;
     writeSavedSettings(nextSettings);
+
+    if (externalBridgeSocketPath) {
+      return validation;
+    }
+
+    stopWorkflowBridge();
 
     return await (await client()).getSettings();
   } catch (error) {
     rollbackDatabaseMove();
     savedSettings = previousSettings;
     writeSavedSettings(previousSettings);
-    await startBridgeIfNeeded();
+
+    if (!externalBridgeSocketPath) {
+      await startBridgeIfNeeded();
+    }
+
     throw error;
   }
 }
 
 function settingsPath() {
+  const devSettingsPath = process.env.MAC_OS_SETTINGS_PATH?.trim();
+
+  if (devSettingsPath) {
+    return devSettingsPath;
+  }
+
   return join(app.getPath("userData"), "settings.json");
 }
 
