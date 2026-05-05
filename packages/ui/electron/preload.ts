@@ -28,6 +28,8 @@ interface RuntimeSettings {
 }
 
 contextBridge.exposeInMainWorld("macOS", {
+  macName: () => ipcRenderer.invoke("system:macName"),
+  macHostname: () => ipcRenderer.invoke("system:macHostname"),
   workflows: () => ipcRenderer.invoke("workflows:list"),
   runs: (limit?: number) => ipcRenderer.invoke("runs:list", limit ?? 50),
   runLog: (runId: string) => ipcRenderer.invoke("runs:log", runId),

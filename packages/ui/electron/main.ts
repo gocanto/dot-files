@@ -1,3 +1,4 @@
+import os from "node:os";
 import { app, BrowserWindow, dialog, ipcMain, type OpenDialogOptions, type SaveDialogOptions } from "electron";
 import {
   createWorkflowBridgeClient,
@@ -23,9 +24,15 @@ let mainWindow: BrowserWindow | null = null;
 let bridgeClient: WorkflowBridgeClient | null = null;
 let bridgeProcess: ChildProcess | null = null;
 let bridgeSocketPath = "";
+let bridgeStartup: Promise<void> | null = null;
 let savedSettings: Partial<RuntimeSettings> = {};
 
 function createWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.focus();
+    return;
+  }
+
   mainWindow = new BrowserWindow({
     width: 2000,
     height: 1500,
@@ -42,6 +49,10 @@ function createWindow() {
     },
   });
 
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+  });
+
   const devServer = process.env.VITE_DEV_SERVER_URL;
 
   if (devServer) {
@@ -52,18 +63,20 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(() =>
-  Promise.resolve()
-    .then(() => {
-      savedSettings = readSavedSettings();
-    })
-    .then(startWorkflowBridge)
-    .then(createWindow)
-    .catch((error: unknown) => {
-      console.error(error);
-      app.quit();
-    }),
-);
+app.whenReady().then(() => {
+  try {
+    savedSettings = readSavedSettings();
+    createWindow();
+  } catch (error) {
+    console.error(error);
+    app.quit();
+    return;
+  }
+
+  void startBridgeIfNeeded().catch((error: unknown) => {
+    console.error("Failed to start mac-os HTTP bridge", error);
+  });
+});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
@@ -72,36 +85,34 @@ app.on("window-all-closed", () => {
 });
 
 app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
+  createWindow();
 });
 
 app.on("before-quit", stopWorkflowBridge);
 
 ipcMain.handle("workflows:list", async () => {
-  const response = await client().listWorkflows();
+  const response = await (await client()).listWorkflows();
 
   return response.workflows ?? [];
 });
 
 ipcMain.handle("runs:list", async (_event, limit: number) => {
-  const response = await client().listRuns({ limit });
+  const response = await (await client()).listRuns({ limit });
 
   return response.runs ?? [];
 });
 
-ipcMain.handle("runs:log", (_event, runId: string) => client().runLog({ runId }));
+ipcMain.handle("runs:log", async (_event, runId: string) => (await client()).runLog({ runId }));
 
-ipcMain.handle("settings:get", async () => client().getSettings());
+ipcMain.handle("settings:get", async () => (await client()).getSettings());
 
-ipcMain.handle("settings:validate", async (_event, settings: RuntimeSettings) => client().validateSettings({ settings }));
+ipcMain.handle("settings:validate", async (_event, settings: RuntimeSettings) => (await client()).validateSettings({ settings }));
 
 ipcMain.handle("settings:save", async (_event, settings: RuntimeSettings) => saveSettings(settings));
 
-ipcMain.handle("preferences:get", async () => client().getUserPreferences());
+ipcMain.handle("preferences:get", async () => (await client()).getUserPreferences());
 
-ipcMain.handle("preferences:save", async (_event, theme: string) => client().saveUserPreferences({ theme }));
+ipcMain.handle("preferences:save", async (_event, theme: string) => (await client()).saveUserPreferences({ theme }));
 
 ipcMain.handle("settings:choose-directory", async (_event, defaultPath?: string) => {
   const options: OpenDialogOptions = {
@@ -133,9 +144,14 @@ ipcMain.handle("settings:choose-save-file", async (_event, defaultPath?: string)
   return result.canceled ? null : result.filePath ?? null;
 });
 
-ipcMain.handle("workflow:run", (event, request: RunWorkflowRequest, eventChannel: string) => {
+ipcMain.handle("system:macName", () => os.userInfo().username);
+ipcMain.handle("system:macHostname", () => os.hostname());
+
+ipcMain.handle("workflow:run", async (event, request: RunWorkflowRequest, eventChannel: string) => {
+  const c = await client();
+
   return new Promise<{ exitCode: number }>((resolveResult, reject) => {
-    const stream = client().runWorkflow(request);
+    const stream = c.runWorkflow(request);
     let exitCode = 0;
 
     stream.on("data", (workflowEvent: WorkflowEvent) => {
@@ -190,6 +206,7 @@ async function startWorkflowBridge() {
     bridgeClient?.close();
     bridgeClient = null;
     bridgeProcess = null;
+    bridgeStartup = null;
   });
 
   const httpClient = createWorkflowBridgeClient(unixTarget(bridgeSocketPath));
@@ -207,6 +224,7 @@ async function startWorkflowBridge() {
 function stopWorkflowBridge() {
   bridgeClient?.close();
   bridgeClient = null;
+  bridgeStartup = null;
 
   bridgeProcess?.kill();
   bridgeProcess = null;
@@ -217,7 +235,26 @@ function stopWorkflowBridge() {
   }
 }
 
-function client() {
+function startBridgeIfNeeded(): Promise<void> {
+  if (bridgeClient) {
+    return Promise.resolve();
+  }
+
+  if (!bridgeStartup) {
+    bridgeStartup = startWorkflowBridge().catch((error: unknown) => {
+      bridgeStartup = null;
+      throw error;
+    });
+  }
+
+  return bridgeStartup;
+}
+
+async function client(): Promise<WorkflowBridgeClient> {
+  if (!bridgeClient) {
+    await startBridgeIfNeeded();
+  }
+
   if (!bridgeClient) {
     throw new Error("mac-os HTTP bridge is not running");
   }
@@ -226,13 +263,13 @@ function client() {
 }
 
 async function saveSettings(settings: RuntimeSettings): Promise<SettingsResponse> {
-  const validation = await client().validateSettings({ settings });
+  const validation = await (await client()).validateSettings({ settings });
 
   if (!validation.valid || !validation.settings) {
     return validation;
   }
 
-  const current = await client().getSettings();
+  const current = await (await client()).getSettings();
   const previousSettings = savedSettings;
   const nextSettings = validation.settings;
   let rollbackDatabaseMove = () => {};
@@ -243,14 +280,13 @@ async function saveSettings(settings: RuntimeSettings): Promise<SettingsResponse
     rollbackDatabaseMove = moveWorkflowDatabase(current.settings?.workflowDbPath, nextSettings.workflowDbPath);
     savedSettings = nextSettings;
     writeSavedSettings(nextSettings);
-    await startWorkflowBridge();
 
-    return client().getSettings();
+    return await (await client()).getSettings();
   } catch (error) {
     rollbackDatabaseMove();
     savedSettings = previousSettings;
     writeSavedSettings(previousSettings);
-    await startWorkflowBridge();
+    await startBridgeIfNeeded();
     throw error;
   }
 }

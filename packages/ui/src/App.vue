@@ -68,13 +68,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -90,7 +83,7 @@ import { loadThemeFromBackend, useTheme } from "@/composables/useTheme";
 import { cn } from "@/lib/utils";
 import { confirmationStyle } from "@/lib/confirmationDisplay";
 import { phaseStatusPillClass, statusPillClass } from "@/lib/phaseDisplay";
-import { getWorkflowDetail, workflowDetailHaystack, workflowsInCategory, type WorkflowCategory } from "@/lib/workflowDetails";
+import { getWorkflowDetail, workflowsInCategory, type WorkflowCategory } from "@/lib/workflowDetails";
 import type { ConfirmationOption, Phase, RunEvent, RunLog, RunSummary, RuntimeSettings, SettingsResponse, Workflow } from "./types/api";
 
 type SectionId = "template" | "current" | "update" | "settings" | "logs";
@@ -101,7 +94,8 @@ const { theme, toggleTheme } = useTheme();
 
 const section = ref<SectionId>("template");
 const selectedSettingsKey = ref<StepSettingsKey | null>(null);
-const profile = ref("current-mac");
+const macName = ref("");
+const macHostname = ref("");
 const workflows = ref<Workflow[]>([]);
 const runs = ref<RunSummary[]>([]);
 const selectedWorkflowId = ref("");
@@ -111,7 +105,9 @@ const enabledPhaseIds = ref<Set<string>>(new Set());
 const pendingOption = ref<ConfirmationOption | null>(null);
 const runEvents = ref<RunEvent[]>([]);
 const running = ref(false);
-const initialLoading = ref(true);
+const workflowsLoading = ref(true);
+const runsLoading = ref(true);
+const runLogLoading = ref(false);
 const loadError = ref("");
 const navCollapsed = ref(false);
 const searchQuery = ref("");
@@ -129,14 +125,14 @@ const settingsMessage = ref("");
 const settingsError = ref("");
 
 const stepNavItems = computed(() => [
-  { id: "template" as const, label: "Template", icon: FileText, count: workflowsInCategory(workflows.value, "template").length },
-  { id: "current" as const, label: "Current state", icon: Eye, count: workflowsInCategory(workflows.value, "current").length },
-  { id: "update" as const, label: "Update", icon: Wand2, count: workflowsInCategory(workflows.value, "update").length },
+  { id: "template" as const, label: "Template", icon: FileText, count: workflowsLoading.value ? null : workflowsInCategory(workflows.value, "template").length },
+  { id: "current" as const, label: "Current state", icon: Eye, count: workflowsLoading.value ? null : workflowsInCategory(workflows.value, "current").length },
+  { id: "update" as const, label: "Update", icon: Wand2, count: workflowsLoading.value ? null : workflowsInCategory(workflows.value, "update").length },
 ]);
 
 const auxNavItems = computed(() => [
-  { id: "settings" as const, label: "Settings", icon: Settings },
-  { id: "logs" as const, label: "Logs", icon: History, count: runs.value.length },
+  { id: "settings" as const, label: "Settings", icon: Settings, count: null as number | null },
+  { id: "logs" as const, label: "Logs", icon: History, count: runsLoading.value ? null : runs.value.length },
 ]);
 
 const stepSectionMeta: Record<"template" | "current" | "update", { title: string; emptyMessage: string; settingsKeys: StepSettingsKey[] }> = {
@@ -233,7 +229,7 @@ const matchingWorkflows = computed(() => {
   const source = sectionWorkflows.value;
   return query
     ? source.filter((workflow) =>
-        [workflow.name, workflow.description, workflow.changesMac, workflowDetailHaystack(workflow.id)]
+        [workflow.name, workflow.description]
           .join(" ")
           .toLowerCase()
           .includes(query),
@@ -289,28 +285,53 @@ const selectedRunOutput = computed(() =>
     .join("\n") ?? "",
 );
 
-onMounted(async () => {
-  await loadAll();
-  await loadThemeFromBackend();
+onMounted(() => {
+  void loadAll();
 });
 
 async function loadAll() {
-  try {
-    loadError.value = "";
-    workflows.value = await window.macOS.workflows();
-    runs.value = await window.macOS.runs(25);
-    await loadSettings();
+  loadError.value = "";
+  workflowsLoading.value = true;
+  runsLoading.value = true;
 
-    if (!selectedWorkflowId.value || !workflows.value.some((workflow) => workflow.id === selectedWorkflowId.value)) {
-      selectedWorkflowId.value = workflows.value[0]?.id ?? "";
-    }
+  const workflowsPromise = window.macOS
+    .workflows()
+    .then((next) => {
+      workflows.value = next;
+      if (!selectedWorkflowId.value || !next.some((workflow) => workflow.id === selectedWorkflowId.value)) {
+        selectedWorkflowId.value = next[0]?.id ?? "";
+      }
+      resetEnabledPhases();
+    })
+    .catch((error) => {
+      loadError.value = error instanceof Error ? error.message : String(error);
+    })
+    .finally(() => {
+      workflowsLoading.value = false;
+    });
 
-    resetEnabledPhases();
-  } catch (error) {
-    loadError.value = error instanceof Error ? error.message : String(error);
-  } finally {
-    initialLoading.value = false;
-  }
+  const runsPromise = window.macOS
+    .runs(25)
+    .then((next) => {
+      runs.value = next;
+    })
+    .catch((error) => {
+      console.error("Failed to load runs", error);
+    })
+    .finally(() => {
+      runsLoading.value = false;
+    });
+
+  const settingsPromise = loadSettings().catch((error) => {
+    console.error("Failed to load settings", error);
+  });
+
+  const themePromise = loadThemeFromBackend();
+
+  window.macOS.macName().then((name) => { macName.value = name; });
+  window.macOS.macHostname().then((name) => { macHostname.value = name; });
+
+  await Promise.allSettled([workflowsPromise, runsPromise, settingsPromise, themePromise]);
 }
 
 function selectSection(next: SectionId) {
@@ -406,7 +427,14 @@ async function refreshRuns() {
 
 async function openRun(run: RunSummary) {
   selectedRunId.value = run.id;
-  selectedRunLog.value = await window.macOS.runLog(run.id);
+  selectedRunLog.value = null;
+  runLogLoading.value = true;
+
+  try {
+    selectedRunLog.value = await window.macOS.runLog(run.id);
+  } finally {
+    runLogLoading.value = false;
+  }
 }
 
 function emptySettings(): RuntimeSettings {
@@ -665,31 +693,16 @@ function initials(value: string) {
           collapsible
           :min-size="14"
           :max-size="22"
-          :class="cn(navCollapsed && 'min-w-[52px] transition-all duration-300 ease-in-out')"
+          :class="cn(navCollapsed && 'min-w-12 transition-all duration-300 ease-in-out')"
           @collapse="navCollapsed = true"
           @expand="navCollapsed = false"
         >
-          <div :class="cn('flex h-[52px] items-center justify-center', navCollapsed ? 'px-2' : 'px-3')">
-            <Select v-model="profile">
-              <SelectTrigger
-                aria-label="Select Mac profile"
-                :class="cn(
-                  'flex items-center gap-2 [&>span]:line-clamp-1 [&>span]:flex [&>span]:w-full [&>span]:items-center [&>span]:gap-2 [&>span]:truncate [&_svg]:size-4 [&_svg]:shrink-0',
-                  navCollapsed && 'flex size-9 shrink-0 items-center justify-center p-0 [&>span]:w-auto [&>svg]:hidden',
-                )"
-              >
-                <SelectValue placeholder="Select Mac profile">
-                  <div class="flex items-center gap-2">
-                    <Apple class="size-4" />
-                    <span v-if="!navCollapsed">Current Mac</span>
-                  </div>
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="current-mac">Current Mac</SelectItem>
-                <SelectItem value="local-profile">Local Profile</SelectItem>
-              </SelectContent>
-            </Select>
+          <div :class="cn('flex h-12 items-center', navCollapsed ? 'justify-center px-2' : 'gap-2 px-3')">
+            <Apple class="size-4 shrink-0" />
+            <div v-if="!navCollapsed" class="flex min-w-0 flex-col">
+              <span class="truncate text-sm font-medium">Mac: {{ macName }}</span>
+              <span class="truncate text-[10px] text-muted-foreground">{{ macHostname }}</span>
+            </div>
           </div>
 
           <Separator />
@@ -711,7 +724,8 @@ function initials(value: string) {
                   </TooltipTrigger>
                   <TooltipContent side="right" class="flex items-center gap-4">
                     {{ item.label }}
-                    <span class="ml-auto text-muted-foreground">{{ item.count }}</span>
+                    <Skeleton v-if="item.count === null" class="ml-auto h-4 w-6 rounded" />
+                    <span v-else class="ml-auto text-muted-foreground">{{ item.count }}</span>
                   </TooltipContent>
                 </Tooltip>
 
@@ -724,7 +738,8 @@ function initials(value: string) {
                 >
                   <component :is="item.icon" class="mr-2 size-4" />
                   {{ item.label }}
-                  <span class="ml-auto">{{ item.count }}</span>
+                  <Skeleton v-if="item.count === null" class="ml-auto h-4 w-6 rounded" />
+                  <span v-else class="ml-auto">{{ item.count }}</span>
                 </Button>
               </template>
             </nav>
@@ -769,34 +784,9 @@ function initials(value: string) {
 
         <ResizablePanel id="mac-list" :default-size="32" :min-size="28">
           <div class="flex h-full min-h-0 flex-col">
-            <template v-if="initialLoading">
-              <div class="flex items-center px-4 py-2">
-                <Skeleton class="h-7 w-32" />
-                <div class="ml-auto flex gap-2">
-                  <Skeleton class="h-8 w-16" />
-                  <Skeleton class="h-8 w-16" />
-                </div>
-              </div>
-              <Separator />
-              <div class="p-4">
-                <Skeleton class="h-9 w-full" />
-              </div>
-              <div class="flex flex-col gap-2 p-4 pt-0">
-                <div v-for="index in 6" :key="index" class="rounded-lg border p-3">
-                  <div class="flex items-center gap-3">
-                    <Skeleton class="h-4 w-40" />
-                    <Skeleton class="ml-auto h-5 w-12 rounded-full" />
-                  </div>
-                  <Skeleton class="mt-3 h-3 w-24" />
-                  <Skeleton class="mt-3 h-3 w-full" />
-                  <Skeleton class="mt-2 h-3 w-4/5" />
-                </div>
-              </div>
-            </template>
-
-            <template v-else-if="stepMeta">
+            <template v-if="stepMeta">
               <div class="flex h-full min-h-0 flex-col">
-                <div class="flex items-center px-4 py-2">
+                <div class="flex h-12 items-center px-4">
                   <h1 class="text-xl font-bold">{{ stepMeta.title }}</h1>
                 </div>
                 <Separator />
@@ -809,7 +799,19 @@ function initials(value: string) {
                   </form>
                 </div>
                 <ScrollArea class="min-h-0 flex-1">
+                  <div v-if="workflowsLoading" data-testid="workflows-list-skeleton" class="flex flex-col gap-2 p-4 pt-0">
+                    <div v-for="index in 6" :key="index" class="rounded-lg border p-3">
+                      <div class="flex items-center gap-3">
+                        <Skeleton class="h-4 w-40" />
+                        <Skeleton class="ml-auto h-5 w-12 rounded-full" />
+                      </div>
+                      <Skeleton class="mt-3 h-3 w-24" />
+                      <Skeleton class="mt-3 h-3 w-full" />
+                      <Skeleton class="mt-2 h-3 w-4/5" />
+                    </div>
+                  </div>
                   <WorkflowCardList
+                    v-else
                     :workflows="matchingWorkflows"
                     :selected-id="selectedWorkflowId"
                     :empty-message="stepMeta.emptyMessage"
@@ -818,29 +820,38 @@ function initials(value: string) {
                   <div class="px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Step settings
                   </div>
-                  <div class="flex flex-col gap-1 p-2 pt-0">
-                    <button
-                      v-for="key in stepMeta.settingsKeys"
-                      :key="key"
-                      :class="cn(
-                        'flex items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-all hover:bg-accent',
-                        selectedSettingsKey === key && 'bg-muted',
-                      )"
-                      @click="selectStepSetting(key)"
-                    >
-                      <Settings class="size-4 text-muted-foreground" />
-                      <div class="min-w-0 flex-1">
-                        <div class="font-medium">{{ settingsKeyLabels[key] }}</div>
-                        <div class="truncate text-xs text-muted-foreground">{{ settingsForm[key] || "not set" }}</div>
+                  <div class="flex flex-col gap-1 px-4 pb-4">
+                    <template v-if="settingsLoading && !settingsResponse">
+                      <div
+                        v-for="key in stepMeta.settingsKeys"
+                        :key="key"
+                        data-testid="step-settings-skeleton"
+                        class="flex items-center gap-3 rounded-lg border px-3 py-2"
+                      >
+                        <Skeleton class="size-4 rounded" />
+                        <div class="min-w-0 flex-1 space-y-1">
+                          <Skeleton class="h-4 w-32" />
+                          <Skeleton class="h-3 w-48" />
+                        </div>
                       </div>
-                    </button>
-                    <button
-                      class="flex items-center gap-3 rounded-lg border border-dashed px-3 py-2 text-left text-sm text-muted-foreground transition-all hover:bg-accent"
-                      @click="selectSection('settings')"
-                    >
-                      <Settings class="size-4" />
-                      <span class="flex-1">All settings…</span>
-                    </button>
+                    </template>
+                    <template v-else>
+                      <button
+                        v-for="key in stepMeta.settingsKeys"
+                        :key="key"
+                        :class="cn(
+                          'flex items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-all hover:bg-accent',
+                          selectedSettingsKey === key && 'bg-muted',
+                        )"
+                        @click="selectStepSetting(key)"
+                      >
+                        <Settings class="size-4 text-muted-foreground" />
+                        <div class="min-w-0 flex-1">
+                          <div class="font-medium">{{ settingsKeyLabels[key] }}</div>
+                          <div class="truncate text-xs text-muted-foreground">{{ settingsForm[key] || "not set" }}</div>
+                        </div>
+                      </button>
+                    </template>
                   </div>
                 </ScrollArea>
               </div>
@@ -848,7 +859,7 @@ function initials(value: string) {
 
             <template v-else-if="section === 'logs'">
               <Tabs v-model="logTab" class="flex h-full min-h-0 flex-col">
-                <div class="flex items-center px-4 py-2">
+                <div class="flex h-12 items-center px-4">
                   <h1 class="text-xl font-bold">Logs</h1>
                   <TabsList class="ml-auto">
                     <TabsTrigger value="all">All</TabsTrigger>
@@ -866,7 +877,19 @@ function initials(value: string) {
                   </form>
                 </div>
                 <ScrollArea class="min-h-0 flex-1">
-                  <div class="flex flex-col gap-2 p-4 pt-0">
+                  <div v-if="runsLoading" data-testid="runs-list-skeleton" class="flex flex-col gap-2 p-4 pt-0">
+                    <div v-for="index in 4" :key="index" class="rounded-lg border p-3">
+                      <div class="flex items-center gap-2">
+                        <Skeleton class="h-4 w-44" />
+                        <Skeleton class="ml-auto h-5 w-16 rounded-full" />
+                      </div>
+                      <div class="mt-2 flex items-center justify-between gap-3">
+                        <Skeleton class="h-3 w-32" />
+                        <Skeleton class="h-3 w-16" />
+                      </div>
+                    </div>
+                  </div>
+                  <div v-else class="flex flex-col gap-2 p-4 pt-0">
                     <button
                       v-for="run in matchingRuns"
                       :key="run.id"
@@ -901,33 +924,62 @@ function initials(value: string) {
             <template v-else-if="section === 'settings'">
               <div class="flex items-center px-4 py-2">
                 <h1 class="text-xl font-bold">Settings</h1>
-                <Badge variant="outline" :class="cn('ml-auto', statusPillClass(settingsResponse?.valid ? 'ok' : 'failed'))">
+                <Skeleton v-if="settingsLoading && !settingsResponse" class="ml-auto h-5 w-24 rounded-full" />
+                <Badge v-else variant="outline" :class="cn('ml-auto', statusPillClass(settingsResponse?.valid ? 'ok' : 'failed'))">
                   {{ settingsResponse?.valid ? "valid" : "needs review" }}
                 </Badge>
               </div>
               <Separator />
               <ScrollArea class="min-h-0 flex-1">
                 <div class="flex flex-col gap-2 p-4">
-                  <div
-                    v-for="group in settingsGroups"
-                    :key="group.id"
-                    class="flex items-center gap-3 rounded-lg border p-3 text-sm"
-                  >
-                    <component :is="group.icon" class="size-4 text-muted-foreground" />
-                    <div class="min-w-0 flex-1">
-                      <div class="font-medium">{{ group.label }}</div>
-                      <div class="truncate text-xs text-muted-foreground">
-                        {{ group.count === 0 ? "No validation errors" : `${group.count} issue${group.count === 1 ? "" : "s"}` }}
+                  <template v-if="settingsLoading && !settingsResponse">
+                    <div
+                      v-for="i in 4"
+                      :key="`settings-group-skeleton-${i}`"
+                      data-testid="settings-groups-skeleton"
+                      class="flex items-center gap-3 rounded-lg border p-3 text-sm"
+                    >
+                      <Skeleton class="size-4 rounded" />
+                      <div class="min-w-0 flex-1 space-y-1">
+                        <Skeleton class="h-4 w-28" />
+                        <Skeleton class="h-3 w-40" />
                       </div>
+                      <Skeleton class="h-5 w-6 rounded-full" />
                     </div>
-                    <Badge :variant="group.count === 0 ? 'secondary' : 'destructive'">{{ group.count }}</Badge>
-                  </div>
+                  </template>
+                  <template v-else>
+                    <div
+                      v-for="group in settingsGroups"
+                      :key="group.id"
+                      class="flex items-center gap-3 rounded-lg border p-3 text-sm"
+                    >
+                      <component :is="group.icon" class="size-4 text-muted-foreground" />
+                      <div class="min-w-0 flex-1">
+                        <div class="font-medium">{{ group.label }}</div>
+                        <div class="truncate text-xs text-muted-foreground">
+                          {{ group.count === 0 ? "No validation errors" : `${group.count} issue${group.count === 1 ? "" : "s"}` }}
+                        </div>
+                      </div>
+                      <Badge :variant="group.count === 0 ? 'secondary' : 'destructive'">{{ group.count }}</Badge>
+                    </div>
+                  </template>
                 </div>
                 <Separator />
                 <div class="px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Workflows
                 </div>
+                <div v-if="workflowsLoading" data-testid="settings-workflows-skeleton" class="flex flex-col gap-2 p-4 pt-0">
+                  <div v-for="i in 3" :key="`settings-wf-skeleton-${i}`" class="rounded-lg border p-3">
+                    <div class="flex items-center gap-3">
+                      <Skeleton class="h-4 w-40" />
+                      <Skeleton class="ml-auto h-5 w-12 rounded-full" />
+                    </div>
+                    <Skeleton class="mt-3 h-3 w-24" />
+                    <Skeleton class="mt-3 h-3 w-full" />
+                  </div>
+                </div>
                 <WorkflowCardList
+                  v-else
                   :workflows="settingsWorkflows"
                   :selected-id="selectedWorkflowId"
                   empty-message="No settings workflows available."
@@ -942,11 +994,16 @@ function initials(value: string) {
 
         <ResizablePanel id="mac-detail" :default-size="50" :min-size="35">
           <div class="flex h-full min-h-0 flex-col">
-            <div class="flex items-center p-2">
+            <div class="flex h-12 items-center px-2">
               <div class="flex items-center gap-2">
                 <Tooltip>
                   <TooltipTrigger as-child>
-                    <Button variant="ghost" size="icon" :disabled="section === 'logs'" @click="loadAll">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      :disabled="section === 'logs' || workflowsLoading || runsLoading || settingsLoading"
+                      @click="loadAll"
+                    >
                       <RefreshCw class="size-4" />
                       <span class="sr-only">Refresh</span>
                     </Button>
@@ -1021,39 +1078,7 @@ function initials(value: string) {
 
             <Separator />
 
-            <div v-if="initialLoading" class="flex min-h-0 flex-1 flex-col">
-              <div class="flex items-start p-4">
-                <Skeleton class="size-10 rounded-full" />
-                <div class="ml-4 grid flex-1 gap-2">
-                  <Skeleton class="h-4 w-48" />
-                  <Skeleton class="h-3 w-72" />
-                  <Skeleton class="h-3 w-40" />
-                </div>
-                <Skeleton class="h-5 w-20 rounded-full" />
-              </div>
-              <Separator />
-              <div class="grid gap-5 p-4">
-                <section>
-                  <div class="mb-2 flex items-center justify-between">
-                    <Skeleton class="h-4 w-20" />
-                    <Skeleton class="h-8 w-16" />
-                  </div>
-                  <div class="overflow-hidden rounded-lg border">
-                    <div v-for="index in 4" :key="index" class="flex items-center gap-3 border-b px-3 py-3 last:border-b-0">
-                      <Skeleton class="size-4 rounded-full" />
-                      <Skeleton class="h-4 flex-1" />
-                      <Skeleton class="h-5 w-16 rounded-full" />
-                    </div>
-                  </div>
-                </section>
-                <section>
-                  <Skeleton class="mb-2 h-4 w-28" />
-                  <Skeleton class="h-72 w-full rounded-lg" />
-                </section>
-              </div>
-            </div>
-
-            <div v-else-if="loadError" class="grid flex-1 place-items-center p-8">
+            <div v-if="loadError" class="grid flex-1 place-items-center p-8">
               <div class="max-w-xl rounded-lg border border-destructive/40 p-5">
                 <div class="flex items-center gap-2 font-semibold text-destructive">
                   <AlertTriangle class="size-5" />
@@ -1092,6 +1117,40 @@ function initials(value: string) {
                   <p class="text-xs text-muted-foreground">Edits here apply to the same setting visible in the All settings panel. Save from there to persist.</p>
                 </div>
               </ScrollArea>
+            </template>
+
+            <template v-else-if="stepMeta && workflowsLoading && !selectedWorkflow">
+              <div data-testid="workflow-detail-skeleton" class="flex min-h-0 flex-1 flex-col">
+                <div class="flex items-start p-4">
+                  <Skeleton class="size-10 rounded-full" />
+                  <div class="ml-4 grid flex-1 gap-2">
+                    <Skeleton class="h-4 w-48" />
+                    <Skeleton class="h-3 w-72" />
+                    <Skeleton class="h-3 w-40" />
+                  </div>
+                  <Skeleton class="h-5 w-20 rounded-full" />
+                </div>
+                <Separator />
+                <div class="grid gap-5 p-4">
+                  <section>
+                    <div class="mb-2 flex items-center justify-between">
+                      <Skeleton class="h-4 w-20" />
+                      <Skeleton class="h-8 w-16" />
+                    </div>
+                    <div class="overflow-hidden rounded-lg border">
+                      <div v-for="index in 4" :key="index" class="flex items-center gap-3 border-b px-3 py-3 last:border-b-0">
+                        <Skeleton class="size-4 rounded-full" />
+                        <Skeleton class="h-4 flex-1" />
+                        <Skeleton class="h-5 w-16 rounded-full" />
+                      </div>
+                    </div>
+                  </section>
+                  <section>
+                    <Skeleton class="mb-2 h-4 w-28" />
+                    <Skeleton class="h-72 w-full rounded-lg" />
+                  </section>
+                </div>
+              </div>
             </template>
 
             <template v-else-if="stepMeta && !selectedWorkflow">
@@ -1201,7 +1260,7 @@ function initials(value: string) {
 
                   <section>
                     <h2 class="mb-2 text-sm font-semibold">Output</h2>
-                    <ScrollArea class="h-72 rounded-lg border bg-[#121212] text-[#dbd7caee]">
+                    <ScrollArea class="h-72 rounded-md border bg-terminal text-terminal-foreground">
                       <OutputBlock :code="outputText" empty-text="No workflow output yet." class="text-xs leading-5" />
                     </ScrollArea>
                   </section>
@@ -1228,7 +1287,30 @@ function initials(value: string) {
             </template>
 
             <template v-else-if="section === 'logs'">
-              <div v-if="selectedRunLog" class="flex min-h-0 flex-1 flex-col">
+              <div v-if="runLogLoading" data-testid="run-log-skeleton" class="flex min-h-0 flex-1 flex-col">
+                <div class="flex items-start p-4">
+                  <Skeleton class="size-10 rounded-full" />
+                  <div class="ml-4 grid flex-1 gap-2">
+                    <Skeleton class="h-4 w-48" />
+                    <Skeleton class="h-3 w-56" />
+                    <Skeleton class="h-3 w-40" />
+                  </div>
+                  <Skeleton class="h-5 w-20 rounded-full" />
+                </div>
+                <Separator />
+                <div class="min-h-0 flex-1 bg-terminal p-4">
+                  <Skeleton class="h-3 w-3/4 bg-white/10" />
+                  <Skeleton class="mt-2 h-3 w-1/2 bg-white/10" />
+                  <Skeleton class="mt-2 h-3 w-2/3 bg-white/10" />
+                  <Skeleton class="mt-2 h-3 w-3/5 bg-white/10" />
+                </div>
+                <Separator />
+                <div class="p-4">
+                  <Skeleton class="h-20 w-full" />
+                </div>
+              </div>
+
+              <div v-else-if="selectedRunLog" class="flex min-h-0 flex-1 flex-col">
                 <div class="flex items-start p-4">
                   <div class="flex items-start gap-4 text-sm">
                     <Avatar size="sm">
@@ -1247,7 +1329,7 @@ function initials(value: string) {
                   </Badge>
                 </div>
                 <Separator />
-                <ScrollArea class="min-h-0 flex-1 bg-[#121212] text-[#dbd7caee]">
+                <ScrollArea class="min-h-0 flex-1 bg-terminal text-terminal-foreground">
                   <OutputBlock :code="selectedRunOutput" empty-text="No log output recorded." class="text-sm leading-6" />
                 </ScrollArea>
                 <Separator />

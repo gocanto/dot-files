@@ -169,6 +169,27 @@ describe("App", () => {
     expect(wrapper.findAll("button").some((button) => button.text().includes("Converge to Template"))).toBe(true);
   });
 
+  it("only matches the visible card content, not the hidden detail copy", async () => {
+    installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper.findAll("button").find((button) => /^Update\s*\d*$/.test(button.text().trim()))?.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.findAll("button").some((button) => button.text().includes("Converge to Template"))).toBe(true);
+
+    await wrapper.find('[data-testid="app-search"]').setValue("snapshot");
+
+    expect(wrapper.findAll("button").some((button) => button.text().includes("Converge to Template"))).toBe(false);
+    expect(wrapper.text()).toContain("No update workflows registered.");
+
+    await wrapper.find('[data-testid="app-search"]').setValue("converge");
+
+    expect(wrapper.findAll("button").some((button) => button.text().includes("Converge to Template"))).toBe(true);
+  });
+
   it("runs a workflow and appends streamed output", async () => {
     const api = installApi();
 
