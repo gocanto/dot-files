@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gocanto/mac-os/internal/appconfig"
 	"github.com/gocanto/mac-os/internal/command"
+	"github.com/gocanto/mac-os/internal/template/appconfig"
 )
 
 type inventoryRunner struct {

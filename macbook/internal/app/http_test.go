@@ -34,7 +34,7 @@ func TestHTTPListWorkflowsReturnsMetadata(t *testing.T) {
 
 	first, _ := workflows[0].(map[string]any)
 
-	if first["id"] != "set-up-this-mac" {
+	if first["id"] != "preview-template" {
 		t.Fatalf("first workflow = %#v", first)
 	}
 }
@@ -49,9 +49,9 @@ func TestHTTPRunPersistsEventsAndRunLog(t *testing.T) {
 	defer server.Close()
 
 	events := streamSSE(t, server.URL+"/v1/workflows/run", `{
-		"workflowId": "show-homebrew-packages",
+		"workflowId": "preview-template",
 		"confirmationOptionId": "run-now",
-		"enabledPhaseIds": ["print-generated-homebrew-package-list"]
+		"enabledPhaseIds": ["print-tracked-homebrew-bundle"]
 	}`)
 
 	runID := firstSSERunID(t, events)
@@ -67,7 +67,7 @@ func TestHTTPRunPersistsEventsAndRunLog(t *testing.T) {
 		t.Fatalf("runs = %#v", rows)
 	}
 
-	if first, _ := rows[0].(map[string]any); first["workflowId"] != "show-homebrew-packages" {
+	if first, _ := rows[0].(map[string]any); first["workflowId"] != "preview-template" {
 		t.Fatalf("run = %#v", first)
 	}
 

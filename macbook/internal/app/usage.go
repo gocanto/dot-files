@@ -7,6 +7,9 @@ func (a app) usage() {
 
 Usage:
   mac-os serve-http --socket <path> [settings flags]
+  mac-os list-workflows
+  mac-os run-workflow <id> [--preview]
 
-The Electron app starts this local HTTP backend to display workflows, execute runs, and read persisted logs.`)
+The Electron app starts the HTTP backend to display workflows, execute runs, and read persisted logs.
+The CLI run-workflow subcommand executes the same phases in a terminal so failures are visible directly.`)
 }

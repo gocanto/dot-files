@@ -1,4 +1,4 @@
-package archive
+package snapshot
 
 import (
 	"errors"
@@ -10,13 +10,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gocanto/mac-os/internal/appconfig"
-	"github.com/gocanto/mac-os/internal/apps"
 	"github.com/gocanto/mac-os/internal/command"
-	"github.com/gocanto/mac-os/internal/doctor"
-	"github.com/gocanto/mac-os/internal/dotfiles"
-	"github.com/gocanto/mac-os/internal/macosdefaults"
+	"github.com/gocanto/mac-os/internal/converge/appstore"
+	"github.com/gocanto/mac-os/internal/currentstate/doctor"
+	currentmacos "github.com/gocanto/mac-os/internal/currentstate/macos"
 	"github.com/gocanto/mac-os/internal/safefs"
+	"github.com/gocanto/mac-os/internal/template/appconfig"
+	"github.com/gocanto/mac-os/internal/template/dotfiles"
+	templatemacos "github.com/gocanto/mac-os/internal/template/macos"
 )
 
 type Options struct {
@@ -114,7 +115,7 @@ func (s Service) Capture(opts Options) error {
 			}
 		}
 
-		for _, domain := range macosdefaults.Domains() {
+		for _, domain := range templatemacos.Domains() {
 			fmt.Fprintf(s.Stdout, "would export defaults domain: %s\n", domain)
 		}
 
@@ -144,11 +145,11 @@ func (s Service) Capture(opts Options) error {
 	}
 
 	if err := s.writeCommandOutput(dest, "brew/leaves.txt", "brew", "leaves"); err != nil {
-		return err
+		fmt.Fprintf(s.Stderr, "warning: brew leaves failed: %v\n", err)
 	}
 
 	if err := s.writeCommandOutput(dest, "brew/casks.txt", "brew", "list", "--cask"); err != nil {
-		return err
+		fmt.Fprintf(s.Stderr, "warning: brew list --cask failed: %v\n", err)
 	}
 
 	if err := s.writeCommandOutput(dest, "brew/bundle-dump.txt", "brew", "bundle", "dump", "--file=-"); err != nil {
@@ -174,14 +175,14 @@ func (s Service) Capture(opts Options) error {
 	}
 
 	if opts.Apps {
-		appService := apps.Service{Home: s.Home, Repo: s.Repo, Stdout: s.Stdout, Runner: s.Runner}
+		appService := appstore.Service{Home: s.Home, Repo: s.Repo, Stdout: s.Stdout, Runner: s.Runner}
 
-		if err := appService.CaptureConfigs(dest, apps.Options{ConfigPath: opts.ConfigPath}); err != nil {
+		if err := appService.CaptureConfigs(dest, appstore.Options{ConfigPath: opts.ConfigPath}); err != nil {
 			return err
 		}
 	}
 
-	defaultsService := macosdefaults.Service{Runner: s.Runner, Stdout: s.Stdout, Stderr: s.Stderr}
+	defaultsService := currentmacos.Service{Runner: s.Runner, Stdout: s.Stdout, Stderr: s.Stderr}
 
 	if err := defaultsService.Export(dest); err != nil {
 		return err

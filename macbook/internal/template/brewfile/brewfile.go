@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-func Content() string {
-	formulae := []string{
+func TrackedFormulae() []string {
+	return []string{
 		"age",
 		"agent-browser",
 		"autossh",
@@ -36,7 +36,10 @@ func Content() string {
 		"yazi",
 		"zsh-syntax-highlighting",
 	}
-	casks := []string{
+}
+
+func TrackedCasks() []string {
+	return []string{
 		"1password",
 		"1password-cli",
 		"bruno",
@@ -65,16 +68,18 @@ func Content() string {
 		"visual-studio-code",
 		"zoom",
 	}
+}
 
+func Content() string {
 	var b strings.Builder
 
-	for _, name := range formulae {
+	for _, name := range TrackedFormulae() {
 		fmt.Fprintf(&b, "brew %s\n", strconv.Quote(name))
 	}
 
 	fmt.Fprintln(&b)
 
-	for _, name := range casks {
+	for _, name := range TrackedCasks() {
 		fmt.Fprintf(&b, "cask %s\n", strconv.Quote(name))
 	}
 

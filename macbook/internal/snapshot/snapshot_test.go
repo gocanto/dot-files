@@ -1,4 +1,4 @@
-package archive
+package snapshot
 
 import (
 	"bytes"
@@ -109,6 +109,64 @@ func TestLatestLocalSnapshotSelectsNewestTimestampedDirectory(t *testing.T) {
 
 	if got != want {
 		t.Fatalf("LatestLocalSnapshot() = %q, want %q", got, want)
+	}
+}
+
+func TestCaptureWritesArchiveWithStubRunner(t *testing.T) {
+	home := t.TempDir()
+	repo := t.TempDir()
+	archiveRoot := t.TempDir()
+
+	configContent := []byte(`
+apps:
+  - name: Ghostty
+    install_method: brew
+    package: ghostty
+    config_mode: auto
+    config_paths:
+      - source: ~/.config/ghostty/config
+        target: ghostty/config
+`)
+
+	if err := os.WriteFile(filepath.Join(repo, "apps.yaml"), configContent, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	s := Service{
+		Home:   home,
+		Repo:   repo,
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Runner: stubRunner{},
+	}
+
+	if err := s.Capture(Options{Apps: true, ArchiveRoot: archiveRoot}); err != nil {
+		t.Fatalf("Capture() = %v\nstdout:\n%s\nstderr:\n%s", err, stdout.String(), stderr.String())
+	}
+
+	dest, ok, err := LatestSnapshot(archiveRoot)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !ok {
+		t.Fatalf("no snapshot written under %s", archiveRoot)
+	}
+
+	for _, rel := range []string{
+		"MANIFEST.md",
+		"system/sw_vers.txt",
+		"system/uname.txt",
+		"brew/leaves.txt",
+		"dev-tools/versions.md",
+		"apps.yaml",
+		"defaults",
+	} {
+		if _, err := os.Stat(filepath.Join(dest, rel)); err != nil {
+			t.Fatalf("missing %s in archive: %v", rel, err)
+		}
 	}
 }
 

@@ -93,11 +93,14 @@ import { phaseStatusPillClass, statusPillClass } from "@/lib/phaseDisplay";
 import { getWorkflowDetail, workflowDetailHaystack, workflowsInCategory, type WorkflowCategory } from "@/lib/workflowDetails";
 import type { ConfirmationOption, Phase, RunEvent, RunLog, RunSummary, RuntimeSettings, SettingsResponse, Workflow } from "./types/api";
 
-type SectionId = "workflows" | "logs" | "this-mac" | "snapshots" | "health" | "settings";
+type SectionId = "template" | "current" | "update" | "settings" | "logs";
+
+type StepSettingsKey = keyof RuntimeSettings;
 
 const { theme, toggleTheme } = useTheme();
 
-const section = ref<SectionId>("workflows");
+const section = ref<SectionId>("template");
+const selectedSettingsKey = ref<StepSettingsKey | null>(null);
 const profile = ref("current-mac");
 const workflows = ref<Workflow[]>([]);
 const runs = ref<RunSummary[]>([]);
@@ -125,30 +128,52 @@ const settingsPickerField = ref<keyof RuntimeSettings | null>(null);
 const settingsMessage = ref("");
 const settingsError = ref("");
 
-const primaryNavItems = computed(() => [
-  { id: "workflows" as const, label: "Workflows", icon: Inbox, count: workflows.value.length },
+const stepNavItems = computed(() => [
+  { id: "template" as const, label: "Template", icon: FileText, count: workflowsInCategory(workflows.value, "template").length },
+  { id: "current" as const, label: "Current state", icon: Eye, count: workflowsInCategory(workflows.value, "current").length },
+  { id: "update" as const, label: "Update", icon: Wand2, count: workflowsInCategory(workflows.value, "update").length },
+]);
+
+const auxNavItems = computed(() => [
+  { id: "settings" as const, label: "Settings", icon: Settings },
   { id: "logs" as const, label: "Logs", icon: History, count: runs.value.length },
 ]);
 
-const secondaryNavItems = computed(() => [
-  { id: "this-mac" as const, label: "This Mac", icon: Apple },
-  { id: "snapshots" as const, label: "Snapshots", icon: HardDrive },
-  { id: "health" as const, label: "Health Checks", icon: Activity },
-  { id: "settings" as const, label: "Settings", icon: Settings },
-]);
-
-const categorySectionMeta: Record<"this-mac" | "snapshots" | "health", { title: string; emptyMessage: string }> = {
-  "this-mac": { title: "This Mac", emptyMessage: "No This Mac workflows match this view." },
-  snapshots: { title: "Snapshots", emptyMessage: "No snapshot workflows match this view." },
-  health: { title: "Health Checks", emptyMessage: "No health-check workflows match this view." },
+const stepSectionMeta: Record<"template" | "current" | "update", { title: string; emptyMessage: string; settingsKeys: StepSettingsKey[] }> = {
+  template: {
+    title: "Template",
+    emptyMessage: "No template workflows registered.",
+    settingsKeys: ["repoRoot", "appsConfigPath", "secretsConfigPath"],
+  },
+  current: {
+    title: "Current state",
+    emptyMessage: "No current-state workflows registered.",
+    settingsKeys: ["archiveRoot", "generatedAppsPath", "workflowDbPath"],
+  },
+  update: {
+    title: "Update",
+    emptyMessage: "No update workflows registered.",
+    settingsKeys: ["archiveRoot", "opVault", "opItem"],
+  },
 };
 
-const categoryMeta = computed(() => {
-  if (section.value === "this-mac" || section.value === "snapshots" || section.value === "health") {
-    return categorySectionMeta[section.value];
+const stepMeta = computed(() => {
+  if (section.value === "template" || section.value === "current" || section.value === "update") {
+    return stepSectionMeta[section.value];
   }
   return null;
 });
+
+const settingsKeyLabels: Record<StepSettingsKey, string> = {
+  repoRoot: "Repository root",
+  appsConfigPath: "Apps manifest",
+  secretsConfigPath: "Secrets manifest",
+  generatedAppsPath: "Generated apps output",
+  archiveRoot: "Archive root",
+  workflowDbPath: "Workflow SQLite database",
+  opVault: "1Password vault",
+  opItem: "1Password item",
+};
 
 const settingsWorkflows = computed(() => workflowsInCategory(workflows.value, "settings"));
 
@@ -199,15 +224,14 @@ const displayPhases = computed(() => {
 const normalizedSearch = computed(() => searchQuery.value.trim().toLowerCase());
 
 const sectionWorkflows = computed(() => {
-  if (section.value === "workflows") return workflows.value;
-  if (section.value === "logs") return [];
+  if (section.value === "logs" || section.value === "settings") return [];
   return workflowsInCategory(workflows.value, section.value as WorkflowCategory);
 });
 
 const matchingWorkflows = computed(() => {
   const query = normalizedSearch.value;
   const source = sectionWorkflows.value;
-  const filtered = query
+  return query
     ? source.filter((workflow) =>
         [workflow.name, workflow.description, workflow.changesMac, workflowDetailHaystack(workflow.id)]
           .join(" ")
@@ -215,20 +239,6 @@ const matchingWorkflows = computed(() => {
           .includes(query),
       )
     : source;
-
-  if (section.value !== "workflows") {
-    return filtered;
-  }
-
-  if (workflowTab.value === "safe") {
-    return filtered.filter((workflow) => workflow.changesMac === "No");
-  }
-
-  if (workflowTab.value === "changes") {
-    return filtered.filter((workflow) => workflow.changesMac !== "No");
-  }
-
-  return filtered;
 });
 
 const matchingRuns = computed(() => {
@@ -307,6 +317,7 @@ function selectSection(next: SectionId) {
   section.value = next;
   searchQuery.value = "";
   selectedWorkflowId.value = "";
+  selectedSettingsKey.value = null;
 
   if (next === "logs") {
     void refreshRuns();
@@ -317,8 +328,15 @@ function selectSection(next: SectionId) {
   }
 }
 
+function selectStepSetting(key: StepSettingsKey) {
+  selectedWorkflowId.value = "";
+  selectedSettingsKey.value = key;
+  void loadSettings();
+}
+
 function selectWorkflow(workflow: Workflow) {
   selectedWorkflowId.value = workflow.id;
+  selectedSettingsKey.value = null;
   resetEnabledPhases();
   runEvents.value = [];
 }
@@ -678,7 +696,7 @@ function initials(value: string) {
 
           <div :data-collapsed="navCollapsed" class="group flex flex-col gap-4 py-2 data-[collapsed=true]:py-2">
             <nav class="grid gap-1 px-2 group-[[data-collapsed=true]]:justify-center group-[[data-collapsed=true]]:px-2">
-              <template v-for="item in primaryNavItems" :key="item.id">
+              <template v-for="item in stepNavItems" :key="item.id">
                 <Tooltip v-if="navCollapsed">
                   <TooltipTrigger as-child>
                     <Button
@@ -716,7 +734,7 @@ function initials(value: string) {
 
           <div :data-collapsed="navCollapsed" class="group flex flex-col gap-4 py-2 data-[collapsed=true]:py-2">
             <nav class="grid gap-1 px-2 group-[[data-collapsed=true]]:justify-center group-[[data-collapsed=true]]:px-2">
-              <template v-for="item in secondaryNavItems" :key="item.id">
+              <template v-for="item in auxNavItems" :key="item.id">
                 <Tooltip v-if="navCollapsed">
                   <TooltipTrigger as-child>
                     <Button
@@ -776,39 +794,10 @@ function initials(value: string) {
               </div>
             </template>
 
-            <template v-else-if="section === 'workflows'">
-              <Tabs v-model="workflowTab" class="flex h-full min-h-0 flex-col">
-                <div class="flex items-center px-4 py-2">
-                  <h1 class="text-xl font-bold">Workflows</h1>
-                  <TabsList class="ml-auto">
-                    <TabsTrigger value="all">All</TabsTrigger>
-                    <TabsTrigger value="safe">Safe</TabsTrigger>
-                    <TabsTrigger value="changes">Changes</TabsTrigger>
-                  </TabsList>
-                </div>
-                <Separator />
-                <div class="bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                  <form @submit.prevent>
-                    <div class="relative">
-                      <Search class="absolute left-2 top-2.5 size-4 text-muted-foreground" />
-                      <Input v-model="searchQuery" data-testid="app-search" placeholder="Search workflows" class="pl-8" />
-                    </div>
-                  </form>
-                </div>
-                <ScrollArea class="min-h-0 flex-1">
-                  <WorkflowCardList
-                    :workflows="matchingWorkflows"
-                    :selected-id="selectedWorkflowId"
-                    @select="selectWorkflow"
-                  />
-                </ScrollArea>
-              </Tabs>
-            </template>
-
-            <template v-else-if="categoryMeta">
+            <template v-else-if="stepMeta">
               <div class="flex h-full min-h-0 flex-col">
                 <div class="flex items-center px-4 py-2">
-                  <h1 class="text-xl font-bold">{{ categoryMeta.title }}</h1>
+                  <h1 class="text-xl font-bold">{{ stepMeta.title }}</h1>
                 </div>
                 <Separator />
                 <div class="bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -823,9 +812,36 @@ function initials(value: string) {
                   <WorkflowCardList
                     :workflows="matchingWorkflows"
                     :selected-id="selectedWorkflowId"
-                    :empty-message="categoryMeta.emptyMessage"
+                    :empty-message="stepMeta.emptyMessage"
                     @select="selectWorkflow"
                   />
+                  <div class="px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Step settings
+                  </div>
+                  <div class="flex flex-col gap-1 p-2 pt-0">
+                    <button
+                      v-for="key in stepMeta.settingsKeys"
+                      :key="key"
+                      :class="cn(
+                        'flex items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-all hover:bg-accent',
+                        selectedSettingsKey === key && 'bg-muted',
+                      )"
+                      @click="selectStepSetting(key)"
+                    >
+                      <Settings class="size-4 text-muted-foreground" />
+                      <div class="min-w-0 flex-1">
+                        <div class="font-medium">{{ settingsKeyLabels[key] }}</div>
+                        <div class="truncate text-xs text-muted-foreground">{{ settingsForm[key] || "not set" }}</div>
+                      </div>
+                    </button>
+                    <button
+                      class="flex items-center gap-3 rounded-lg border border-dashed px-3 py-2 text-left text-sm text-muted-foreground transition-all hover:bg-accent"
+                      @click="selectSection('settings')"
+                    >
+                      <Settings class="size-4" />
+                      <span class="flex-1">All settings…</span>
+                    </button>
+                  </div>
                 </ScrollArea>
               </div>
             </template>
@@ -940,7 +956,7 @@ function initials(value: string) {
 
                 <Tooltip>
                   <TooltipTrigger as-child>
-                    <Button variant="ghost" size="icon" :disabled="section !== 'workflows' || !selectedWorkflow" @click="resetEnabledPhases">
+                    <Button variant="ghost" size="icon" :disabled="!stepMeta || !selectedWorkflow" @click="resetEnabledPhases">
                       <RotateCcw class="size-4" />
                       <span class="sr-only">Reset phases</span>
                     </Button>
@@ -950,7 +966,7 @@ function initials(value: string) {
 
                 <Tooltip>
                   <TooltipTrigger as-child>
-                    <Button variant="ghost" size="icon" :disabled="section !== 'workflows' || !selectedWorkflow?.confirmation || running" @click="openConfirmation()">
+                    <Button variant="ghost" size="icon" :disabled="!selectedWorkflow?.confirmation || running" @click="openConfirmation()">
                       <Play class="size-4" />
                       <span class="sr-only">Run workflow</span>
                     </Button>
@@ -993,7 +1009,7 @@ function initials(value: string) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem @click="loadAll">Refresh all data</DropdownMenuItem>
-                  <DropdownMenuItem :disabled="section !== 'workflows' || !selectedWorkflow" @click="resetEnabledPhases">
+                  <DropdownMenuItem :disabled="!stepMeta || !selectedWorkflow" @click="resetEnabledPhases">
                     Reset selected workflow
                   </DropdownMenuItem>
                   <DropdownMenuItem :disabled="section !== 'logs'" @click="refreshRuns">
@@ -1047,7 +1063,47 @@ function initials(value: string) {
               </div>
             </div>
 
-            <template v-else-if="(section === 'workflows' || categoryMeta) && selectedWorkflow">
+            <template v-else-if="stepMeta && selectedSettingsKey">
+              <div class="flex items-start p-4">
+                <div class="flex items-start gap-4 text-sm">
+                  <Avatar size="sm">
+                    <AvatarFallback>{{ initials(settingsKeyLabels[selectedSettingsKey]) }}</AvatarFallback>
+                  </Avatar>
+                  <div class="grid gap-1">
+                    <div class="font-semibold">{{ settingsKeyLabels[selectedSettingsKey] }}</div>
+                    <div class="line-clamp-1 text-xs text-muted-foreground">Step setting · {{ stepMeta.title }}</div>
+                  </div>
+                </div>
+                <Badge class="ml-auto" variant="outline">{{ settingsResponse?.valid ? "valid" : "needs review" }}</Badge>
+              </div>
+              <Separator />
+              <ScrollArea class="min-h-0 flex-1">
+                <div class="grid gap-3 p-4">
+                  <Label :for="`step-setting-${selectedSettingsKey}`">{{ settingsKeyLabels[selectedSettingsKey] }}</Label>
+                  <div class="flex gap-2">
+                    <Input
+                      :id="`step-setting-${selectedSettingsKey}`"
+                      v-model="settingsForm[selectedSettingsKey]"
+                    />
+                    <Button type="button" variant="outline" size="icon" @click="chooseDirectory(selectedSettingsKey)">
+                      <FolderOpen class="size-4" />
+                    </Button>
+                  </div>
+                  <p class="text-xs text-muted-foreground">Edits here apply to the same setting visible in the All settings panel. Save from there to persist.</p>
+                </div>
+              </ScrollArea>
+            </template>
+
+            <template v-else-if="stepMeta && !selectedWorkflow">
+              <div class="grid flex-1 place-items-center p-8 text-center text-sm text-muted-foreground">
+                <div>
+                  <Inbox class="mx-auto mb-3 size-8" />
+                  <p>Select a workflow or a step setting to begin.</p>
+                </div>
+              </div>
+            </template>
+
+            <template v-else-if="stepMeta && selectedWorkflow">
               <div class="flex items-start p-4">
                 <div class="flex items-start gap-4 text-sm">
                   <Avatar size="sm">

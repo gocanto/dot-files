@@ -1,14 +1,14 @@
-import { ArchiveRestore, Camera, Download, FileCode2, FileText, Printer, RefreshCw, ShieldCheck, Wand2 } from "lucide-vue-next";
+import { ArchiveRestore, Camera, Download, Eye, FileCode2, FileText, RefreshCw, ShieldCheck, Trash2 } from "lucide-vue-next";
 
 const workflowActionIcons: Record<string, typeof Download> = {
-  "set-up-this-mac": Download,
-  "update-this-mac": RefreshCw,
-  "save-app-settings-snapshot": Camera,
-  "restore-app-settings": ArchiveRestore,
-  "update-installed-app-list": FileCode2,
-  "apply-macos-settings": Wand2,
-  "check-setup": ShieldCheck,
-  "show-homebrew-packages": Printer,
+  "preview-template": Eye,
+  "validate-template": ShieldCheck,
+  "inspect-current": ShieldCheck,
+  "regenerate-installed-list": FileCode2,
+  "save-snapshot": Camera,
+  "converge-to-template": RefreshCw,
+  "restore-snapshot": ArchiveRestore,
+  "remove-untracked-apps": Trash2,
 };
 
 export function workflowActionIcon(id: string) {

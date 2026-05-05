@@ -1,4 +1,4 @@
-package githubsetup
+package github
 
 import (
 	"bufio"

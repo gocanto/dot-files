@@ -240,6 +240,20 @@ apps:
       - source: ~/Library/Preferences/notion.id.plist
         target: notion/Preferences/notion.id.plist
 
+  - name: Oh My Zsh
+    install_method: manual
+    package: https://ohmyz.sh
+    config_mode: auto
+    config_paths:
+      - source: ~/.oh-my-zsh/custom
+        target: ohmyzsh/custom
+      - source: ~/.zshenv
+        target: ohmyzsh/.zshenv
+      - source: ~/.zprofile
+        target: ohmyzsh/.zprofile
+      - source: ~/.zlogin
+        target: ohmyzsh/.zlogin
+
   - name: Pixelmator Pro
     bundle_id: com.pixelmatorteam.pixelmator.x
     install_method: mas

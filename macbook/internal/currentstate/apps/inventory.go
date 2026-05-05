@@ -2,12 +2,28 @@ package apps
 
 import (
 	"fmt"
+	"io"
 	"path/filepath"
 
-	"github.com/gocanto/mac-os/internal/appconfig"
+	"github.com/gocanto/mac-os/internal/command"
 	"github.com/gocanto/mac-os/internal/safefs"
+	"github.com/gocanto/mac-os/internal/template/appconfig"
 	"go.yaml.in/yaml/v3"
 )
+
+type Options struct {
+	DryRun        bool
+	ConfigPath    string
+	GeneratedPath string
+	AppRoots      []string
+}
+
+type Service struct {
+	Home   string
+	Repo   string
+	Stdout io.Writer
+	Runner command.Runner
+}
 
 type appInventory struct {
 	Bundles []installedBundle
@@ -25,6 +41,10 @@ type installedBundle struct {
 type masInstall struct {
 	ID   string
 	Name string
+}
+
+func (s Service) loader() appconfig.Loader {
+	return appconfig.Loader{Home: s.Home, Repo: s.Repo}
 }
 
 func (s Service) GenerateInstalledList(opts Options) error {

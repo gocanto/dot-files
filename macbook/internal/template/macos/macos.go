@@ -1,25 +1,9 @@
-package macosdefaults
-
-import (
-	"fmt"
-	"io"
-	"path/filepath"
-	"strings"
-
-	"github.com/gocanto/mac-os/internal/command"
-	"github.com/gocanto/mac-os/internal/safefs"
-)
+package macos
 
 type Setting struct {
 	Domain string
 	Key    string
 	Args   []string
-}
-
-type Service struct {
-	Runner command.Runner
-	Stdout io.Writer
-	Stderr io.Writer
 }
 
 func Settings() []Setting {
@@ -57,62 +41,4 @@ func Domains() []string {
 		"com.googlecode.iterm2",
 		"com.jordanbaird.Ice",
 	}
-}
-
-func (s Service) Apply(dryRun bool) error {
-	for _, setting := range Settings() {
-		cmd := append([]string{"defaults", "write", setting.Domain, setting.Key}, setting.Args...)
-
-		if dryRun {
-			fmt.Fprintf(s.Stdout, "would run: %s\n", command.ShellQuote(cmd))
-
-			continue
-		}
-
-		out, err := s.Runner.Run(cmd[0], cmd[1:]...)
-
-		if len(out) > 0 {
-			fmt.Fprint(s.Stdout, string(out))
-		}
-
-		if err != nil {
-			return fmt.Errorf("%s: %w", command.ShellQuote(cmd), err)
-		}
-	}
-
-	for _, cmd := range [][]string{
-		{"killall", "Finder"},
-		{"killall", "Dock"},
-		{"killall", "SystemUIServer"},
-	} {
-		if dryRun {
-			fmt.Fprintf(s.Stdout, "would run: %s\n", command.ShellQuote(cmd))
-
-			continue
-		}
-
-		_, _ = s.Runner.Run(cmd[0], cmd[1:]...)
-	}
-
-	return nil
-}
-
-func (s Service) Export(root string) error {
-	for _, domain := range Domains() {
-		out, err := s.Runner.Run("defaults", "export", domain, "-")
-
-		if err != nil {
-			fmt.Fprintf(s.Stderr, "warning: defaults export %s failed: %v\n", domain, err)
-
-			continue
-		}
-
-		name := strings.ReplaceAll(domain, "/", "_") + ".plist"
-
-		if err := safefs.WriteFile(filepath.Join(root, "defaults", name), out, 0o600); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

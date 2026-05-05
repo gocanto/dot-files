@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+type MASInstall = masInstall
+
 func parseBrewCasks(out []byte) []string {
 	lines := strings.Split(string(out), "\n")
 	casks := make([]string, 0, len(lines))
@@ -24,6 +26,10 @@ func parseBrewCasks(out []byte) []string {
 	sort.Strings(casks)
 
 	return casks
+}
+
+func ParseMASList(out []byte) []MASInstall {
+	return parseMASList(out)
 }
 
 func parseMASList(out []byte) []masInstall {

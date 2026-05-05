@@ -22,17 +22,18 @@ type app struct {
 }
 
 type options struct {
-	dryRun           bool
-	encrypt          bool
-	apps             bool
-	archiveRoot      string
-	archivePath      string
-	useLatestArchive bool
-	configPath       string
-	generatedPath    string
-	secretsPath      string
-	opVault          string
-	opItem           string
+	dryRun            bool
+	encrypt           bool
+	apps              bool
+	allowMasUninstall bool
+	archiveRoot       string
+	archivePath       string
+	useLatestArchive  bool
+	configPath        string
+	generatedPath     string
+	secretsPath       string
+	opVault           string
+	opItem            string
 }
 
 const (
@@ -90,6 +91,10 @@ func (a app) run(args []string) int {
 		return 0
 	case "serve-http":
 		return a.serveHTTP(args[1:])
+	case "list-workflows":
+		return a.listWorkflows()
+	case "run-workflow":
+		return a.runWorkflowCLI(args[1:])
 	default:
 		fmt.Fprintf(a.stderr, "unknown command %q\n\n", args[0])
 		a.usage()

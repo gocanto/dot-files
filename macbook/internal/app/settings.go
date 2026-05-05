@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gocanto/mac-os/internal/appconfig"
-	"github.com/gocanto/mac-os/internal/archive"
-	"github.com/gocanto/mac-os/internal/secrets"
+	"github.com/gocanto/mac-os/internal/snapshot"
 	"github.com/gocanto/mac-os/internal/storage"
+	"github.com/gocanto/mac-os/internal/template/appconfig"
+	"github.com/gocanto/mac-os/internal/template/secrets"
 )
 
 type runtimeSettings struct {
@@ -49,7 +49,7 @@ func defaultRuntimeSettings(home, repo string) runtimeSettings {
 		AppsConfigPath:    filepath.Join(repo, "apps.yaml"),
 		SecretsConfigPath: filepath.Join(repo, "secrets.yaml"),
 		GeneratedAppsPath: filepath.Join(repo, "apps.generated.yaml"),
-		ArchiveRoot:       archive.DefaultLocalRoot(home),
+		ArchiveRoot:       snapshot.DefaultLocalRoot(home),
 		WorkflowDBPath:    storage.DefaultPath(home),
 		OPVault:           defaultOPVault,
 		OPItem:            defaultOPItem,

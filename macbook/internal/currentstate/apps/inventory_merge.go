@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/gocanto/mac-os/internal/appconfig"
+	"github.com/gocanto/mac-os/internal/template/appconfig"
 )
 
 type detectedApp struct {

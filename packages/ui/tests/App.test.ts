@@ -5,25 +5,37 @@ import type { MacOSApi, RunEvent, SettingsResponse, Workflow } from "../src/type
 
 const workflows: Workflow[] = [
   {
-    id: "check-setup",
-    name: "Check Setup",
+    id: "preview-template",
+    name: "Preview Template",
+    description: "Print the tracked source of truth.",
+    changesMac: "No",
+    phases: [{ id: "print-tracked-homebrew-bundle", name: "Print tracked Homebrew bundle", enabled: true }],
+    confirmation: {
+      title: "Preview Template",
+      message: "Print the template.",
+      options: [{ id: "run-now", label: "Run now", description: "continue", continue: true, back: false }],
+    },
+  },
+  {
+    id: "inspect-current",
+    name: "Inspect Current State",
     description: "Check whether setup state looks correct.",
     changesMac: "No",
     phases: [{ id: "run-health-checks", name: "Run health checks", enabled: true }],
     confirmation: {
-      title: "Check Setup",
+      title: "Inspect Current State",
       message: "Run health checks only.",
       options: [{ id: "run-now", label: "Run now", description: "continue", continue: true, back: false }],
     },
   },
   {
-    id: "install-apps",
-    name: "Install Apps",
+    id: "converge-to-template",
+    name: "Converge to Template",
     description: "Install configured applications.",
     changesMac: "Yes",
     phases: [{ id: "install-homebrew-apps", name: "Install Homebrew apps", enabled: true }],
     confirmation: {
-      title: "Install Apps",
+      title: "Converge to Template",
       message: "Install configured applications.",
       options: [{ id: "install-now", label: "Install now", description: "continue", continue: true, back: false }],
     },
@@ -127,9 +139,8 @@ describe("App", () => {
     const wrapper = mount(App);
     await flushPromises();
 
-    expect(wrapper.text()).toContain("Workflows");
-    expect(wrapper.text()).toContain("Check Setup");
-    expect(wrapper.text()).toContain("Run health checks");
+    expect(wrapper.text()).toContain("Template");
+    expect(wrapper.text()).toContain("Preview Template");
   });
 
   it("shows skeletons while initial data is loading", () => {
@@ -142,20 +153,20 @@ describe("App", () => {
     expect(wrapper.findAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
   });
 
-  it("filters workflow list with search and workflow tabs", async () => {
+  it("filters workflow list with search and category nav", async () => {
     installApi();
 
     const wrapper = mount(App);
     await flushPromises();
 
     await wrapper.find('[data-testid="app-search"]').setValue("does-not-exist");
-    expect(wrapper.text()).toContain("No workflows match this view.");
+    expect(wrapper.text()).toContain("No template workflows registered.");
 
     await wrapper.find('[data-testid="app-search"]').setValue("");
-    await wrapper.findAll("button").find((button) => button.text().includes("Changes"))?.trigger("click");
+    await wrapper.findAll("button").find((button) => /^Update\s*\d*$/.test(button.text().trim()))?.trigger("click");
     await flushPromises();
 
-    expect(wrapper.findAll("button").some((button) => button.text().includes("Install Apps"))).toBe(true);
+    expect(wrapper.findAll("button").some((button) => button.text().includes("Converge to Template"))).toBe(true);
   });
 
   it("runs a workflow and appends streamed output", async () => {
@@ -169,7 +180,7 @@ describe("App", () => {
     await flushOutputHighlighting();
 
     expect(api.runWorkflow).toHaveBeenCalledWith(
-      { workflowId: "check-setup", confirmationOptionId: "run-now", enabledPhaseIds: ["run-health-checks"] },
+      { workflowId: "preview-template", confirmationOptionId: "run-now", enabledPhaseIds: ["print-tracked-homebrew-bundle"] },
       expect.any(Function),
     );
     expect(wrapper.text()).toContain("healthy");
@@ -222,25 +233,25 @@ describe("App", () => {
     expect(wrapper.html()).toContain("shiki");
   });
 
-  it("filters workflows by sidebar category", async () => {
+  it("filters workflows by sidebar step", async () => {
     installApi();
 
     const wrapper = mount(App);
     await flushPromises();
 
-    expect(wrapper.text()).toContain("Check Setup");
-    expect(wrapper.text()).toContain("Install Apps");
+    // Default section is Template
+    expect(wrapper.text()).toContain("Preview Template");
 
-    await wrapper.findAll("button").find((button) => button.text().includes("Snapshots"))?.trigger("click");
+    await wrapper.findAll("button").find((button) => /^Current state\s*\d*$/.test(button.text().trim()))?.trigger("click");
     await flushPromises();
 
-    expect(wrapper.text()).toContain("No snapshot workflows match this view.");
+    expect(wrapper.text()).toContain("Inspect Current State");
+    expect(wrapper.text()).not.toContain("No current-state workflows registered.");
 
-    await wrapper.findAll("button").find((button) => button.text().includes("Health Checks"))?.trigger("click");
+    await wrapper.findAll("button").find((button) => /^Update\s*\d*$/.test(button.text().trim()))?.trigger("click");
     await flushPromises();
 
-    expect(wrapper.text()).toContain("Check Setup");
-    expect(wrapper.text()).not.toContain("No health-check workflows match this view.");
+    expect(wrapper.text()).toContain("Converge to Template");
   });
 
   it("renders settings and saves changed repo configuration", async () => {

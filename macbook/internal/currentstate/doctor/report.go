@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/gocanto/mac-os/internal/command"
-	"github.com/gocanto/mac-os/internal/secrets"
+	"github.com/gocanto/mac-os/internal/template/secrets"
 )
 
 func (s Service) Run(defaultOPVault, defaultOPItem, secretsPath string) error {

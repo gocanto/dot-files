@@ -1,6 +1,8 @@
 package safefs
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -36,6 +38,42 @@ func TestSanitizeDotfileRedactsMachineSpecificSettings(t *testing.T) {
 
 	if !strings.Contains(got, "editor = vim") {
 		t.Fatalf("SanitizeDotfile removed safe config: %s", got)
+	}
+}
+
+func TestCopyDirSafeSkipsSymlinks(t *testing.T) {
+	source := t.TempDir()
+	target := t.TempDir()
+	external := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(source, "regular.txt"), []byte("hello"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(external, "nested"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Symlink(external, filepath.Join(source, "linked-dir")); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Symlink(filepath.Join(external, "missing.txt"), filepath.Join(source, "linked-file")); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := CopyDirSafe(source, target); err != nil {
+		t.Fatalf("CopyDirSafe() = %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(target, "regular.txt")); err != nil {
+		t.Fatalf("regular file not copied: %v", err)
+	}
+
+	for _, name := range []string{"linked-dir", "linked-file"} {
+		if _, err := os.Lstat(filepath.Join(target, name)); !os.IsNotExist(err) {
+			t.Fatalf("symlink %s should be skipped, lstat err = %v", name, err)
+		}
 	}
 }
 

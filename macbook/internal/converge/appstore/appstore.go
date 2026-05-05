@@ -1,4 +1,4 @@
-package apps
+package appstore
 
 import (
 	"errors"
@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gocanto/mac-os/internal/appconfig"
 	"github.com/gocanto/mac-os/internal/command"
 	"github.com/gocanto/mac-os/internal/safefs"
+	"github.com/gocanto/mac-os/internal/template/appconfig"
 )
 
 type Options struct {

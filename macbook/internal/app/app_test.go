@@ -51,14 +51,14 @@ func TestWorkflowsUsePlainMenuLabels(t *testing.T) {
 	workflows := a.workflows()
 
 	wantNames := []string{
-		"Set Up This Mac",
-		"Update This Mac",
-		"Save App Settings Snapshot",
-		"Restore App Settings",
-		"Update Installed App List",
-		"Apply macOS Settings",
-		"Check Setup",
-		"Show Homebrew Packages",
+		"Preview Template",
+		"Validate Template",
+		"Inspect Current State",
+		"Regenerate Installed App List",
+		"Save Snapshot",
+		"Converge to Template",
+		"Restore Snapshot",
+		"Remove Untracked Apps",
 	}
 
 	if len(workflows) != len(wantNames) {
@@ -82,14 +82,14 @@ func TestWorkflowsUsePlainMenuLabels(t *testing.T) {
 	}
 }
 
-func TestUpdateThisMacWorkflowUsesFullHostUpdatePhases(t *testing.T) {
+func TestConvergeReconvergeUsesFullPhasesWithoutAdopt(t *testing.T) {
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
 	workflows := a.workflows()
 
 	var workflow *workflowdomain.Workflow
 
 	for i := range workflows {
-		if workflows[i].Name == "Update This Mac" {
+		if workflows[i].Name == "Converge to Template" {
 			workflow = &workflows[i]
 
 			break
@@ -97,10 +97,10 @@ func TestUpdateThisMacWorkflowUsesFullHostUpdatePhases(t *testing.T) {
 	}
 
 	if workflow == nil {
-		t.Fatalf("missing Update This Mac workflow: %#v", workflows)
+		t.Fatalf("missing Converge to Template workflow: %#v", workflows)
 	}
 
-	if workflow.Confirmation == nil || len(workflow.Confirmation.Options) != 3 {
+	if workflow.Confirmation == nil || len(workflow.Confirmation.Options) != 6 {
 		t.Fatalf("workflow confirmation = %#v", workflow.Confirmation)
 	}
 
@@ -118,7 +118,8 @@ func TestUpdateThisMacWorkflowUsesFullHostUpdatePhases(t *testing.T) {
 		"Run health checks",
 	}
 
-	for _, optionIndex := range []int{0, 1} {
+	// Options[1] = "Preview only (re-converge)"; Options[4] = "Re-converge"
+	for _, optionIndex := range []int{1, 4} {
 		phases := workflow.Confirmation.Options[optionIndex].Phases
 
 		if len(phases) != len(want) {
@@ -130,40 +131,48 @@ func TestUpdateThisMacWorkflowUsesFullHostUpdatePhases(t *testing.T) {
 				t.Fatalf("option %d phase[%d] = %q, want %q", optionIndex, i, phases[i].Name, wantName)
 			}
 		}
-	}
 
-	for _, phase := range workflow.Confirmation.Options[1].Phases {
-		if phase.Name == "Prepare existing dotfiles" {
-			t.Fatalf("Update This Mac must not import host dotfiles into the repo: %#v", workflow.Confirmation.Options[1].Phases)
+		for _, phase := range phases {
+			if phase.Name == "Prepare existing dotfiles" {
+				t.Fatalf("Re-converge must not import host dotfiles: %#v", phases)
+			}
 		}
 	}
 }
 
-func TestSetUpThisMacConfirmationOptions(t *testing.T) {
+func TestConvergeConfirmationOptions(t *testing.T) {
 	var calls []string
 
 	var stdout bytes.Buffer
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), &stdout, io.Discard, stubRunner{calls: &calls})
 	a.goos = "linux"
-	confirmation := a.setupConfirmation(options{dryRun: true, apps: true}, options{apps: true})
+	freshDry := options{dryRun: true, apps: true}
+	freshLive := options{apps: true}
+	reDry := freshDry
+	reDry.useLatestArchive = true
+	reLive := freshLive
+	reLive.useLatestArchive = true
+	confirmation := a.convergeConfirmation(freshDry, freshLive, reDry, reLive)
 
-	if confirmation == nil || len(confirmation.Options) != 5 {
+	if confirmation == nil || len(confirmation.Options) != 6 {
 		t.Fatalf("confirmation = %#v", confirmation)
 	}
 
-	if !confirmation.Options[0].Continue || !confirmation.Options[2].Continue || !confirmation.Options[3].Continue {
-		t.Fatalf("expected preview and run options to continue: %#v", confirmation.Options)
+	for _, idx := range []int{0, 1, 3, 4} {
+		if !confirmation.Options[idx].Continue {
+			t.Fatalf("expected option %d to continue: %#v", idx, confirmation.Options[idx])
+		}
 	}
 
-	if confirmation.Options[1].Continue {
+	if confirmation.Options[2].Continue {
 		t.Fatal("expected erase-first option to stop before install phases")
 	}
 
-	if !confirmation.Options[4].Back {
+	if !confirmation.Options[5].Back {
 		t.Fatalf("expected final option to go back: %#v", confirmation.Options)
 	}
 
-	if err := confirmation.Options[1].Run(&stdout); err != nil {
+	if err := confirmation.Options[2].Run(&stdout); err != nil {
 		t.Fatal(err)
 	}
 
@@ -176,12 +185,14 @@ func TestSetUpThisMacConfirmationOptions(t *testing.T) {
 	}
 }
 
-func TestFactoryInstallEraseFirstOpensResetSettingsOnDarwin(t *testing.T) {
+func TestConvergeEraseFirstOpensResetSettingsOnDarwin(t *testing.T) {
 	var calls []string
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{calls: &calls})
 	a.goos = "darwin"
+	freshDry := options{dryRun: true, apps: true}
+	freshLive := options{apps: true}
 
-	if err := a.setupConfirmation(options{dryRun: true, apps: true}, options{apps: true}).Options[1].Run(io.Discard); err != nil {
+	if err := a.convergeConfirmation(freshDry, freshLive, freshDry, freshLive).Options[2].Run(io.Discard); err != nil {
 		t.Fatal(err)
 	}
 
@@ -194,7 +205,7 @@ func TestFactoryInstallEraseFirstOpensResetSettingsOnDarwin(t *testing.T) {
 	}
 }
 
-func TestSetUpThisMacPreviewDoesNotOpenResetSettings(t *testing.T) {
+func TestConvergePreviewDoesNotOpenResetSettings(t *testing.T) {
 	var calls []string
 
 	var stdout bytes.Buffer
@@ -203,42 +214,52 @@ func TestSetUpThisMacPreviewDoesNotOpenResetSettings(t *testing.T) {
 
 	workflows := a.workflows()
 
-	if len(workflows) == 0 || workflows[0].Name != "Set Up This Mac" {
-		t.Fatalf("workflows = %#v", workflows)
+	var workflow *workflowdomain.Workflow
+
+	for i := range workflows {
+		if workflows[i].Name == "Converge to Template" {
+			workflow = &workflows[i]
+
+			break
+		}
 	}
 
-	if err := workflows[0].Confirmation.Options[0].Run(&stdout); err != nil {
-		t.Fatal(err)
+	if workflow == nil {
+		t.Fatalf("missing Converge to Template: %#v", workflows)
+	}
+
+	preview := workflow.Confirmation.Options[0]
+
+	if preview.Run != nil {
+		if err := preview.Run(&stdout); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	if len(calls) != 0 {
 		t.Fatalf("preview should not open settings, calls = %#v", calls)
 	}
 
-	for _, want := range []string{"preview selected"} {
-		if !strings.Contains(stdout.String(), want) {
-			t.Fatalf("stdout = %s", stdout.String())
-		}
+	if preview.Phases[0].Name != "Check/install prerequisites" {
+		t.Fatalf("preview phases = %#v", preview.Phases)
 	}
 
-	if workflows[0].Confirmation.Options[0].Phases[0].Name != "Check/install prerequisites" {
-		t.Fatalf("preview phases = %#v", workflows[0].Confirmation.Options[0].Phases)
-	}
-
-	if workflows[0].Confirmation.Options[0].Phases[2].Name != "Set up GitHub access and signing" {
-		t.Fatalf("preview phases = %#v", workflows[0].Confirmation.Options[0].Phases)
+	if preview.Phases[2].Name != "Set up GitHub access and signing" {
+		t.Fatalf("preview phases = %#v", preview.Phases)
 	}
 }
 
-func TestFactoryInstallEraseFirstStopsWhenAdminValidationFails(t *testing.T) {
+func TestConvergeEraseFirstStopsWhenAdminValidationFails(t *testing.T) {
 	var calls []string
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{
 		calls:  &calls,
 		errors: map[string]error{"sudo -v": os.ErrPermission},
 	})
 	a.goos = "darwin"
+	freshDry := options{dryRun: true, apps: true}
+	freshLive := options{apps: true}
 
-	err := a.setupConfirmation(options{dryRun: true, apps: true}, options{apps: true}).Options[1].Run(io.Discard)
+	err := a.convergeConfirmation(freshDry, freshLive, freshDry, freshLive).Options[2].Run(io.Discard)
 
 	if err == nil {
 		t.Fatal("expected admin validation error")
@@ -300,7 +321,7 @@ func TestUpdateInstalledAppListWorkflowUsesPreviewCandidate(t *testing.T) {
 	var workflow *workflowdomain.Workflow
 
 	for i := range workflows {
-		if workflows[i].Name == "Update Installed App List" {
+		if workflows[i].Name == "Regenerate Installed App List" {
 			workflow = &workflows[i]
 
 			break
@@ -308,7 +329,7 @@ func TestUpdateInstalledAppListWorkflowUsesPreviewCandidate(t *testing.T) {
 	}
 
 	if workflow == nil {
-		t.Fatalf("missing Update Installed App List workflow: %#v", workflows)
+		t.Fatalf("missing Regenerate Installed App List workflow: %#v", workflows)
 	}
 
 	if workflow.Confirmation == nil || len(workflow.Confirmation.Options) < 2 {

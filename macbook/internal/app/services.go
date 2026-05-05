@@ -4,17 +4,28 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
-	"github.com/gocanto/mac-os/internal/apps"
-	"github.com/gocanto/mac-os/internal/archive"
-	"github.com/gocanto/mac-os/internal/brewfile"
 	"github.com/gocanto/mac-os/internal/command"
-	"github.com/gocanto/mac-os/internal/doctor"
-	"github.com/gocanto/mac-os/internal/dotfiles"
-	"github.com/gocanto/mac-os/internal/githubsetup"
-	"github.com/gocanto/mac-os/internal/macosdefaults"
-	"github.com/gocanto/mac-os/internal/secrets"
+	"github.com/gocanto/mac-os/internal/converge/appstore"
+	"github.com/gocanto/mac-os/internal/converge/brew"
+	"github.com/gocanto/mac-os/internal/converge/github"
+	convergemacos "github.com/gocanto/mac-os/internal/converge/macos"
+	currentapps "github.com/gocanto/mac-os/internal/currentstate/apps"
+	"github.com/gocanto/mac-os/internal/currentstate/doctor"
+	"github.com/gocanto/mac-os/internal/snapshot"
+	"github.com/gocanto/mac-os/internal/template/appconfig"
+	"github.com/gocanto/mac-os/internal/template/brewfile"
+	"github.com/gocanto/mac-os/internal/template/dotfiles"
+	templatemacos "github.com/gocanto/mac-os/internal/template/macos"
+	"github.com/gocanto/mac-os/internal/template/secrets"
 )
+
+type untrackedReport struct {
+	Formulae []string
+	Casks    []string
+	AppStore []appstore.AppStoreApp
+}
 
 func (a app) ensurePrerequisites(opts options) error {
 	return doctor.Service{GOOS: a.goos, GOARCH: a.goarch, Home: a.home, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}.EnsurePrerequisites(opts.dryRun)
@@ -56,11 +67,11 @@ func (a app) applyHomebrewBundle(opts options) error {
 }
 
 func (a app) applyAppStoreApps(opts options) error {
-	return a.apps().ApplyAppStore(apps.Options{DryRun: opts.dryRun, Apps: opts.apps, ConfigPath: opts.configPath})
+	return a.appstore().ApplyAppStore(appstore.Options{DryRun: opts.dryRun, Apps: opts.apps, ConfigPath: opts.configPath})
 }
 
 func (a app) reportManualApps(opts options) error {
-	return a.apps().ReportManual(apps.Options{DryRun: opts.dryRun, Apps: opts.apps, ConfigPath: opts.configPath})
+	return a.appstore().ReportManual(appstore.Options{DryRun: opts.dryRun, Apps: opts.apps, ConfigPath: opts.configPath})
 }
 
 func (a app) setupGitHub(opts options) error {
@@ -70,13 +81,13 @@ func (a app) setupGitHub(opts options) error {
 		return err
 	}
 
-	return githubsetup.Service{
+	return github.Service{
 		Home:   a.home,
 		Repo:   a.repo,
 		Stdin:  a.stdin,
 		Stdout: a.stdout,
 		Runner: a.runner,
-	}.Setup(githubsetup.Options{
+	}.Setup(github.Options{
 		DryRun:  opts.dryRun,
 		OPVault: opts.opVault,
 		OPItem:  opts.opItem,
@@ -125,11 +136,11 @@ RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c "$(curl -fsSL https://raw.githubuserconte
 }
 
 func (a app) applyMacOSDefaults(opts options) error {
-	return macosdefaults.Service{Runner: a.runner, Stdout: a.stdout, Stderr: a.stderr}.Apply(opts.dryRun)
+	return convergemacos.Service{Runner: a.runner, Stdout: a.stdout, Stderr: a.stderr}.Apply(opts.dryRun)
 }
 
 func (a app) captureArchive(opts options) error {
-	return archive.Service{Home: a.home, Repo: a.repo, Stdout: a.stdout, Stderr: a.stderr, Runner: a.runner}.Capture(archive.Options{
+	return snapshot.Service{Home: a.home, Repo: a.repo, Stdout: a.stdout, Stderr: a.stderr, Runner: a.runner}.Capture(snapshot.Options{
 		DryRun:      opts.dryRun,
 		Encrypt:     opts.encrypt,
 		Apps:        opts.apps,
@@ -147,10 +158,10 @@ func (a app) restoreAppConfigs(opts options) error {
 		archiveRoot := opts.archiveRoot
 
 		if archiveRoot == "" {
-			archiveRoot = archive.DefaultLocalRoot(a.home)
+			archiveRoot = snapshot.DefaultLocalRoot(a.home)
 		}
 
-		latest, ok, err := archive.LatestSnapshot(archiveRoot)
+		latest, ok, err := snapshot.LatestSnapshot(archiveRoot)
 
 		if err != nil {
 			return err
@@ -166,11 +177,11 @@ func (a app) restoreAppConfigs(opts options) error {
 		fmt.Fprintf(a.stdout, "using latest local app settings snapshot: %s\n", archivePath)
 	}
 
-	return a.apps().RestoreConfigs(apps.Options{DryRun: opts.dryRun, Apps: opts.apps, ArchivePath: archivePath, ConfigPath: opts.configPath})
+	return a.appstore().RestoreConfigs(appstore.Options{DryRun: opts.dryRun, Apps: opts.apps, ArchivePath: archivePath, ConfigPath: opts.configPath})
 }
 
 func (a app) updateInstalledAppList(opts options) error {
-	return a.apps().GenerateInstalledList(apps.Options{DryRun: opts.dryRun, ConfigPath: opts.configPath, GeneratedPath: opts.generatedPath})
+	return a.currentApps().GenerateInstalledList(currentapps.Options{DryRun: opts.dryRun, ConfigPath: opts.configPath, GeneratedPath: opts.generatedPath})
 }
 
 func (a app) runDoctor(options) error {
@@ -219,8 +230,308 @@ func (a app) openEraseAssistant(dryRun bool) error {
 	return nil
 }
 
-func (a app) apps() apps.Service {
-	return apps.Service{Home: a.home, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}
+func (a app) appstore() appstore.Service {
+	return appstore.Service{Home: a.home, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}
+}
+
+func (a app) currentApps() currentapps.Service {
+	return currentapps.Service{Home: a.home, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}
+}
+
+func (a app) previewTemplateBrew(_ options) error {
+	fmt.Fprintln(a.stdout, "# Tracked Homebrew bundle")
+	fmt.Fprint(a.stdout, brewfile.Content())
+
+	return nil
+}
+
+func (a app) previewTemplateApps(opts options) error {
+	loader := appconfig.Loader{Home: a.home, Repo: a.repo}
+	cfg, err := loader.Load(opts.configPath)
+
+	if err != nil {
+		return err
+	}
+
+	groups := map[string][]string{}
+
+	for _, app := range cfg.Apps {
+		groups[app.InstallMethod] = append(groups[app.InstallMethod], app.Name)
+	}
+
+	keys := make([]string, 0, len(groups))
+
+	for key := range groups {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+
+	fmt.Fprintln(a.stdout, "# Tracked apps from apps.yaml")
+
+	for _, method := range keys {
+		names := groups[method]
+
+		sort.Strings(names)
+
+		fmt.Fprintf(a.stdout, "[%s] (%d)\n", method, len(names))
+
+		for _, name := range names {
+			fmt.Fprintf(a.stdout, "  - %s\n", name)
+		}
+	}
+
+	return nil
+}
+
+func (a app) previewTemplateMacOS(_ options) error {
+	fmt.Fprintln(a.stdout, "# Tracked macOS settings")
+
+	for _, setting := range templatemacos.Settings() {
+		fmt.Fprintf(a.stdout, "  %s %s %s\n", setting.Domain, setting.Key, command.ShellQuote(setting.Args))
+	}
+
+	return nil
+}
+
+func (a app) previewTemplateDotfiles(_ options) error {
+	stowDir := filepath.Join(a.repo, "stow")
+	entries, err := os.ReadDir(stowDir)
+
+	if err != nil {
+		return fmt.Errorf("read stow dir %s: %w", stowDir, err)
+	}
+
+	fmt.Fprintln(a.stdout, "# Tracked dotfile bundles under stow/")
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		fmt.Fprintf(a.stdout, "  - %s\n", entry.Name())
+	}
+
+	return nil
+}
+
+func (a app) validateTemplate(opts options) error {
+	loader := appconfig.Loader{Home: a.home, Repo: a.repo}
+
+	if _, err := loader.Load(opts.configPath); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(a.stdout, "ok: apps.yaml at %s parses and validates\n", loader.Path(opts.configPath))
+
+	secretsSvc := secrets.Service{Home: a.home, Repo: a.repo}
+
+	if _, err := secretsSvc.Load(opts.secretsPath); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(a.stdout, "ok: secrets.yaml at %s parses and validates\n", secretsSvc.ConfigPath(opts.secretsPath))
+
+	stowDir := filepath.Join(a.repo, "stow")
+	info, err := os.Stat(stowDir)
+
+	if err != nil {
+		return fmt.Errorf("stow dir %s: %w", stowDir, err)
+	}
+
+	if !info.IsDir() {
+		return fmt.Errorf("stow path %s is not a directory", stowDir)
+	}
+
+	fmt.Fprintf(a.stdout, "ok: stow dir %s exists\n", stowDir)
+	fmt.Fprintf(a.stdout, "ok: tracked Brewfile lists %d formulae and %d casks\n",
+		len(brewfile.TrackedFormulae()), len(brewfile.TrackedCasks()))
+	fmt.Fprintf(a.stdout, "ok: tracked macOS settings cover %d entries across %d domains\n",
+		len(templatemacos.Settings()), len(templatemacos.Domains()))
+
+	return nil
+}
+
+func (a app) inspectCurrentBrew(_ options) error {
+	svc := brew.Service{Stdout: a.stdout, Runner: a.runner}
+	formulae, err := svc.InstalledFormulae()
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(a.stdout, "# Installed Homebrew formulae (%d)\n", len(formulae))
+
+	for _, name := range formulae {
+		fmt.Fprintf(a.stdout, "  - %s\n", name)
+	}
+
+	casks, err := svc.InstalledCasks()
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(a.stdout, "# Installed Homebrew casks (%d)\n", len(casks))
+
+	for _, name := range casks {
+		fmt.Fprintf(a.stdout, "  - %s\n", name)
+	}
+
+	return nil
+}
+
+func (a app) inspectCurrentMacOS(_ options) error {
+	fmt.Fprintln(a.stdout, "# Tracked macOS defaults domains (current values)")
+
+	for _, domain := range templatemacos.Domains() {
+		out, err := a.runner.Run("defaults", "read", domain)
+
+		if err != nil {
+			fmt.Fprintf(a.stdout, "  %s: read failed: %v\n", domain, err)
+
+			continue
+		}
+
+		fmt.Fprintf(a.stdout, "## %s\n", domain)
+		fmt.Fprintln(a.stdout, command.FirstLine(out))
+	}
+
+	return nil
+}
+
+func (a app) scanUntracked(opts options) (untrackedReport, error) {
+	report := untrackedReport{}
+	svc := brew.Service{Stdout: a.stdout, Runner: a.runner}
+
+	installedFormulae, err := svc.InstalledFormulae()
+
+	if err != nil {
+		return report, err
+	}
+
+	report.Formulae = brew.Untracked(installedFormulae, brewfile.TrackedFormulae())
+
+	installedCasks, err := svc.InstalledCasks()
+
+	if err != nil {
+		return report, err
+	}
+
+	report.Casks = brew.Untracked(installedCasks, brewfile.TrackedCasks())
+
+	if opts.apps {
+		appStore, err := a.appstore().UntrackedAppStore(appstore.Options{ConfigPath: opts.configPath, Apps: true})
+
+		if err != nil {
+			return report, err
+		}
+
+		report.AppStore = appStore
+	}
+
+	return report, nil
+}
+
+func (a app) reportUntracked(opts options) error {
+	report, err := a.scanUntracked(opts)
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(a.stdout, "Untracked Homebrew formulae (%d):\n", len(report.Formulae))
+
+	for _, name := range report.Formulae {
+		fmt.Fprintf(a.stdout, "  - %s\n", name)
+	}
+
+	fmt.Fprintf(a.stdout, "Untracked Homebrew casks (%d):\n", len(report.Casks))
+
+	for _, name := range report.Casks {
+		fmt.Fprintf(a.stdout, "  - %s\n", name)
+	}
+
+	fmt.Fprintf(a.stdout, "Untracked App Store apps (%d):\n", len(report.AppStore))
+
+	for _, app := range report.AppStore {
+		fmt.Fprintf(a.stdout, "  - %s (%s)\n", app.Name, app.ID)
+	}
+
+	return nil
+}
+
+func (a app) removeUntrackedBrew(opts options) error {
+	report, err := a.scanUntracked(opts)
+
+	if err != nil {
+		return err
+	}
+
+	svc := brew.Service{Stdout: a.stdout, Runner: a.runner}
+
+	for _, name := range report.Formulae {
+		if err := svc.Uninstall(brew.KindFormula, name, opts.dryRun); err != nil {
+			return err
+		}
+	}
+
+	for _, name := range report.Casks {
+		if err := svc.Uninstall(brew.KindCask, name, opts.dryRun); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (a app) removeUntrackedAppStore(opts options) error {
+	if !opts.apps {
+		fmt.Fprintln(a.stdout, "skipped: run with --apps to inspect Mac App Store removals")
+
+		return nil
+	}
+
+	report, err := a.scanUntracked(opts)
+
+	if err != nil {
+		return err
+	}
+
+	if len(report.AppStore) == 0 {
+		fmt.Fprintln(a.stdout, "no untracked App Store apps detected")
+
+		return nil
+	}
+
+	if !opts.allowMasUninstall {
+		fmt.Fprintln(a.stdout, "mas uninstall is gated off. Open Finder or App Store and remove these manually:")
+
+		for _, app := range report.AppStore {
+			fmt.Fprintf(a.stdout, "  - %s (%s)\n", app.Name, app.ID)
+		}
+
+		return nil
+	}
+
+	manualCleanup := []appstore.AppStoreApp{}
+
+	for _, app := range report.AppStore {
+		if err := a.appstore().UninstallAppStore(app, opts.dryRun); err != nil {
+			fmt.Fprintf(a.stdout, "warning: %v\n", err)
+			manualCleanup = append(manualCleanup, app)
+		}
+	}
+
+	if len(manualCleanup) > 0 {
+		fmt.Fprintf(a.stdout, "manual cleanup needed for %d App Store apps:\n", len(manualCleanup))
+
+		for _, app := range manualCleanup {
+			fmt.Fprintf(a.stdout, "  - %s (%s)\n", app.Name, app.ID)
+		}
+	}
+
+	return nil
 }
 
 func (a app) restorePrivateSecrets(opts options) error {

@@ -55,6 +55,14 @@ func CopyDirSafe(source, target string) error {
 			return nil
 		}
 
+		if d.Type()&fs.ModeSymlink != 0 {
+			return nil
+		}
+
+		if !d.Type().IsRegular() && !d.IsDir() {
+			return nil
+		}
+
 		dst := filepath.Join(target, rel)
 
 		if d.IsDir() {
