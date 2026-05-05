@@ -1,5 +1,12 @@
 import os from "node:os";
-import { app, BrowserWindow, dialog, ipcMain, type OpenDialogOptions, type SaveDialogOptions } from "electron";
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  type OpenDialogOptions,
+  type SaveDialogOptions,
+} from "electron";
 import {
   createWorkflowBridgeClient,
   type RuntimeSettings,
@@ -11,7 +18,16 @@ import {
   type WorkflowEvent,
 } from "@dot-files/bridge";
 import { type ChildProcess, spawn } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -172,13 +188,19 @@ ipcMain.handle("runs:log", async (_event, runId: string) => (await client()).run
 
 ipcMain.handle("settings:get", async () => (await client()).getSettings());
 
-ipcMain.handle("settings:validate", async (_event, settings: RuntimeSettings) => (await client()).validateSettings({ settings }));
+ipcMain.handle("settings:validate", async (_event, settings: RuntimeSettings) =>
+  (await client()).validateSettings({ settings }),
+);
 
-ipcMain.handle("settings:save", async (_event, settings: RuntimeSettings) => saveSettings(settings));
+ipcMain.handle("settings:save", async (_event, settings: RuntimeSettings) =>
+  saveSettings(settings),
+);
 
 ipcMain.handle("preferences:get", async () => (await client()).getUserPreferences());
 
-ipcMain.handle("preferences:save", async (_event, theme: string) => (await client()).saveUserPreferences({ theme }));
+ipcMain.handle("preferences:save", async (_event, theme: string) =>
+  (await client()).saveUserPreferences({ theme }),
+);
 
 ipcMain.handle("op:list-vaults", async () => {
   try {
@@ -201,7 +223,9 @@ ipcMain.handle("op:list-items", async (_event, vault: string) => {
 });
 
 ipcMain.handle("op:signin", async () => {
-  return openTerminalCommand('op signin && echo "\\n[Signed in. You can close this window and return to Mac OS Manager.]"');
+  return openTerminalCommand(
+    'op signin && echo "\\n[Signed in. You can close this window and return to Mac OS Manager.]"',
+  );
 });
 
 ipcMain.handle("op:install-dependencies", async () => {
@@ -219,9 +243,11 @@ ipcMain.handle("settings:choose-directory", async (_event, defaultPath?: string)
     defaultPath,
     properties: ["openDirectory", "createDirectory"],
   };
-  const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
+  const result = mainWindow
+    ? await dialog.showOpenDialog(mainWindow, options)
+    : await dialog.showOpenDialog(options);
 
-  return result.canceled ? null : result.filePaths[0] ?? null;
+  return result.canceled ? null : (result.filePaths[0] ?? null);
 });
 
 ipcMain.handle("settings:choose-file", async (_event, defaultPath?: string) => {
@@ -229,9 +255,11 @@ ipcMain.handle("settings:choose-file", async (_event, defaultPath?: string) => {
     defaultPath,
     properties: ["openFile"],
   };
-  const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
+  const result = mainWindow
+    ? await dialog.showOpenDialog(mainWindow, options)
+    : await dialog.showOpenDialog(options);
 
-  return result.canceled ? null : result.filePaths[0] ?? null;
+  return result.canceled ? null : (result.filePaths[0] ?? null);
 });
 
 ipcMain.handle("settings:choose-save-file", async (_event, defaultPath?: string) => {
@@ -239,9 +267,11 @@ ipcMain.handle("settings:choose-save-file", async (_event, defaultPath?: string)
     defaultPath,
     properties: ["createDirectory", "showOverwriteConfirmation"],
   };
-  const result = mainWindow ? await dialog.showSaveDialog(mainWindow, options) : await dialog.showSaveDialog(options);
+  const result = mainWindow
+    ? await dialog.showSaveDialog(mainWindow, options)
+    : await dialog.showSaveDialog(options);
 
-  return result.canceled ? null : result.filePath ?? null;
+  return result.canceled ? null : (result.filePath ?? null);
 });
 
 ipcMain.handle("system:macName", () => os.userInfo().username);
@@ -301,11 +331,15 @@ async function startWorkflowBridge() {
   const command = goCommand();
   bridgeSocketPath = join(tmpdir(), `mac-os-${process.pid}-${Date.now()}.sock`);
 
-  const child = spawn(command.command, [...command.args, "serve-http", "--socket", bridgeSocketPath, ...settingsArgs(savedSettings)], {
-    cwd: macbookDir,
-    env: process.env,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const child = spawn(
+    command.command,
+    [...command.args, "serve-http", "--socket", bridgeSocketPath, ...settingsArgs(savedSettings)],
+    {
+      cwd: macbookDir,
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
   bridgeProcess = child;
 
   let stderr = "";
@@ -392,7 +426,10 @@ async function saveSettings(settings: RuntimeSettings): Promise<SettingsResponse
   let rollbackDatabaseMove = () => {};
 
   try {
-    rollbackDatabaseMove = moveWorkflowDatabase(current.settings?.workflowDbPath, nextSettings.workflowDbPath);
+    rollbackDatabaseMove = moveWorkflowDatabase(
+      current.settings?.workflowDbPath,
+      nextSettings.workflowDbPath,
+    );
     savedSettings = nextSettings;
     writeSavedSettings(nextSettings);
 
@@ -456,12 +493,20 @@ function cleanSettings(settings: Partial<RuntimeSettings>): Partial<RuntimeSetti
 
 function opErrorEnvelope(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  const code = error && typeof error === "object" && "code" in error && typeof (error as { code: unknown }).code === "string" ? (error as { code: string }).code : "op_failed";
+  const code =
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof (error as { code: unknown }).code === "string"
+      ? (error as { code: string }).code
+      : "op_failed";
 
   return { ok: false as const, code, message };
 }
 
-function openTerminalCommand(command: string): Promise<{ ok: true } | { ok: false; message: string }> {
+function openTerminalCommand(
+  command: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
   return new Promise((resolveResult) => {
     const script = [
       'tell application "Terminal"',
@@ -487,7 +532,10 @@ function openTerminalCommand(command: string): Promise<{ ok: true } | { ok: fals
         return;
       }
 
-      resolveResult({ ok: false, message: stderr.trim() || `osascript exited with code ${code ?? "unknown"}` });
+      resolveResult({
+        ok: false,
+        message: stderr.trim() || `osascript exited with code ${code ?? "unknown"}`,
+      });
     });
   });
 }

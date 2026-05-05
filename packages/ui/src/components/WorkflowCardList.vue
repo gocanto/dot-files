@@ -15,7 +15,8 @@ const emit = defineEmits<{
   (event: "select", workflow: Workflow): void;
 }>();
 
-const listItemClass = "bg-section border-section-border shadow-sm hover:border-primary/40 hover:bg-accent";
+const listItemClass =
+  "bg-section border-section-border shadow-sm hover:border-primary/40 hover:bg-accent";
 const selectedListItemClass = "border-primary/50 bg-accent text-accent-foreground shadow-sm";
 </script>
 
@@ -24,11 +25,13 @@ const selectedListItemClass = "border-primary/50 bg-accent text-accent-foregroun
     <button
       v-for="workflow in workflows"
       :key="workflow.id"
-      :class="cn(
-        'flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-all hover:bg-accent',
-        listItemClass,
-        selectedId === workflow.id && selectedListItemClass,
-      )"
+      :class="
+        cn(
+          'flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-all hover:bg-accent',
+          listItemClass,
+          selectedId === workflow.id && selectedListItemClass,
+        )
+      "
       @click="emit('select', workflow)"
     >
       <div class="flex w-full flex-col gap-1">
@@ -49,7 +52,10 @@ const selectedListItemClass = "border-primary/50 bg-accent text-accent-foregroun
       </div>
     </button>
 
-    <div v-if="workflows.length === 0" class="rounded-lg border border-dashed border-section-border bg-section p-8 text-center text-sm text-muted-foreground">
+    <div
+      v-if="workflows.length === 0"
+      class="rounded-lg border border-dashed border-section-border bg-section p-8 text-center text-sm text-muted-foreground"
+    >
       {{ emptyMessage ?? "No workflows match this view." }}
     </div>
   </div>

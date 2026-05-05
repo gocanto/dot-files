@@ -142,7 +142,10 @@ class WorkflowBridgeClient {
       const req = httpRequest({ socketPath: this.socketPath, method, path, headers }, (res) => {
         consumeBody(res)
           .then((raw) => {
-            if (res.statusCode === 200 && (res.headers["content-type"] ?? "").includes("application/json")) {
+            if (
+              res.statusCode === 200 &&
+              (res.headers["content-type"] ?? "").includes("application/json")
+            ) {
               try {
                 resolve(JSON.parse(raw));
               } catch (error) {

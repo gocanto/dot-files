@@ -17,7 +17,7 @@ are deliberately excluded from the repo and from automatic replay.
 ## Quick Links
 
 | Need                               | Start here                                      |
-|------------------------------------|-------------------------------------------------|
+| ---------------------------------- | ----------------------------------------------- |
 | Set up a fresh Mac                 | [`./setup.sh`](#fresh-mac-setup)                |
 | Run the desktop interface          | [Using The Electron UI](#using-the-electron-ui) |
 | Understand what gets installed     | [App Restore Policy](#app-restore-policy)       |
@@ -58,7 +58,7 @@ Start from the repository root.
 ### Requirements
 
 | Requirement                      | Why it matters                                                                |
-|----------------------------------|-------------------------------------------------------------------------------|
+| -------------------------------- | ----------------------------------------------------------------------------- |
 | macOS                            | The setup flow applies Mac-specific tools and defaults.                       |
 | Network access                   | Homebrew, GitHub, 1Password, and package installs need it.                    |
 | Administrator access             | The bootstrap validates `sudo` and may install system tooling.                |
@@ -100,9 +100,9 @@ go run ./macbook/cmd help
 
 ### Backend Bridge
 
-| Command                              | Purpose                                                         |
-|--------------------------------------|-----------------------------------------------------------------|
-| `mac-os serve-grpc --socket <path>`  | Starts the local gRPC backend used by the Electron main process. |
+| Command                             | Purpose                                                          |
+| ----------------------------------- | ---------------------------------------------------------------- |
+| `mac-os serve-grpc --socket <path>` | Starts the local gRPC backend used by the Electron main process. |
 
 The shared bridge contract lives in `packages/bridge/proto/workflow.proto`.
 Electron imports `@dot-files/bridge` for the Node gRPC client and the Go
@@ -115,7 +115,7 @@ can change files or settings offer `Preview only` before `Run now`.
 ### Workflows
 
 | Workflow                     | Purpose                                                                                       |
-|------------------------------|-----------------------------------------------------------------------------------------------|
+| ---------------------------- | --------------------------------------------------------------------------------------------- |
 | `Set Up This Mac`            | One-pass restore path for a new machine.                                                      |
 | `Update This Mac`            | Updates the current host from tracked repo policy and the latest local app settings snapshot. |
 | `Save App Settings Snapshot` | Captures supported app settings for review or later restore.                                  |
@@ -163,7 +163,7 @@ review candidate to `macbook/apps.generated.yaml`.
 ### Install Methods
 
 | Method   | Behavior                                  |
-|----------|-------------------------------------------|
+| -------- | ----------------------------------------- |
 | `brew`   | Installed by the generated Homebrew plan. |
 | `mas`    | Installed with the Mac App Store CLI.     |
 | `manual` | Reported with download or restore notes.  |
@@ -172,7 +172,7 @@ review candidate to `macbook/apps.generated.yaml`.
 ### Config Modes
 
 | Mode        | Behavior                                                            |
-|-------------|---------------------------------------------------------------------|
+| ----------- | ------------------------------------------------------------------- |
 | `auto`      | Allowlisted paths can be captured and restored automatically.       |
 | `reference` | Paths are captured for review but not replayed.                     |
 | `manual`    | Restore depends on app sync, login, export/import, or manual notes. |
@@ -209,7 +209,7 @@ Item:  Mac Migration Archive
 ### Expected 1Password Fields
 
 | Field                       | Contents                                                      |
-|-----------------------------|---------------------------------------------------------------|
+| --------------------------- | ------------------------------------------------------------- |
 | `archive_age_identity`      | Concealed Age private identity.                               |
 | `archive_age_recipient`     | Age public recipient.                                         |
 | `archive_root`              | Directory for encrypted archives.                             |

@@ -52,7 +52,9 @@ defineProps<{
         </Avatar>
         <div class="grid gap-1">
           <div class="font-semibold">{{ selectedRunLog.run.workflowName }}</div>
-          <div class="line-clamp-1 text-xs">{{ selectedRunLog.run.mode }} - {{ selectedRunLog.run.confirmationOptionLabel }}</div>
+          <div class="line-clamp-1 text-xs">
+            {{ selectedRunLog.run.mode }} - {{ selectedRunLog.run.confirmationOptionLabel }}
+          </div>
           <div class="line-clamp-1 text-xs">
             <span class="font-medium">Started:</span> {{ formatDate(selectedRunLog.run.startedAt) }}
           </div>
@@ -62,12 +64,19 @@ defineProps<{
     </div>
     <Separator />
     <ScrollArea class="min-h-0 flex-1 bg-terminal text-terminal-foreground">
-      <OutputBlock :code="selectedRunOutput" empty-text="No log output recorded." class="text-sm leading-6" />
+      <OutputBlock
+        :code="selectedRunOutput"
+        empty-text="No log output recorded."
+        class="text-sm leading-6"
+      />
     </ScrollArea>
     <Separator />
     <div class="border-t border-section-border bg-section p-4">
       <div class="grid gap-4">
-        <Textarea class="p-4" :placeholder="`Add a note for ${selectedRunLog.run.workflowName}...`" />
+        <Textarea
+          class="p-4"
+          :placeholder="`Add a note for ${selectedRunLog.run.workflowName}...`"
+        />
         <div class="flex items-center">
           <Label html-for="mute-run-notes" class="flex items-center gap-2 text-xs font-normal">
             <Switch id="mute-run-notes" aria-label="Mute run notes" />

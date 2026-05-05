@@ -23,7 +23,11 @@ import { detailSectionClass } from "@/components/app/styles";
           <Skeleton class="h-8 w-16" />
         </div>
         <div class="overflow-hidden rounded-lg border border-section-border bg-section-muted">
-          <div v-for="index in 4" :key="index" class="flex items-center gap-3 border-b px-3 py-3 last:border-b-0">
+          <div
+            v-for="index in 4"
+            :key="index"
+            class="flex items-center gap-3 border-b px-3 py-3 last:border-b-0"
+          >
             <Skeleton class="size-4 rounded-full" />
             <Skeleton class="h-4 flex-1" />
             <Skeleton class="h-5 w-16 rounded-full" />

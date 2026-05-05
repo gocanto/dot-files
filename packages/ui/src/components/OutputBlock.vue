@@ -13,7 +13,8 @@ const props = withDefaults(
 );
 
 const displayCode = computed(() => props.code || props.emptyText);
-const plainDisplayCode = computed(() => displayCode.value.replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, ""));
+const ansiEscapePattern = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, "g");
+const plainDisplayCode = computed(() => displayCode.value.replace(ansiEscapePattern, ""));
 const highlightedHtml = ref("");
 
 watchEffect((onCleanup) => {

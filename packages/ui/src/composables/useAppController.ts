@@ -1,13 +1,35 @@
-import { AlertTriangle, Database, Eye, FileText, FolderOpen, History, KeyRound, Settings, Wand2 } from "lucide-vue-next";
+import {
+  Database,
+  Eye,
+  FileText,
+  FolderOpen,
+  History,
+  KeyRound,
+  Settings,
+  Wand2,
+} from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
+import type { SectionId, StepSettingsKey } from "@/components/app/types";
 import type { ToastItem, ToastTone } from "@/components/ui/toast";
 import { loadThemeFromBackend, useTheme } from "@/composables/useTheme";
 import { errorMessage } from "@/lib/format";
-import { getWorkflowDetail, workflowsInCategory, type WorkflowCategory } from "@/lib/workflowDetails";
-import type { ConfirmationOption, OpItem, OpVault, Phase, RunEvent, RunLog, RunSummary, RuntimeSettings, SettingsResponse, Workflow } from "@/types/api";
-
-export type SectionId = "template" | "current" | "update" | "settings" | "logs";
-export type StepSettingsKey = keyof RuntimeSettings;
+import {
+  getWorkflowDetail,
+  workflowsInCategory,
+  type WorkflowCategory,
+} from "@/lib/workflowDetails";
+import type {
+  ConfirmationOption,
+  OpItem,
+  OpVault,
+  Phase,
+  RunEvent,
+  RunLog,
+  RunSummary,
+  RuntimeSettings,
+  SettingsResponse,
+  Workflow,
+} from "@/types/api";
 
 export function useAppController() {
   const { theme, toggleTheme } = useTheme();
@@ -32,7 +54,6 @@ export function useAppController() {
   const loadError = ref("");
   const navCollapsed = ref(false);
   const searchQuery = ref("");
-  const workflowTab = ref("all");
   const logTab = ref("all");
   const mutedNotes = ref(false);
   const noteText = ref("");
@@ -56,17 +77,42 @@ export function useAppController() {
   const toasts = ref<ToastItem[]>([]);
 
   const stepNavItems = computed(() => [
-    { id: "template" as const, label: "Template", icon: FileText, count: workflowsLoading.value ? null : workflowsInCategory(workflows.value, "template").length },
-    { id: "current" as const, label: "Current state", icon: Eye, count: workflowsLoading.value ? null : workflowsInCategory(workflows.value, "current").length },
-    { id: "update" as const, label: "Update", icon: Wand2, count: workflowsLoading.value ? null : workflowsInCategory(workflows.value, "update").length },
+    {
+      id: "template" as const,
+      label: "Template",
+      icon: FileText,
+      count: workflowsLoading.value
+        ? null
+        : workflowsInCategory(workflows.value, "template").length,
+    },
+    {
+      id: "current" as const,
+      label: "Current state",
+      icon: Eye,
+      count: workflowsLoading.value ? null : workflowsInCategory(workflows.value, "current").length,
+    },
+    {
+      id: "update" as const,
+      label: "Update",
+      icon: Wand2,
+      count: workflowsLoading.value ? null : workflowsInCategory(workflows.value, "update").length,
+    },
   ]);
 
   const auxNavItems = computed(() => [
     { id: "settings" as const, label: "Settings", icon: Settings, count: null as number | null },
-    { id: "logs" as const, label: "Logs", icon: History, count: runsLoading.value ? null : runs.value.length },
+    {
+      id: "logs" as const,
+      label: "Logs",
+      icon: History,
+      count: runsLoading.value ? null : runs.value.length,
+    },
   ]);
 
-  const stepSectionMeta: Record<"template" | "current" | "update", { title: string; emptyMessage: string; settingsKeys: StepSettingsKey[] }> = {
+  const stepSectionMeta: Record<
+    "template" | "current" | "update",
+    { title: string; emptyMessage: string; settingsKeys: StepSettingsKey[] }
+  > = {
     template: {
       title: "Template",
       emptyMessage: "No template workflows registered.",
@@ -104,14 +150,25 @@ export function useAppController() {
 
   const settingsWorkflows = computed(() => workflowsInCategory(workflows.value, "settings"));
 
-  const selectedWorkflow = computed(() => workflows.value.find((workflow) => workflow.id === selectedWorkflowId.value));
-  const selectedWorkflowDetail = computed(() => (selectedWorkflow.value ? getWorkflowDetail(selectedWorkflow.value.id) : null));
-  const selectedRun = computed(() => runs.value.find((run) => run.id === selectedRunId.value));
-  const settingsDirty = computed(() => JSON.stringify(settingsForm.value) !== JSON.stringify(settingsResponse.value?.settings ?? emptySettings()));
+  const selectedWorkflow = computed(() =>
+    workflows.value.find((workflow) => workflow.id === selectedWorkflowId.value),
+  );
+  const selectedWorkflowDetail = computed(() =>
+    selectedWorkflow.value ? getWorkflowDetail(selectedWorkflow.value.id) : null,
+  );
+  const settingsDirty = computed(
+    () =>
+      JSON.stringify(settingsForm.value) !==
+      JSON.stringify(settingsResponse.value?.settings ?? emptySettings()),
+  );
   const settingsChecks = computed(() => settingsResponse.value?.checks ?? []);
 
   const opVaultOptions = computed(() => {
-    const options = opVaults.value.map((vault) => ({ value: vault.name, label: vault.name, missing: false }));
+    const options = opVaults.value.map((vault) => ({
+      value: vault.name,
+      label: vault.name,
+      missing: false,
+    }));
     const current = settingsForm.value.opVault;
 
     if (current && !options.some((option) => option.value === current)) {
@@ -122,11 +179,20 @@ export function useAppController() {
   });
 
   const opItemOptions = computed(() => {
-    const options = opItems.value.map((item) => ({ value: item.title, label: item.title, missing: false }));
+    const options = opItems.value.map((item) => ({
+      value: item.title,
+      label: item.title,
+      missing: false,
+    }));
     const current = settingsForm.value.opItem;
     const vault = settingsForm.value.opVault;
 
-    if (current && vault && opItemsLoadedFor.value === vault && !options.some((option) => option.value === current)) {
+    if (
+      current &&
+      vault &&
+      opItemsLoadedFor.value === vault &&
+      !options.some((option) => option.value === current)
+    ) {
       options.unshift({ value: current, label: `${current} (not found)`, missing: true });
     }
 
@@ -134,7 +200,12 @@ export function useAppController() {
   });
 
   const opItemSelectDisabled = computed(() => {
-    return !settingsForm.value.opVault || opVaultsError.value !== "" || opItemsLoading.value || (opItemsError.value !== "" && opItemsLoadedFor.value === settingsForm.value.opVault);
+    return (
+      !settingsForm.value.opVault ||
+      opVaultsError.value !== "" ||
+      opItemsLoading.value ||
+      (opItemsError.value !== "" && opItemsLoadedFor.value === settingsForm.value.opVault)
+    );
   });
 
   const opSavedFields = computed(() => [
@@ -157,25 +228,40 @@ export function useAppController() {
       id: "repository",
       label: "Repository",
       icon: FolderOpen,
-      count: settingsChecks.value.filter((check) => ["repo_root", "stow"].includes(check.key)).filter((check) => check.status !== "ok").length,
+      count: settingsChecks.value
+        .filter((check) => ["repo_root", "stow"].includes(check.key))
+        .filter((check) => check.status !== "ok").length,
     },
     {
       id: "manifests",
       label: "Manifests",
       icon: FileText,
-      count: settingsChecks.value.filter((check) => ["apps_config_path", "secrets_config_path", "generated_apps_path", "private_gitconfig_path"].includes(check.key)).filter((check) => check.status !== "ok").length,
+      count: settingsChecks.value
+        .filter((check) =>
+          [
+            "apps_config_path",
+            "secrets_config_path",
+            "generated_apps_path",
+            "private_gitconfig_path",
+          ].includes(check.key),
+        )
+        .filter((check) => check.status !== "ok").length,
     },
     {
       id: "storage",
       label: "Storage",
       icon: Database,
-      count: settingsChecks.value.filter((check) => check.key === "workflow_db_path").filter((check) => check.status !== "ok").length,
+      count: settingsChecks.value
+        .filter((check) => check.key === "workflow_db_path")
+        .filter((check) => check.status !== "ok").length,
     },
     {
       id: "operations",
       label: "Operations",
       icon: KeyRound,
-      count: settingsChecks.value.filter((check) => check.key === "archive_root").filter((check) => check.status !== "ok").length,
+      count: settingsChecks.value
+        .filter((check) => check.key === "archive_root")
+        .filter((check) => check.status !== "ok").length,
     },
   ]);
 
@@ -203,10 +289,7 @@ export function useAppController() {
     const source = sectionWorkflows.value;
     return query
       ? source.filter((workflow) =>
-          [workflow.name, workflow.description]
-            .join(" ")
-            .toLowerCase()
-            .includes(query),
+          [workflow.name, workflow.description].join(" ").toLowerCase().includes(query),
         )
       : source;
   });
@@ -259,16 +342,19 @@ export function useAppController() {
       return 0;
     }
 
-    const completed = phases.filter((phase) => ["completed", "ok", "skipped"].includes(phase.status)).length;
+    const completed = phases.filter((phase) =>
+      ["completed", "ok", "skipped"].includes(phase.status),
+    ).length;
 
     return Math.round((completed / phases.length) * 100);
   });
 
-  const selectedRunOutput = computed(() =>
-    selectedRunLog.value?.events
-      .map((event) => event.message || `${event.type} ${event.status || ""}`.trim())
-      .filter(Boolean)
-      .join("\n") ?? "",
+  const selectedRunOutput = computed(
+    () =>
+      selectedRunLog.value?.events
+        .map((event) => event.message || `${event.type} ${event.status || ""}`.trim())
+        .filter(Boolean)
+        .join("\n") ?? "",
   );
 
   onMounted(() => {
@@ -285,7 +371,14 @@ export function useAppController() {
     }
 
     if (isInitialLoad) {
-      const [workflowsResult, runsResult, settingsResult, themeResult, macNameResult, macHostnameResult] = await Promise.allSettled([
+      const [
+        workflowsResult,
+        runsResult,
+        settingsResult,
+        themeResult,
+        macNameResult,
+        macHostnameResult,
+      ] = await Promise.allSettled([
         window.macOS.workflows(),
         window.macOS.runs(25),
         window.macOS.settings(),
@@ -321,7 +414,8 @@ export function useAppController() {
       }
 
       macName.value = macNameResult.status === "fulfilled" ? macNameResult.value : "Mac";
-      macHostname.value = macHostnameResult.status === "fulfilled" ? macHostnameResult.value : "local";
+      macHostname.value =
+        macHostnameResult.status === "fulfilled" ? macHostnameResult.value : "local";
       workflowsLoading.value = false;
       runsLoading.value = false;
       settingsLoading.value = false;
@@ -334,7 +428,10 @@ export function useAppController() {
       .workflows()
       .then((next) => {
         workflows.value = next;
-        if (!selectedWorkflowId.value || !next.some((workflow) => workflow.id === selectedWorkflowId.value)) {
+        if (
+          !selectedWorkflowId.value ||
+          !next.some((workflow) => workflow.id === selectedWorkflowId.value)
+        ) {
           selectedWorkflowId.value = next[0]?.id ?? "";
         }
         resetEnabledPhases();
@@ -382,7 +479,14 @@ export function useAppController() {
         macHostname.value ||= "local";
       });
 
-    await Promise.allSettled([workflowsPromise, runsPromise, settingsPromise, themePromise, macNamePromise, macHostnamePromise]);
+    await Promise.allSettled([
+      workflowsPromise,
+      runsPromise,
+      settingsPromise,
+      themePromise,
+      macNamePromise,
+      macHostnamePromise,
+    ]);
   }
 
   function selectSection(next: SectionId) {
@@ -547,7 +651,9 @@ export function useAppController() {
   }
 
   function resetEnabledPhases() {
-    enabledPhaseIds.value = new Set(selectedWorkflow.value?.phases.filter((phase) => phase.enabled).map((phase) => phase.id));
+    enabledPhaseIds.value = new Set(
+      selectedWorkflow.value?.phases.filter((phase) => phase.enabled).map((phase) => phase.id),
+    );
   }
 
   function togglePhase(phase: Phase) {
@@ -588,7 +694,9 @@ export function useAppController() {
     runEvents.value = [];
 
     const phases = option.phases && option.phases.length > 0 ? option.phases : displayPhases.value;
-    const enabledIds = phases.filter((phase) => enabledPhaseIds.value.has(phase.id)).map((phase) => phase.id);
+    const enabledIds = phases
+      .filter((phase) => enabledPhaseIds.value.has(phase.id))
+      .map((phase) => phase.id);
 
     try {
       pushToast("Workflow started", selectedWorkflow.value.name, "loading");
@@ -617,11 +725,18 @@ export function useAppController() {
     selectedRunId.value = run.id;
     selectedRunLog.value = null;
     runLogLoading.value = true;
+    const requestedRunId = run.id;
 
     try {
-      selectedRunLog.value = await window.macOS.runLog(run.id);
+      const nextRunLog = await window.macOS.runLog(requestedRunId);
+
+      if (selectedRunId.value === requestedRunId) {
+        selectedRunLog.value = nextRunLog;
+      }
     } finally {
-      runLogLoading.value = false;
+      if (selectedRunId.value === requestedRunId) {
+        runLogLoading.value = false;
+      }
     }
   }
 
@@ -694,7 +809,8 @@ export function useAppController() {
 
   function pushToast(title: string, description?: string, tone: ToastTone = "info") {
     const id = crypto.randomUUID();
-    const previous = tone === "loading" ? toasts.value : toasts.value.filter((toast) => toast.tone !== "loading");
+    const previous =
+      tone === "loading" ? toasts.value : toasts.value.filter((toast) => toast.tone !== "loading");
 
     toasts.value = [...previous.slice(-2), { id, title, description, tone }];
 
@@ -761,9 +877,15 @@ export function useAppController() {
 
   function phaseStatus(phase: Phase) {
     const events = runEvents.value.filter((event) => event.phaseId === phase.id);
-    const finish = [...events].reverse().find((event) => event.type === "phase_finished" || event.type === "phase_skipped");
+    const finish = [...events]
+      .reverse()
+      .find((event) => event.type === "phase_finished" || event.type === "phase_skipped");
 
-    return finish?.status ?? events.at(-1)?.status ?? (enabledPhaseIds.value.has(phase.id) ? "pending" : "skipped");
+    return (
+      finish?.status ??
+      events.at(-1)?.status ??
+      (enabledPhaseIds.value.has(phase.id) ? "pending" : "skipped")
+    );
   }
 
   return {

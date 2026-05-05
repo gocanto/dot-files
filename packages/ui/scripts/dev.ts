@@ -102,7 +102,9 @@ function watchIfExists(path: string, onChange: (changed: string) => void): void 
 }
 
 function shouldIgnoreChange(path: string): boolean {
-  return path.includes("/node_modules/") || path.includes("/dist/") || path.includes("/dist-electron/");
+  return (
+    path.includes("/node_modules/") || path.includes("/dist/") || path.includes("/dist-electron/")
+  );
 }
 
 function scheduleRestart(reason: string): void {
@@ -112,10 +114,12 @@ function scheduleRestart(reason: string): void {
 
   clearTimeout(restartTimer);
   restartTimer = setTimeout(() => {
-    restarting = restarting.then(() => restart(reason)).catch((error: unknown) => {
-      console.error(error);
-      process.exitCode = 1;
-    });
+    restarting = restarting
+      .then(() => restart(reason))
+      .catch((error: unknown) => {
+        console.error(error);
+        process.exitCode = 1;
+      });
   }, 350);
 }
 
@@ -131,7 +135,18 @@ async function restart(reason: string): Promise<void> {
   const devServerUrl = await startDevServer();
   console.log(`\nDev server ready: ${devServerUrl}`);
 
-  start("backend", ["go", ["run", "./cmd", "serve-http", "--socket", backendSocketPath, ...settingsArgs(await readSettings())], macbookDir]);
+  start("backend", [
+    "go",
+    [
+      "run",
+      "./cmd",
+      "serve-http",
+      "--socket",
+      backendSocketPath,
+      ...settingsArgs(await readSettings()),
+    ],
+    macbookDir,
+  ]);
   await waitForBackend(backendSocketPath);
 
   start("electron", [
@@ -169,7 +184,12 @@ async function startDevServer(): Promise<string> {
 
   const port = devServerPort(viteServer);
   await ensurePortlessProxy();
-  await run("pnpm", ["exec", "portless", "alias", appName, String(port), "--force"], uiDir, portlessEnv);
+  await run(
+    "pnpm",
+    ["exec", "portless", "alias", appName, String(port), "--force"],
+    uiDir,
+    portlessEnv,
+  );
 
   return waitForPortless(`http://127.0.0.1:${port}`);
 }
@@ -201,14 +221,49 @@ function devServerPortPreference(): number | undefined {
 
 async function ensurePortlessProxy(): Promise<void> {
   try {
-    await output("pnpm", ["exec", "portless", "proxy", "start", "--port", portlessPort, "--https", "--tld", "localhost"], uiDir, portlessEnv);
+    await output(
+      "pnpm",
+      [
+        "exec",
+        "portless",
+        "proxy",
+        "start",
+        "--port",
+        portlessPort,
+        "--https",
+        "--tld",
+        "localhost",
+      ],
+      uiDir,
+      portlessEnv,
+    );
   } catch (error) {
     if (!(error instanceof Error) || !error.message.includes("different config")) {
       throw error;
     }
 
-    await output("pnpm", ["exec", "portless", "proxy", "stop", "--port", portlessPort], uiDir, portlessEnv);
-    await output("pnpm", ["exec", "portless", "proxy", "start", "--port", portlessPort, "--https", "--tld", "localhost"], uiDir, portlessEnv);
+    await output(
+      "pnpm",
+      ["exec", "portless", "proxy", "stop", "--port", portlessPort],
+      uiDir,
+      portlessEnv,
+    );
+    await output(
+      "pnpm",
+      [
+        "exec",
+        "portless",
+        "proxy",
+        "start",
+        "--port",
+        portlessPort,
+        "--https",
+        "--tld",
+        "localhost",
+      ],
+      uiDir,
+      portlessEnv,
+    );
   }
 }
 
@@ -241,7 +296,12 @@ function start(name: string, [command, args, cwd, env = {}]: StartSpec): void {
   });
 }
 
-function run(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): Promise<void> {
+function run(
+  command: string,
+  args: string[],
+  cwd: string,
+  env: NodeJS.ProcessEnv = {},
+): Promise<void> {
   return new Promise((resolveRun, rejectRun) => {
     const child = spawn(command, args, { cwd, env: { ...process.env, ...env }, stdio: "inherit" });
 
@@ -251,7 +311,9 @@ function run(command: string, args: string[], cwd: string, env: NodeJS.ProcessEn
         return;
       }
 
-      rejectRun(new Error(`${command} ${args.join(" ")} exited with ${code ?? signal ?? "unknown status"}`));
+      rejectRun(
+        new Error(`${command} ${args.join(" ")} exited with ${code ?? signal ?? "unknown status"}`),
+      );
     });
   });
 }
@@ -331,9 +393,18 @@ function backendHealthz(socketPath: string): Promise<void> {
   });
 }
 
-function output(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): Promise<string> {
+function output(
+  command: string,
+  args: string[],
+  cwd: string,
+  env: NodeJS.ProcessEnv = {},
+): Promise<string> {
   return new Promise((resolveOutput, rejectOutput) => {
-    const child = spawn(command, args, { cwd, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(command, args, {
+      cwd,
+      env: { ...process.env, ...env },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     let stdout = "";
     let stderr = "";
 
@@ -407,7 +478,9 @@ function settingsArgs(settings: Settings): string[] {
     ["--op-item", settings.opItem],
   ];
 
-  return pairs.flatMap(([flag, value]) => (typeof value === "string" && value.trim() ? [flag, value] : []));
+  return pairs.flatMap(([flag, value]) =>
+    typeof value === "string" && value.trim() ? [flag, value] : [],
+  );
 }
 
 function delay(ms: number): Promise<void> {

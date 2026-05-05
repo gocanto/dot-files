@@ -1,7 +1,6 @@
 {
   "name": "dot-files",
   "private": true,
-  "packageManager": "pnpm@10.33.0",
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",
@@ -10,6 +9,9 @@
     "check": "turbo run build test"
   },
   "devDependencies": {
+    "oxfmt": "0.47.0",
+    "oxlint": "1.62.0",
     "turbo": "2.9.8"
-  }
+  },
+  "packageManager": "pnpm@10.33.0"
 }

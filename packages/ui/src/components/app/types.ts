@@ -1,0 +1,42 @@
+import type { Component } from "vue";
+import type { Phase, RuntimeSettings } from "@/types/api";
+
+export type SectionId = "template" | "current" | "update" | "settings" | "logs";
+export type StepSettingsKey = keyof RuntimeSettings;
+
+export interface NavItem {
+  id: SectionId;
+  label: string;
+  icon: Component;
+  count: number | null;
+}
+
+export interface StepMeta {
+  title: string;
+  emptyMessage: string;
+  settingsKeys: StepSettingsKey[];
+}
+
+export interface SettingsGroup {
+  id: string;
+  label: string;
+  icon: Component;
+  count: number;
+}
+
+export interface SelectOption {
+  value: string;
+  label: string;
+  missing: boolean;
+}
+
+export interface SavedField {
+  key: string;
+  label: string;
+  saved: string;
+  pending: string;
+}
+
+export type DisplayPhase = Phase & {
+  status: string;
+};

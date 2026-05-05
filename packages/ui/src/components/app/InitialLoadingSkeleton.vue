@@ -4,7 +4,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 </script>
 
 <template>
-  <div data-testid="initial-shell-skeleton" class="grid h-screen grid-cols-[230px_410px_1fr] overflow-hidden">
+  <div
+    data-testid="initial-shell-skeleton"
+    class="grid h-screen grid-cols-[230px_410px_1fr] overflow-hidden"
+  >
     <aside class="border-r border-sidebar-border bg-sidebar">
       <div class="flex h-12 items-center gap-2 px-3">
         <Skeleton class="size-4 rounded" />
@@ -15,7 +18,11 @@ import { Skeleton } from "@/components/ui/skeleton";
       </div>
       <Separator />
       <div class="grid gap-1 p-2">
-        <div v-for="index in 5" :key="`nav-shell-${index}`" class="flex h-8 items-center gap-2 rounded-md px-2">
+        <div
+          v-for="index in 5"
+          :key="`nav-shell-${index}`"
+          class="flex h-8 items-center gap-2 rounded-md px-2"
+        >
           <Skeleton class="size-4 rounded" />
           <Skeleton class="h-4 w-28" />
           <Skeleton v-if="index < 4" class="ml-auto h-4 w-5 rounded" />
@@ -32,7 +39,11 @@ import { Skeleton } from "@/components/ui/skeleton";
         <Skeleton class="h-9 w-full" />
       </div>
       <div class="grid gap-2 px-4">
-        <div v-for="index in 6" :key="`list-shell-${index}`" class="rounded-lg border border-section-border bg-section p-3">
+        <div
+          v-for="index in 6"
+          :key="`list-shell-${index}`"
+          class="rounded-lg border border-section-border bg-section p-3"
+        >
           <div class="flex items-center gap-3">
             <Skeleton class="h-4 w-40" />
             <Skeleton class="ml-auto h-5 w-12 rounded-full" />
@@ -69,7 +80,11 @@ import { Skeleton } from "@/components/ui/skeleton";
             <Skeleton class="h-8 w-16" />
           </div>
           <div class="overflow-hidden rounded-lg border border-section-border bg-section-muted">
-            <div v-for="index in 4" :key="`phase-shell-${index}`" class="flex items-center gap-3 border-b px-3 py-3 last:border-b-0">
+            <div
+              v-for="index in 4"
+              :key="`phase-shell-${index}`"
+              class="flex items-center gap-3 border-b px-3 py-3 last:border-b-0"
+            >
               <Skeleton class="size-4 rounded-full" />
               <Skeleton class="h-4 flex-1" />
               <Skeleton class="h-5 w-16 rounded-full" />

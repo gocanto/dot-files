@@ -7,10 +7,9 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import StatusBadge from "@/components/StatusBadge.vue";
+import type { StepSettingsKey } from "@/components/app/types";
 import { initials } from "@/lib/format";
 import type { RuntimeSettings, SettingsResponse } from "@/types/api";
-
-type StepSettingsKey = keyof RuntimeSettings;
 
 defineProps<{
   selectedSettingsKey: StepSettingsKey;
@@ -46,18 +45,28 @@ const emit = defineEmits<{
   <Separator />
   <ScrollArea class="min-h-0 flex-1">
     <div class="grid gap-3 p-4">
-      <Label :for="`step-setting-${selectedSettingsKey}`">{{ settingsKeyLabels[selectedSettingsKey] }}</Label>
+      <Label :for="`step-setting-${selectedSettingsKey}`">{{
+        settingsKeyLabels[selectedSettingsKey]
+      }}</Label>
       <div class="flex gap-2">
         <Input
           :id="`step-setting-${selectedSettingsKey}`"
           :model-value="settingsForm[selectedSettingsKey]"
           @update:model-value="emit('update-setting', selectedSettingsKey, String($event))"
         />
-        <Button type="button" variant="outline" size="icon" @click="emit('choose-directory', selectedSettingsKey)">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          @click="emit('choose-directory', selectedSettingsKey)"
+        >
           <FolderOpen class="size-4" />
         </Button>
       </div>
-      <p class="text-xs text-muted-foreground">Edits here apply to the same setting visible in the All settings panel. Save from there to persist.</p>
+      <p class="text-xs text-muted-foreground">
+        Edits here apply to the same setting visible in the All settings panel. Save from there to
+        persist.
+      </p>
     </div>
   </ScrollArea>
 </template>

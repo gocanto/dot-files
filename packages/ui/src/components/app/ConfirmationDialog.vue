@@ -35,7 +35,10 @@ const emit = defineEmits<{
       </AlertDialogHeader>
       <AlertDialogFooter>
         <AlertDialogCancel>Cancel</AlertDialogCancel>
-        <Button :disabled="running || !pendingOption" @click="pendingOption && emit('continue', pendingOption)">
+        <Button
+          :disabled="running || !pendingOption"
+          @click="pendingOption && emit('continue', pendingOption)"
+        >
           <Loader2 v-if="running" class="size-4 animate-spin" />
           Continue
         </Button>

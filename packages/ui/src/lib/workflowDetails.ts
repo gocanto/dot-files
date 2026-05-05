@@ -17,24 +17,28 @@ export const workflowDetails: Record<string, WorkflowDetail> = {
     purpose: "Print the tracked source of truth so you can see exactly what the template defines.",
     details:
       "Outputs the tracked Homebrew bundle (formulae and casks), the apps from apps.yaml grouped by install method, the tracked macOS defaults, and the dotfile bundles under stow/. Read-only.",
-    whenToRun: "Before any converge or remove workflow, or to confirm what the template currently declares.",
+    whenToRun:
+      "Before any converge or remove workflow, or to confirm what the template currently declares.",
     sideEffects: [],
     prerequisites: [],
   },
   "validate-template": {
     action: "Validates",
     category: "template",
-    purpose: "Check that apps.yaml, secrets.yaml, the stow directory, the tracked Brewfile, and the tracked macOS settings are well-formed.",
+    purpose:
+      "Check that apps.yaml, secrets.yaml, the stow directory, the tracked Brewfile, and the tracked macOS settings are well-formed.",
     details:
       "Loads and validates each tracked manifest. Reports parse errors, missing files, or invalid install methods. Read-only.",
-    whenToRun: "After editing any template file, or before opening a PR that changes apps.yaml/secrets.yaml.",
+    whenToRun:
+      "After editing any template file, or before opening a PR that changes apps.yaml/secrets.yaml.",
     sideEffects: [],
     prerequisites: [],
   },
   "inspect-current": {
     action: "Inspects",
     category: "current",
-    purpose: "Read-only snapshot of what is actually installed and configured on this Mac right now.",
+    purpose:
+      "Read-only snapshot of what is actually installed and configured on this Mac right now.",
     details:
       "Runs the doctor checks (git, gh, node, go, op, etc.), lists installed Homebrew formulae and casks via `brew list`, and prints the current values of tracked macOS defaults domains.",
     whenToRun: "When something feels off, or before deciding whether to converge / remove.",
@@ -44,30 +48,38 @@ export const workflowDetails: Record<string, WorkflowDetail> = {
   "regenerate-installed-list": {
     action: "Generates",
     category: "current",
-    purpose: "Regenerate the candidate apps list by scanning what is actually installed on this Mac.",
+    purpose:
+      "Regenerate the candidate apps list by scanning what is actually installed on this Mac.",
     details:
       "Scans GUI applications, Homebrew casks, and Mac App Store apps, then writes the merged result to apps.generated.yaml so you can review the diff against the tracked apps.yaml. The tracked apps.yaml source of truth is never modified.",
-    whenToRun: "After installing or removing apps, or when preparing a PR that updates the tracked apps list.",
-    sideEffects: ["Writes apps.generated.yaml at the configured generated path (never touches apps.yaml)"],
+    whenToRun:
+      "After installing or removing apps, or when preparing a PR that updates the tracked apps list.",
+    sideEffects: [
+      "Writes apps.generated.yaml at the configured generated path (never touches apps.yaml)",
+    ],
     prerequisites: [],
   },
   "save-snapshot": {
     action: "Snapshots",
     category: "current",
-    purpose: "Capture supported app configs, dotfiles, and macOS defaults exports into a reviewable archive.",
+    purpose:
+      "Capture supported app configs, dotfiles, and macOS defaults exports into a reviewable archive.",
     details:
       "Collects only the app settings and reference files that are explicitly supported by the template, then writes them as a dated archive under the archive root. Selective — not a full Mac backup. Preview lists what would be collected without writing.",
-    whenToRun: "Before a risky change, before erasing the Mac, or any time you want a known-good restore point.",
+    whenToRun:
+      "Before a risky change, before erasing the Mac, or any time you want a known-good restore point.",
     sideEffects: ["Writes a new dated snapshot archive under the archive root"],
     prerequisites: ["Write access to the configured archive root"],
   },
   "converge-to-template": {
     action: "Converges",
     category: "update",
-    purpose: "Apply the tracked template (Homebrew, apps, secrets, dotfiles, macOS settings) to this Mac.",
+    purpose:
+      "Apply the tracked template (Homebrew, apps, secrets, dotfiles, macOS settings) to this Mac.",
     details:
       "Runs the shared converge pipeline. Fresh setup adopts existing dotfiles into the repo (for clean or freshly-erased Macs). Re-converge skips the adopt step and restores app configs from the latest snapshot. Erase first opens Apple's reset assistant. Preview shows the plan without changing anything.",
-    whenToRun: "First boot of a new Mac (Fresh setup), or after pulling repo changes / editing the tracked policy (Re-converge).",
+    whenToRun:
+      "First boot of a new Mac (Fresh setup), or after pulling repo changes / editing the tracked policy (Re-converge).",
     sideEffects: [
       "Installs Homebrew, formulas, casks, and Mac App Store apps",
       "Writes SSH keys and GPG signing config for GitHub",
@@ -87,17 +99,20 @@ export const workflowDetails: Record<string, WorkflowDetail> = {
     purpose: "Replay a previously saved snapshot's app configs onto this Mac.",
     details:
       "Reads a prior snapshot from the archive root and restores the supported app config files into their expected locations. Preview shows the restore plan without touching any files.",
-    whenToRun: "After re-installing an app, after a setup change you want to undo, or as part of recovering a Mac to a known state.",
+    whenToRun:
+      "After re-installing an app, after a setup change you want to undo, or as part of recovering a Mac to a known state.",
     sideEffects: ["Overwrites targeted app configuration files with snapshot contents"],
     prerequisites: ["At least one snapshot exists under the archive root"],
   },
   "remove-untracked-apps": {
     action: "Removes",
     category: "update",
-    purpose: "Uninstall Homebrew formulae, casks, and Mac App Store apps that are not in the tracked template.",
+    purpose:
+      "Uninstall Homebrew formulae, casks, and Mac App Store apps that are not in the tracked template.",
     details:
       "Scans installed Homebrew formulae and casks against the tracked Brewfile, plus the Mac App Store install list against apps.yaml. Preview lists candidates without changing anything. Run now writes a snapshot first, then runs `brew uninstall --zap` for each untracked Homebrew item; App Store removal is best-effort via `mas uninstall` and is gated off by default — untracked App Store apps are reported for manual cleanup.",
-    whenToRun: "After auditing what is installed (Regenerate Installed App List) and confirming the tracked Brewfile / apps.yaml is the desired state.",
+    whenToRun:
+      "After auditing what is installed (Regenerate Installed App List) and confirming the tracked Brewfile / apps.yaml is the desired state.",
     sideEffects: [
       "Writes a pre-remove snapshot under the archive root",
       "Uninstalls Homebrew formulae and casks not present in the tracked Brewfile",
@@ -127,10 +142,20 @@ export function getWorkflowDetail(id: string): WorkflowDetail {
 export function workflowDetailHaystack(id: string): string {
   const detail = workflowDetails[id];
   if (!detail) return "";
-  return [detail.action, detail.purpose, detail.details, detail.whenToRun, ...detail.sideEffects, ...detail.prerequisites].join(" ");
+  return [
+    detail.action,
+    detail.purpose,
+    detail.details,
+    detail.whenToRun,
+    ...detail.sideEffects,
+    ...detail.prerequisites,
+  ].join(" ");
 }
 
-export function workflowsInCategory<T extends { id: string }>(workflows: T[], category: WorkflowCategory): T[] {
+export function workflowsInCategory<T extends { id: string }>(
+  workflows: T[],
+  category: WorkflowCategory,
+): T[] {
   return workflows.filter((workflow) => workflowDetails[workflow.id]?.category === category);
 }
 

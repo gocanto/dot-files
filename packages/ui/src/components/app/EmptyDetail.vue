@@ -17,7 +17,9 @@ defineProps<{
       </Avatar>
       <div class="grid gap-1">
         <div class="font-semibold capitalize">{{ section.replace("-", " ") }}</div>
-        <div class="line-clamp-1 text-xs">This area is available from the mail-style navigation.</div>
+        <div class="line-clamp-1 text-xs">
+          This area is available from the mail-style navigation.
+        </div>
         <div class="line-clamp-1 text-xs">
           <span class="font-medium">Profile:</span> Current Mac
         </div>

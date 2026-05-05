@@ -22,22 +22,88 @@ import { useAppController } from "@/composables/useAppController";
 import { cn } from "@/lib/utils";
 
 const {
-  theme, toggleTheme, section, selectedSettingsKey, macName, macHostname, selectedWorkflowId,
-  selectedRunId, selectedRunLog, pendingOption, running, workflowsLoading, runsLoading,
-  initialLoading, runLogLoading, loadError, navCollapsed, searchQuery, logTab,
-  mutedNotes, noteText, settingsResponse, settingsForm, settingsSaving, settingsLoading,
-  settingsValidating, settingsPickerField, settingsMessage, settingsError,
-  opVaultsLoading, opItemsLoading, opVaultsError, opItemsError, opItemsLoadedFor,
-  opSigninLoading, opInstallLoading, toasts, stepNavItems, auxNavItems, stepMeta,
-  settingsKeyLabels, settingsWorkflows, selectedWorkflow, selectedWorkflowDetail,
-  settingsDirty, settingsChecks, opVaultOptions, opItemOptions, opItemSelectDisabled,
-  opSavedFields, settingsGroups, displayPhases, matchingWorkflows, matchingRuns,
-  runStatus, outputText, workflowProgress, selectedRunOutput, loadAll, selectSection,
-  selectStepSetting, loadOpVaults, onOpVaultChange, onOpItemChange, signinOpCli,
-  installOpDependencies, openDevTools, selectWorkflow, resetEnabledPhases, togglePhase,
-  openConfirmation, updateConfirmationOpen, runSelected, openRun, validateSettings,
-  saveSettings, dismissToast, resetSettingsForm, updateSetting, chooseDirectory,
-  chooseFile, chooseSaveFile,
+  theme,
+  toggleTheme,
+  section,
+  selectedSettingsKey,
+  macName,
+  macHostname,
+  selectedWorkflowId,
+  selectedRunId,
+  selectedRunLog,
+  pendingOption,
+  running,
+  workflowsLoading,
+  runsLoading,
+  initialLoading,
+  runLogLoading,
+  loadError,
+  navCollapsed,
+  searchQuery,
+  logTab,
+  mutedNotes,
+  noteText,
+  settingsResponse,
+  settingsForm,
+  settingsSaving,
+  settingsLoading,
+  settingsValidating,
+  settingsPickerField,
+  settingsMessage,
+  settingsError,
+  opVaultsLoading,
+  opItemsLoading,
+  opVaultsError,
+  opItemsError,
+  opItemsLoadedFor,
+  opSigninLoading,
+  opInstallLoading,
+  toasts,
+  stepNavItems,
+  auxNavItems,
+  stepMeta,
+  settingsKeyLabels,
+  settingsWorkflows,
+  selectedWorkflow,
+  selectedWorkflowDetail,
+  settingsDirty,
+  settingsChecks,
+  opVaultOptions,
+  opItemOptions,
+  opItemSelectDisabled,
+  opSavedFields,
+  settingsGroups,
+  displayPhases,
+  matchingWorkflows,
+  matchingRuns,
+  runStatus,
+  outputText,
+  workflowProgress,
+  selectedRunOutput,
+  loadAll,
+  selectSection,
+  selectStepSetting,
+  loadOpVaults,
+  onOpVaultChange,
+  onOpItemChange,
+  signinOpCli,
+  installOpDependencies,
+  openDevTools,
+  selectWorkflow,
+  resetEnabledPhases,
+  togglePhase,
+  openConfirmation,
+  updateConfirmationOpen,
+  runSelected,
+  openRun,
+  validateSettings,
+  saveSettings,
+  dismissToast,
+  resetSettingsForm,
+  updateSetting,
+  chooseDirectory,
+  chooseFile,
+  chooseSaveFile,
 } = useAppController();
 </script>
 
@@ -46,7 +112,11 @@ const {
     <div class="h-screen overflow-hidden bg-background text-foreground">
       <InitialLoadingSkeleton v-if="initialLoading" />
 
-      <ResizablePanelGroup v-else direction="horizontal" class="h-screen max-h-screen items-stretch">
+      <ResizablePanelGroup
+        v-else
+        direction="horizontal"
+        class="h-screen max-h-screen items-stretch"
+      >
         <ResizablePanel
           id="mac-nav"
           :default-size="18"
@@ -136,7 +206,9 @@ const {
             <Separator />
 
             <div v-if="loadError" class="grid flex-1 place-items-center p-8">
-              <div class="max-w-xl rounded-lg border border-destructive/40 bg-section p-5 shadow-sm">
+              <div
+                class="max-w-xl rounded-lg border border-destructive/40 bg-section p-5 shadow-sm"
+              >
                 <div class="flex items-center gap-2 font-semibold text-destructive">
                   <AlertTriangle class="size-5" />
                   Load failed
@@ -159,7 +231,9 @@ const {
             <WorkflowDetailSkeleton v-else-if="stepMeta && workflowsLoading && !selectedWorkflow" />
 
             <template v-else-if="stepMeta && !selectedWorkflow">
-              <div class="grid flex-1 place-items-center p-8 text-center text-sm text-muted-foreground">
+              <div
+                class="grid flex-1 place-items-center p-8 text-center text-sm text-muted-foreground"
+              >
                 <div>
                   <Inbox class="mx-auto mb-3 size-8" />
                   <p>Select a workflow or a step setting to begin.</p>

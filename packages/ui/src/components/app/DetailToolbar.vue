@@ -29,7 +29,9 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div :class="cn('flex min-h-[var(--panel-header-h)] items-start gap-3 px-2 py-2', panelHeaderClass)">
+  <div
+    :class="cn('flex min-h-[var(--panel-header-h)] items-start gap-3 px-2 py-2', panelHeaderClass)"
+  >
     <div v-if="hasStepMeta && selectedWorkflow" class="flex items-start gap-3 text-sm">
       <Avatar size="sm">
         <AvatarFallback>{{ initials(selectedWorkflow.name) }}</AvatarFallback>
@@ -38,8 +40,11 @@ const emit = defineEmits<{
         <div class="font-semibold">{{ selectedWorkflow.name }}</div>
         <div class="line-clamp-1 text-xs">{{ selectedWorkflow.description }}</div>
         <div class="line-clamp-1 text-xs">
-          <span class="font-medium">Action:</span> {{ getWorkflowDetail(selectedWorkflow.id).action || selectedWorkflow.changesMac }}
-          <span class="text-muted-foreground">· Changes Mac: {{ selectedWorkflow.changesMac }}</span>
+          <span class="font-medium">Action:</span>
+          {{ getWorkflowDetail(selectedWorkflow.id).action || selectedWorkflow.changesMac }}
+          <span class="text-muted-foreground"
+            >· Changes Mac: {{ selectedWorkflow.changesMac }}</span
+          >
         </div>
       </div>
     </div>
@@ -63,7 +68,12 @@ const emit = defineEmits<{
 
       <Tooltip>
         <TooltipTrigger as-child>
-          <Button variant="ghost" size="icon" :disabled="!hasStepMeta || !selectedWorkflow" @click="emit('reset-phases')">
+          <Button
+            variant="ghost"
+            size="icon"
+            :disabled="!hasStepMeta || !selectedWorkflow"
+            @click="emit('reset-phases')"
+          >
             <RotateCcw class="size-4" />
             <span class="sr-only">Reset phases</span>
           </Button>
@@ -73,7 +83,12 @@ const emit = defineEmits<{
 
       <Tooltip>
         <TooltipTrigger as-child>
-          <Button variant="ghost" size="icon" :disabled="!selectedWorkflow?.confirmation || running" @click="emit('open-confirmation')">
+          <Button
+            variant="ghost"
+            size="icon"
+            :disabled="!selectedWorkflow?.confirmation || running"
+            @click="emit('open-confirmation')"
+          >
             <Play class="size-4" />
             <span class="sr-only">Run workflow</span>
           </Button>

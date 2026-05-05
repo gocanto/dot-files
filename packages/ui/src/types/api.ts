@@ -100,14 +100,21 @@ export interface OpItem {
   title: string;
 }
 
-export type OpVaultsResult = { ok: true; vaults: OpVault[] } | { ok: false; code: string; message: string };
-export type OpItemsResult = { ok: true; items: OpItem[] } | { ok: false; code: string; message: string };
+export type OpVaultsResult =
+  | { ok: true; vaults: OpVault[] }
+  | { ok: false; code: string; message: string };
+export type OpItemsResult =
+  | { ok: true; items: OpItem[] }
+  | { ok: false; code: string; message: string };
 export type OpSigninResult = { ok: true } | { ok: false; message: string };
 export type OpInstallResult = { ok: true } | { ok: false; message: string };
 
 export interface MacOSApi {
   workflows(): Promise<Workflow[]>;
-  runWorkflow(request: RunRequest, onEvent: (event: RunEvent) => void): Promise<{ exitCode: number }>;
+  runWorkflow(
+    request: RunRequest,
+    onEvent: (event: RunEvent) => void,
+  ): Promise<{ exitCode: number }>;
   runs(limit?: number): Promise<RunSummary[]>;
   runLog(runId: string): Promise<RunLog>;
   settings(): Promise<SettingsResponse>;

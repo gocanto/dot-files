@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { Component } from "vue";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -7,15 +6,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import StatusBadge from "@/components/StatusBadge.vue";
 import WorkflowCardList from "@/components/WorkflowCardList.vue";
 import { panelHeaderClass } from "@/components/app/styles";
+import type { SettingsGroup } from "@/components/app/types";
 import { cn } from "@/lib/utils";
 import type { SettingsResponse, Workflow } from "@/types/api";
-
-interface SettingsGroup {
-  id: string;
-  label: string;
-  icon: Component;
-  count: number;
-}
 
 defineProps<{
   settingsLoading: boolean;
@@ -70,10 +63,16 @@ const emit = defineEmits<{
           <div class="min-w-0 flex-1">
             <div class="font-medium">{{ group.label }}</div>
             <div class="truncate text-xs text-muted-foreground">
-              {{ group.count === 0 ? "No validation errors" : `${group.count} issue${group.count === 1 ? "" : "s"}` }}
+              {{
+                group.count === 0
+                  ? "No validation errors"
+                  : `${group.count} issue${group.count === 1 ? "" : "s"}`
+              }}
             </div>
           </div>
-          <Badge :variant="group.count === 0 ? 'secondary' : 'destructive'">{{ group.count }}</Badge>
+          <Badge :variant="group.count === 0 ? 'secondary' : 'destructive'">{{
+            group.count
+          }}</Badge>
         </div>
       </template>
     </div>
@@ -81,8 +80,16 @@ const emit = defineEmits<{
     <div class="px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
       Workflows
     </div>
-    <div v-if="workflowsLoading" data-testid="settings-workflows-skeleton" class="flex flex-col gap-2 p-4 pt-0">
-      <div v-for="i in 3" :key="`settings-wf-skeleton-${i}`" class="rounded-lg border border-section-border bg-section p-3 shadow-sm">
+    <div
+      v-if="workflowsLoading"
+      data-testid="settings-workflows-skeleton"
+      class="flex flex-col gap-2 p-4 pt-0"
+    >
+      <div
+        v-for="i in 3"
+        :key="`settings-wf-skeleton-${i}`"
+        class="rounded-lg border border-section-border bg-section p-3 shadow-sm"
+      >
         <div class="flex items-center gap-3">
           <Skeleton class="h-4 w-40" />
           <Skeleton class="ml-auto h-5 w-12 rounded-full" />

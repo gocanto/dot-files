@@ -9,11 +9,13 @@ const styles: Record<string, ConfirmationStyle> = {
     iconClass: "text-primary",
   },
   "run-now": {
-    buttonClass: "border-l-4 border-l-[var(--diff-added)]/70 hover:bg-[var(--diff-added)]/5 hover:text-foreground",
+    buttonClass:
+      "border-l-4 border-l-[var(--diff-added)]/70 hover:bg-[var(--diff-added)]/5 hover:text-foreground",
     iconClass: "text-[var(--diff-added)]",
   },
   "already-erased-run-now": {
-    buttonClass: "border-l-4 border-l-[var(--diff-added)]/70 hover:bg-[var(--diff-added)]/5 hover:text-foreground",
+    buttonClass:
+      "border-l-4 border-l-[var(--diff-added)]/70 hover:bg-[var(--diff-added)]/5 hover:text-foreground",
     iconClass: "text-[var(--diff-added)]",
   },
   "run-without-erasing": {

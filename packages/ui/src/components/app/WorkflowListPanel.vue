@@ -5,17 +5,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import WorkflowCardList from "@/components/WorkflowCardList.vue";
-import { listItemClass, panelHeaderClass, searchBarClass, selectedListItemClass } from "@/components/app/styles";
+import {
+  listItemClass,
+  panelHeaderClass,
+  searchBarClass,
+  selectedListItemClass,
+} from "@/components/app/styles";
+import type { StepMeta, StepSettingsKey } from "@/components/app/types";
 import { cn } from "@/lib/utils";
 import type { RuntimeSettings, SettingsResponse, Workflow } from "@/types/api";
-
-type StepSettingsKey = keyof RuntimeSettings;
-
-interface StepMeta {
-  title: string;
-  emptyMessage: string;
-  settingsKeys: StepSettingsKey[];
-}
 
 defineProps<{
   stepMeta: StepMeta;
@@ -59,8 +57,16 @@ const emit = defineEmits<{
       </form>
     </div>
     <ScrollArea class="min-h-0 flex-1">
-      <div v-if="workflowsLoading" data-testid="workflows-list-skeleton" class="flex flex-col gap-2 p-4 pt-0">
-        <div v-for="index in 6" :key="index" class="rounded-lg border border-section-border bg-section p-3 shadow-sm">
+      <div
+        v-if="workflowsLoading"
+        data-testid="workflows-list-skeleton"
+        class="flex flex-col gap-2 p-4 pt-0"
+      >
+        <div
+          v-for="index in 6"
+          :key="index"
+          class="rounded-lg border border-section-border bg-section p-3 shadow-sm"
+        >
           <div class="flex items-center gap-3">
             <Skeleton class="h-4 w-40" />
             <Skeleton class="ml-auto h-5 w-12 rounded-full" />
@@ -77,7 +83,9 @@ const emit = defineEmits<{
         :empty-message="stepMeta.emptyMessage"
         @select="emit('select-workflow', $event)"
       />
-      <div class="px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <div
+        class="px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+      >
         Step settings
       </div>
       <div class="flex flex-col gap-1 px-4 pb-4">
@@ -99,21 +107,30 @@ const emit = defineEmits<{
           <button
             v-for="key in stepMeta.settingsKeys"
             :key="key"
-            :class="cn(
-              'flex items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-all hover:bg-accent',
-              listItemClass,
-              selectedSettingsKey === key && selectedListItemClass,
-            )"
+            :class="
+              cn(
+                'flex items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-all hover:bg-accent',
+                listItemClass,
+                selectedSettingsKey === key && selectedListItemClass,
+              )
+            "
             @click="emit('select-step-setting', key)"
           >
             <Settings class="size-4 text-muted-foreground" />
             <div class="min-w-0 flex-1">
               <div class="font-medium">{{ settingsKeyLabels[key] }}</div>
-              <div class="truncate text-xs text-muted-foreground">{{ settingsForm[key] || "not set" }}</div>
+              <div class="truncate text-xs text-muted-foreground">
+                {{ settingsForm[key] || "not set" }}
+              </div>
             </div>
           </button>
           <button
-            :class="cn('flex items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-all', listItemClass)"
+            :class="
+              cn(
+                'flex items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-all',
+                listItemClass,
+              )
+            "
             @click="emit('open-devtools')"
           >
             <TerminalSquare class="size-4 text-muted-foreground" />

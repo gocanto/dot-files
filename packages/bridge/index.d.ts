@@ -115,7 +115,10 @@ export interface UnixTarget {
 export interface WorkflowRunStream extends EventEmitter {
   on(event: "data", listener: (event: WorkflowEvent) => void): this;
   on(event: "end", listener: () => void): this;
-  on(event: "end-info", listener: (info: { exitCode: number; status: string; message?: string }) => void): this;
+  on(
+    event: "end-info",
+    listener: (info: { exitCode: number; status: string; message?: string }) => void,
+  ): this;
   on(event: "error", listener: (error: Error) => void): this;
 }
 

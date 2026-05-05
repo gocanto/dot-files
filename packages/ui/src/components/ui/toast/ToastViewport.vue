@@ -51,13 +51,23 @@ function iconClass(tone: ToastTone = "info") {
     <div
       v-for="toast in toasts"
       :key="toast.id"
-      :class="cn('pointer-events-auto rounded-md border bg-popover p-3 text-popover-foreground shadow-overlay', toneClass(toast.tone))"
+      :class="
+        cn(
+          'pointer-events-auto rounded-md border bg-popover p-3 text-popover-foreground shadow-overlay',
+          toneClass(toast.tone),
+        )
+      "
     >
       <div class="flex items-start gap-3">
-        <component :is="icons[toast.tone ?? 'info']" :class="cn('mt-0.5 size-4 shrink-0', iconClass(toast.tone))" />
+        <component
+          :is="icons[toast.tone ?? 'info']"
+          :class="cn('mt-0.5 size-4 shrink-0', iconClass(toast.tone))"
+        />
         <div class="min-w-0 flex-1">
           <div class="text-sm font-medium">{{ toast.title }}</div>
-          <div v-if="toast.description" class="mt-1 text-xs text-muted-foreground">{{ toast.description }}</div>
+          <div v-if="toast.description" class="mt-1 text-xs text-muted-foreground">
+            {{ toast.description }}
+          </div>
         </div>
         <button
           type="button"

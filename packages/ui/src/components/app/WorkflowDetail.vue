@@ -10,15 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import OutputBlock from "@/components/OutputBlock.vue";
 import StatusBadge from "@/components/StatusBadge.vue";
 import { detailSectionBodyClass, detailSectionClass } from "@/components/app/styles";
+import type { DisplayPhase } from "@/components/app/types";
 import { confirmationStyle } from "@/lib/confirmationDisplay";
 import type { WorkflowDetail as WorkflowDetailInfo } from "@/lib/workflowDetails";
 import { confirmationIcon, phaseIcon } from "@/lib/workflowIcons";
 import { cn } from "@/lib/utils";
 import type { ConfirmationOption, Phase, Workflow } from "@/types/api";
-
-type DisplayPhase = Phase & {
-  status: string;
-};
 
 defineProps<{
   selectedWorkflow: Workflow;
@@ -43,33 +40,54 @@ const emit = defineEmits<{
   <ScrollArea class="min-h-0 flex-1">
     <div class="grid gap-5 p-4">
       <section
-        v-if="selectedWorkflowDetail && (selectedWorkflowDetail.purpose || selectedWorkflowDetail.details || selectedWorkflowDetail.whenToRun || selectedWorkflowDetail.sideEffects.length || selectedWorkflowDetail.prerequisites.length)"
+        v-if="
+          selectedWorkflowDetail &&
+          (selectedWorkflowDetail.purpose ||
+            selectedWorkflowDetail.details ||
+            selectedWorkflowDetail.whenToRun ||
+            selectedWorkflowDetail.sideEffects.length ||
+            selectedWorkflowDetail.prerequisites.length)
+        "
         :class="detailSectionClass"
       >
         <h2 class="mb-2 text-sm font-semibold">About this workflow</h2>
         <div :class="detailSectionBodyClass">
           <div v-if="selectedWorkflowDetail.purpose">
-            <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Purpose</div>
+            <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Purpose
+            </div>
             <p class="mt-1 text-sm leading-6">{{ selectedWorkflowDetail.purpose }}</p>
           </div>
           <div v-if="selectedWorkflowDetail.details">
-            <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">What it does</div>
+            <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              What it does
+            </div>
             <p class="mt-1 text-sm leading-6">{{ selectedWorkflowDetail.details }}</p>
           </div>
           <div v-if="selectedWorkflowDetail.whenToRun">
-            <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">When to run</div>
+            <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              When to run
+            </div>
             <p class="mt-1 text-sm leading-6">{{ selectedWorkflowDetail.whenToRun }}</p>
           </div>
           <div v-if="selectedWorkflowDetail.sideEffects.length">
-            <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Side effects</div>
+            <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Side effects
+            </div>
             <ul class="mt-1 list-disc pl-5 text-sm leading-6">
-              <li v-for="effect in selectedWorkflowDetail.sideEffects" :key="effect">{{ effect }}</li>
+              <li v-for="effect in selectedWorkflowDetail.sideEffects" :key="effect">
+                {{ effect }}
+              </li>
             </ul>
           </div>
           <div v-if="selectedWorkflowDetail.prerequisites.length">
-            <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Prerequisites</div>
+            <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Prerequisites
+            </div>
             <ul class="mt-1 list-disc pl-5 text-sm leading-6">
-              <li v-for="prereq in selectedWorkflowDetail.prerequisites" :key="prereq">{{ prereq }}</li>
+              <li v-for="prereq in selectedWorkflowDetail.prerequisites" :key="prereq">
+                {{ prereq }}
+              </li>
             </ul>
           </div>
         </div>
@@ -101,16 +119,26 @@ const emit = defineEmits<{
 
       <section v-if="selectedWorkflow.confirmation" :class="detailSectionClass">
         <h2 class="mb-2 text-sm font-semibold">{{ selectedWorkflow.confirmation.title }}</h2>
-        <p class="mb-3 text-sm leading-6 text-muted-foreground">{{ selectedWorkflow.confirmation.message }}</p>
+        <p class="mb-3 text-sm leading-6 text-muted-foreground">
+          {{ selectedWorkflow.confirmation.message }}
+        </p>
         <div class="grid gap-2">
           <Button
             v-for="option in selectedWorkflow.confirmation.options"
             :key="option.id"
             variant="outline"
-            :class="cn('h-auto justify-start gap-3 whitespace-normal px-3 py-2 text-left', confirmationStyle(option.id).buttonClass)"
+            :class="
+              cn(
+                'h-auto justify-start gap-3 whitespace-normal px-3 py-2 text-left',
+                confirmationStyle(option.id).buttonClass,
+              )
+            "
             @click="emit('open-confirmation', option)"
           >
-            <component :is="confirmationIcon(option.id)" :class="cn('size-4 shrink-0', confirmationStyle(option.id).iconClass)" />
+            <component
+              :is="confirmationIcon(option.id)"
+              :class="cn('size-4 shrink-0', confirmationStyle(option.id).iconClass)"
+            />
             <span class="min-w-0 flex-1">
               <span class="block font-medium">{{ option.label }}</span>
               <span class="block text-xs text-muted-foreground">{{ option.description }}</span>
@@ -121,8 +149,14 @@ const emit = defineEmits<{
 
       <section :class="detailSectionClass">
         <h2 class="mb-2 text-sm font-semibold">Output</h2>
-        <ScrollArea class="h-72 rounded-md border border-section-border bg-terminal text-terminal-foreground">
-          <OutputBlock :code="outputText" empty-text="No workflow output yet." class="text-xs leading-5" />
+        <ScrollArea
+          class="h-72 rounded-md border border-section-border bg-terminal text-terminal-foreground"
+        >
+          <OutputBlock
+            :code="outputText"
+            empty-text="No workflow output yet."
+            class="text-xs leading-5"
+          />
         </ScrollArea>
       </section>
     </div>
@@ -140,7 +174,12 @@ const emit = defineEmits<{
       />
       <div class="flex items-center">
         <Label html-for="mute-notes" class="flex items-center gap-2 text-xs font-normal">
-          <Switch id="mute-notes" :model-value="mutedNotes" aria-label="Mute workflow notes" @update:model-value="emit('update:mutedNotes', Boolean($event))" />
+          <Switch
+            id="mute-notes"
+            :model-value="mutedNotes"
+            aria-label="Mute workflow notes"
+            @update:model-value="emit('update:mutedNotes', Boolean($event))"
+          />
           Mute workflow notes
         </Label>
         <Button type="button" size="sm" class="ml-auto" :disabled="!noteText.trim()">
