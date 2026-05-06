@@ -9,10 +9,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
+} from "@ui/alert-dialog";
+import { Button } from "@ui/button";
+import { ScrollArea } from "@ui/scroll-area";
+import { Skeleton } from "@ui/skeleton";
 import {
   Stepper,
   StepperDescription,
@@ -21,12 +21,12 @@ import {
   StepperSeparator,
   StepperTitle,
   StepperTrigger,
-} from "@/components/ui/stepper";
-import RunOutputSections from "@/components/app/RunOutputSections.vue";
-import StatusBadge from "@/components/StatusBadge.vue";
-import { cn } from "@/lib/utils";
-import type { ConfirmationOption } from "@/types/api";
-import type { DisplayPhase, RunOutputSection } from "@/components/app/types";
+} from "@ui/stepper";
+import RunOutputSections from "@app/RunOutputSections.vue";
+import StatusBadge from "@components/StatusBadge.vue";
+import { cn } from "@lib/utils";
+import type { ConfirmationOption } from "@api";
+import type { DisplayPhase, RunOutputSection } from "@app/types";
 
 const props = defineProps<{
   pendingOption: ConfirmationOption | null;

@@ -11,7 +11,13 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@entry/*": ["./src/*"],
+      "@app/*": ["./src/components/app/*"],
+      "@components/*": ["./src/components/*"],
+      "@ui/*": ["./src/components/ui/*"],
+      "@composables/*": ["./src/composables/*"],
+      "@lib/*": ["./src/lib/*"],
+      "@api": ["./src/types/api.ts"]
     },
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["vite/client", "vitest/globals", "web-bluetooth"],

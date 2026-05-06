@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { FolderOpen } from "lucide-vue-next";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import StatusBadge from "@/components/StatusBadge.vue";
-import type { StepSettingsKey } from "@/components/app/types";
-import { initials } from "@/lib/format";
-import type { RuntimeSettings, SettingsResponse } from "@/types/api";
+import { FolderOpen, Loader2, Save } from "lucide-vue-next";
+import { Avatar, AvatarFallback } from "@ui/avatar";
+import { Button } from "@ui/button";
+import { Input } from "@ui/input";
+import { Label } from "@ui/label";
+import { ScrollArea } from "@ui/scroll-area";
+import { Separator } from "@ui/separator";
+import StatusBadge from "@components/StatusBadge.vue";
+import type { StepSettingsKey } from "@app/types";
+import { initials } from "@lib/format";
+import type { RuntimeSettings, SettingsResponse } from "@api";
 
 defineProps<{
   selectedSettingsKey: StepSettingsKey;
@@ -17,11 +17,16 @@ defineProps<{
   stepTitle: string;
   settingsForm: RuntimeSettings;
   settingsResponse: SettingsResponse | null;
+  settingsDirty: boolean;
+  settingsSaving: boolean;
+  settingsLoading: boolean;
 }>();
 
 const emit = defineEmits<{
   (event: "update-setting", key: StepSettingsKey, value: string): void;
   (event: "choose-directory", key: StepSettingsKey): void;
+  (event: "reset-settings"): void;
+  (event: "request-save-settings"): void;
 }>();
 </script>
 
@@ -52,6 +57,7 @@ const emit = defineEmits<{
         <Input
           :id="`step-setting-${selectedSettingsKey}`"
           :model-value="settingsForm[selectedSettingsKey]"
+          :data-testid="`step-setting-${selectedSettingsKey}`"
           @update:model-value="emit('update-setting', selectedSettingsKey, String($event))"
         />
         <Button
@@ -64,9 +70,29 @@ const emit = defineEmits<{
         </Button>
       </div>
       <p class="text-xs text-muted-foreground">
-        Edits here apply to the same setting visible in the All settings panel. Save from there to
-        persist.
+        Edits here apply to the same setting visible in the All settings panel.
       </p>
     </div>
   </ScrollArea>
+  <Separator />
+  <div class="flex items-center gap-2 border-t border-section-border bg-section p-4">
+    <Button
+      type="button"
+      variant="outline"
+      :disabled="!settingsDirty || settingsSaving || settingsLoading"
+      @click="emit('reset-settings')"
+    >
+      Reset
+    </Button>
+    <Button
+      type="button"
+      class="ml-auto"
+      :disabled="!settingsDirty || settingsSaving || settingsLoading"
+      @click="emit('request-save-settings')"
+    >
+      <Loader2 v-if="settingsSaving" class="size-4 animate-spin" />
+      <Save v-else class="size-4" />
+      Save settings
+    </Button>
+  </div>
 </template>

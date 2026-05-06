@@ -1,7 +1,7 @@
-export { default as Stepper } from "./Stepper.vue";
-export { default as StepperDescription } from "./StepperDescription.vue";
-export { default as StepperIndicator } from "./StepperIndicator.vue";
-export { default as StepperItem } from "./StepperItem.vue";
-export { default as StepperSeparator } from "./StepperSeparator.vue";
-export { default as StepperTitle } from "./StepperTitle.vue";
-export { default as StepperTrigger } from "./StepperTrigger.vue";
+export { default as Stepper } from "@ui/stepper/Stepper.vue";
+export { default as StepperDescription } from "@ui/stepper/StepperDescription.vue";
+export { default as StepperIndicator } from "@ui/stepper/StepperIndicator.vue";
+export { default as StepperItem } from "@ui/stepper/StepperItem.vue";
+export { default as StepperSeparator } from "@ui/stepper/StepperSeparator.vue";
+export { default as StepperTitle } from "@ui/stepper/StepperTitle.vue";
+export { default as StepperTrigger } from "@ui/stepper/StepperTrigger.vue";

@@ -49,6 +49,20 @@ const appWindowHeight = 1280;
 const devToolsWindowWidth = 400;
 const devToolsWindowHeight = 400;
 
+function architectureLabel(architecture: string) {
+  if (architecture === "arm64") return "Apple silicon";
+  if (architecture === "x64") return "Intel";
+
+  return architecture;
+}
+
+function osLabel() {
+  const type = os.type();
+  const release = os.release();
+
+  return type === "Darwin" ? `macOS ${release}` : `${type} ${release}`;
+}
+
 const singleInstanceLock = app.requestSingleInstanceLock();
 
 if (!singleInstanceLock) {
@@ -132,6 +146,7 @@ function openDevToolsPanel(parentWindow: BrowserWindow) {
 
   devToolsWindow.once("ready-to-show", () => {
     const parentBounds = parentWindow.getBounds();
+    devToolsWindow?.setSize(devToolsWindowWidth, devToolsWindowHeight, false);
     devToolsWindow?.setBounds({
       x: parentBounds.x + parentBounds.width,
       y: parentBounds.y,
@@ -290,6 +305,12 @@ ipcMain.handle("settings:choose-save-file", async (_event, defaultPath?: string)
 
 ipcMain.handle("system:macName", () => os.userInfo().username);
 ipcMain.handle("system:macHostname", () => os.hostname());
+ipcMain.handle("system:macSystemInfo", () => ({
+  name: os.userInfo().username,
+  hostname: os.hostname(),
+  osLabel: osLabel(),
+  architectureLabel: architectureLabel(os.arch()),
+}));
 ipcMain.handle("system:openDevTools", () => {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return;

@@ -59,6 +59,7 @@ type OpInstallResult = { ok: true } | { ok: false; message: string };
 contextBridge.exposeInMainWorld("macOS", {
   macName: () => ipcRenderer.invoke("system:macName"),
   macHostname: () => ipcRenderer.invoke("system:macHostname"),
+  macSystemInfo: () => ipcRenderer.invoke("system:macSystemInfo"),
   workflows: () => ipcRenderer.invoke("workflows:list"),
   runs: (limit?: number) => ipcRenderer.invoke("runs:list", limit ?? 50),
   runLog: (runId: string) => ipcRenderer.invoke("runs:log", runId),

@@ -1,20 +1,20 @@
 <script setup lang="ts">
 import { Search } from "lucide-vue-next";
-import StatusBadge from "@/components/StatusBadge.vue";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import StatusBadge from "@components/StatusBadge.vue";
+import { Input } from "@ui/input";
+import { ScrollArea } from "@ui/scroll-area";
+import { Separator } from "@ui/separator";
+import { Skeleton } from "@ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@ui/tabs";
 import {
   listItemClass,
   panelHeaderClass,
   searchBarClass,
   selectedListItemClass,
-} from "@/components/app/styles";
-import { timeAgo } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { RunSummary } from "@/types/api";
+} from "@app/styles";
+import { timeAgo } from "@lib/format";
+import { cn } from "@lib/utils";
+import type { RunSummary } from "@api";
 
 defineProps<{
   logTab: string;

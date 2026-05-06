@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { getWorkflowDetail, workflowActionPillClass } from "@/lib/workflowDetails";
-import { workflowActionIcon } from "@/lib/workflowIcons";
-import type { Workflow } from "@/types/api";
+import { Badge } from "@ui/badge";
+import { cn } from "@lib/utils";
+import { getWorkflowDetail, workflowActionPillClass } from "@lib/workflowDetails";
+import { workflowActionIcon } from "@lib/workflowIcons";
+import type { Workflow } from "@api";
 
 defineProps<{
   workflows: Workflow[];
@@ -21,7 +21,7 @@ const selectedListItemClass = "border-primary/50 bg-accent text-accent-foregroun
 </script>
 
 <template>
-  <div class="flex flex-col gap-2 p-4 pt-0">
+  <div class="flex flex-col gap-2 p-4">
     <button
       v-for="workflow in workflows"
       :key="workflow.id"

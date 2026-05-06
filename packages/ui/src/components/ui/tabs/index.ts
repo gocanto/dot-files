@@ -1,4 +1,4 @@
-export { default as Tabs } from "./Tabs.vue";
-export { default as TabsContent } from "./TabsContent.vue";
-export { default as TabsList } from "./TabsList.vue";
-export { default as TabsTrigger } from "./TabsTrigger.vue";
+export { default as Tabs } from "@ui/tabs/Tabs.vue";
+export { default as TabsContent } from "@ui/tabs/TabsContent.vue";
+export { default as TabsList } from "@ui/tabs/TabsList.vue";
+export { default as TabsTrigger } from "@ui/tabs/TabsTrigger.vue";

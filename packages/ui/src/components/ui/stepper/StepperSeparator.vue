@@ -3,7 +3,7 @@ import type { StepperSeparatorProps } from "reka-ui";
 import type { HTMLAttributes } from "vue";
 import { reactiveOmit } from "@vueuse/core";
 import { StepperSeparator } from "reka-ui";
-import { cn } from "@/lib/utils";
+import { cn } from "@lib/utils";
 
 const props = defineProps<StepperSeparatorProps & { class?: HTMLAttributes["class"] }>();
 const delegatedProps = reactiveOmit(props, "class");

@@ -1,5 +1,5 @@
-import type { RunOutputSection } from "@/components/app/types";
-import type { Phase, RunEvent } from "@/types/api";
+import type { RunOutputSection } from "@app/types";
+import type { Phase, RunEvent } from "@api";
 
 const outputEventTypes = new Set(["confirmation_output", "phase_output"]);
 

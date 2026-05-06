@@ -1,12 +1,48 @@
 <script setup lang="ts">
-import OutputBlock from "@/components/OutputBlock.vue";
-import StatusBadge from "@/components/StatusBadge.vue";
-import type { RunOutputSection } from "@/components/app/types";
+import OutputBlock from "@components/OutputBlock.vue";
+import StatusBadge from "@components/StatusBadge.vue";
+import type { RunOutputSection } from "@app/types";
+import { ChevronDown } from "lucide-vue-next";
+import { ref, watch } from "vue";
 
-defineProps<{
-  sections: RunOutputSection[];
-  emptyText: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    sections: RunOutputSection[];
+    emptyText: string;
+    defaultExpanded?: boolean;
+  }>(),
+  {
+    defaultExpanded: false,
+  },
+);
+
+const expandedSectionIds = ref(new Set<string>());
+
+watch(
+  () => props.sections.map((section) => section.id),
+  (sectionIds) => {
+    if (props.defaultExpanded) {
+      expandedSectionIds.value = new Set(sectionIds);
+    }
+  },
+  { immediate: true },
+);
+
+function isExpanded(sectionId: string) {
+  return expandedSectionIds.value.has(sectionId);
+}
+
+function toggleSection(sectionId: string) {
+  const nextExpandedSectionIds = new Set(expandedSectionIds.value);
+
+  if (nextExpandedSectionIds.has(sectionId)) {
+    nextExpandedSectionIds.delete(sectionId);
+  } else {
+    nextExpandedSectionIds.add(sectionId);
+  }
+
+  expandedSectionIds.value = nextExpandedSectionIds;
+}
 </script>
 
 <template>
@@ -20,20 +56,38 @@ defineProps<{
       :key="section.id"
       class="overflow-hidden rounded-md border border-white/10 bg-terminal"
     >
-      <div
-        class="flex items-center justify-between gap-3 border-b border-white/10 bg-white/[0.06] px-3 py-2"
+      <button
+        type="button"
+        class="flex w-full items-center justify-between gap-3 bg-white/[0.06] px-3 py-2 text-left transition-colors hover:bg-white/[0.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-terminal"
+        :class="isExpanded(section.id) ? 'border-b border-white/10' : ''"
+        :aria-expanded="isExpanded(section.id)"
+        :aria-controls="`run-output-section-${section.id}`"
+        @click="toggleSection(section.id)"
       >
-        <div class="min-w-0">
-          <div class="text-[11px] font-medium uppercase text-terminal-foreground/60">
-            {{ section.context }}
-          </div>
-          <div class="truncate text-xs font-semibold text-terminal-foreground">
-            {{ section.label }}
+        <div class="flex min-w-0 items-center gap-2">
+          <ChevronDown
+            class="size-4 shrink-0 text-terminal-foreground/60 transition-transform"
+            :class="isExpanded(section.id) ? 'rotate-0' : '-rotate-90'"
+            aria-hidden="true"
+          />
+          <div class="min-w-0">
+            <div class="text-[11px] font-medium uppercase text-terminal-foreground/60">
+              {{ section.context }}
+            </div>
+            <div class="truncate text-xs font-semibold text-terminal-foreground">
+              {{ section.label }}
+            </div>
           </div>
         </div>
         <StatusBadge :status="section.status" />
-      </div>
-      <OutputBlock :code="section.code" :empty-text="emptyText" class="text-xs leading-5" />
+      </button>
+      <OutputBlock
+        v-if="isExpanded(section.id)"
+        :id="`run-output-section-${section.id}`"
+        :code="section.code"
+        :empty-text="emptyText"
+        class="text-xs leading-5"
+      />
     </section>
   </div>
 </template>

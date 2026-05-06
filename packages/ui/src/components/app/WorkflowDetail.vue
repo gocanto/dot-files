@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { CheckCircle2, Circle, Files } from "lucide-vue-next";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import StatusBadge from "@/components/StatusBadge.vue";
-import { detailSectionBodyClass, detailSectionClass } from "@/components/app/styles";
-import type { DisplayPhase } from "@/components/app/types";
-import { confirmationStyle } from "@/lib/confirmationDisplay";
-import type { WorkflowDetail as WorkflowDetailInfo } from "@/lib/workflowDetails";
-import { confirmationIcon, phaseIcon } from "@/lib/workflowIcons";
-import { cn } from "@/lib/utils";
-import type { ConfirmationOption, Phase, Workflow } from "@/types/api";
+import { Button } from "@ui/button";
+import { Progress } from "@ui/progress";
+import { ScrollArea } from "@ui/scroll-area";
+import StatusBadge from "@components/StatusBadge.vue";
+import { detailSectionBodyClass, detailSectionClass } from "@app/styles";
+import type { DisplayPhase } from "@app/types";
+import { confirmationStyle } from "@lib/confirmationDisplay";
+import type { WorkflowDetail as WorkflowDetailInfo } from "@lib/workflowDetails";
+import { confirmationIcon, phaseIcon } from "@lib/workflowIcons";
+import { cn } from "@lib/utils";
+import type { ConfirmationOption, Phase, Workflow } from "@api";
 
 defineProps<{
   selectedWorkflow: Workflow;
@@ -91,7 +91,13 @@ const emit = defineEmits<{
         </div>
       </section>
 
-      <section v-if="selectedWorkflowDetail?.category === 'template'" :class="detailSectionClass">
+      <section
+        v-if="
+          selectedWorkflowDetail?.category === 'template' &&
+          selectedWorkflow.id !== 'review-template'
+        "
+        :class="detailSectionClass"
+      >
         <h2 class="mb-1 text-sm font-semibold">Update Template Files</h2>
         <p class="mb-3 text-sm leading-6 text-muted-foreground">
           Open the expanded editor for allowlisted manifests and stow dotfiles. Back returns here

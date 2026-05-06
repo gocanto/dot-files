@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import { Apple, Moon, Sun } from "lucide-vue-next";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { NavItem, SectionId } from "@/components/app/types";
-import { cn } from "@/lib/utils";
+import { Button } from "@ui/button";
+import { Separator } from "@ui/separator";
+import { Skeleton } from "@ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
+import type { NavItem, SectionId } from "@app/types";
+import { cn } from "@lib/utils";
+import type { MacSystemInfo } from "@api";
 
 defineProps<{
   collapsed: boolean;
   section: SectionId;
   macName: string;
   macHostname: string;
+  macSystemInfo: MacSystemInfo;
   theme: string;
   stepNavItems: NavItem[];
   auxNavItems: NavItem[];
@@ -26,13 +28,43 @@ const emit = defineEmits<{
 <template>
   <div
     :class="
-      cn('flex h-12 items-center bg-sidebar', collapsed ? 'justify-center px-2' : 'gap-2 px-3')
+      cn(
+        'flex min-h-[var(--panel-header-h)] items-center bg-sidebar',
+        collapsed ? 'justify-center px-2' : 'gap-3 px-3',
+      )
     "
   >
-    <Apple class="size-4 shrink-0" />
-    <div v-if="!collapsed" class="flex min-w-0 flex-col">
-      <span class="truncate text-sm font-medium">Mac: {{ macName }}</span>
-      <span class="truncate text-[10px] text-muted-foreground">{{ macHostname }}</span>
+    <div
+      class="grid size-10 shrink-0 place-items-center rounded-lg border border-sidebar-border bg-background/70 text-foreground shadow-sm"
+    >
+      <Apple class="size-5" />
+    </div>
+    <div v-if="!collapsed" class="flex min-w-0 flex-1 flex-col gap-1">
+      <div class="min-w-0">
+        <span class="block truncate text-sm font-semibold"
+          >Mac: {{ macSystemInfo.name || macName }}</span
+        >
+        <span class="block truncate text-xs text-muted-foreground">
+          {{ macSystemInfo.hostname || macHostname }}
+        </span>
+      </div>
+      <div
+        v-if="macSystemInfo.osLabel || macSystemInfo.architectureLabel"
+        class="flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] font-medium text-muted-foreground"
+      >
+        <span
+          v-if="macSystemInfo.osLabel"
+          class="max-w-full truncate rounded-md border border-sidebar-border bg-background/70 px-1.5 py-0.5"
+        >
+          {{ macSystemInfo.osLabel }}
+        </span>
+        <span
+          v-if="macSystemInfo.architectureLabel"
+          class="max-w-full truncate rounded-md border border-sidebar-border bg-background/70 px-1.5 py-0.5"
+        >
+          {{ macSystemInfo.architectureLabel }}
+        </span>
+      </div>
     </div>
     <Tooltip v-if="!collapsed">
       <TooltipTrigger as-child>
@@ -86,17 +118,19 @@ const emit = defineEmits<{
           size="sm"
           :class="
             cn(
-              'justify-start',
+              'grid w-full grid-cols-[1.5rem_minmax(0,1fr)_2.5rem] items-center gap-2 justify-self-stretch px-2',
               section === item.id &&
                 'bg-accent text-accent-foreground hover:bg-accent dark:hover:bg-accent',
             )
           "
           @click="emit('select-section', item.id)"
         >
-          <component :is="item.icon" class="mr-2 size-4" />
-          {{ item.label }}
+          <span class="grid size-6 place-items-center">
+            <component :is="item.icon" class="size-4" />
+          </span>
+          <span class="min-w-0 truncate text-left">{{ item.label }}</span>
           <Skeleton v-if="item.count === null" class="ml-auto h-4 w-6 rounded" />
-          <span v-else class="ml-auto">{{ item.count }}</span>
+          <span v-else class="ml-auto justify-self-end tabular-nums">{{ item.count }}</span>
         </Button>
       </template>
     </nav>
@@ -138,15 +172,18 @@ const emit = defineEmits<{
           size="sm"
           :class="
             cn(
-              'justify-start',
+              'grid w-full grid-cols-[1.5rem_minmax(0,1fr)_2.5rem] items-center gap-2 justify-self-stretch px-2',
               section === item.id &&
                 'bg-accent text-accent-foreground hover:bg-accent dark:hover:bg-accent',
             )
           "
           @click="emit('select-section', item.id)"
         >
-          <component :is="item.icon" class="mr-2 size-4" />
-          {{ item.label }}
+          <span class="grid size-6 place-items-center">
+            <component :is="item.icon" class="size-4" />
+          </span>
+          <span class="min-w-0 truncate text-left">{{ item.label }}</span>
+          <span aria-hidden="true" class="size-6 justify-self-end" />
         </Button>
       </template>
     </nav>

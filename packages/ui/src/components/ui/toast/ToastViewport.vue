@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { CheckCircle2, Info, Loader2, X, XCircle } from "lucide-vue-next";
 import type { Component, HTMLAttributes } from "vue";
-import { cn } from "@/lib/utils";
+import { cn } from "@lib/utils";
 
 export type ToastTone = "info" | "success" | "error" | "loading";
 

@@ -1,10 +1,10 @@
-import { flushPromises, mount } from "@vue/test-utils";
+import { DOMWrapper, flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import App from "../src/App.vue";
-import { templateFileLanguage } from "../src/lib/templateFileLanguage";
-import type { MacOSApi, RunEvent, SettingsResponse, Workflow } from "../src/types/api";
+import App from "@entry/App.vue";
+import { templateFileLanguage } from "@lib/templateFileLanguage";
+import type { MacOSApi, RunEvent, SettingsResponse, Workflow } from "@api";
 
-vi.mock("@/components/app/MonacoFileEditor.vue", () => ({
+vi.mock("@app/MonacoFileEditor.vue", () => ({
   default: {
     props: ["modelValue", "path", "loading"],
     emits: ["update:modelValue"],
@@ -351,6 +351,12 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
     openDevTools: vi.fn().mockResolvedValue(undefined),
     macName: vi.fn().mockResolvedValue("Local Mac"),
     macHostname: vi.fn().mockResolvedValue("localhost"),
+    macSystemInfo: vi.fn().mockResolvedValue({
+      name: "Local Mac",
+      hostname: "localhost",
+      osLabel: "macOS 15",
+      architectureLabel: "Apple silicon",
+    }),
     getUserPreferences: vi.fn().mockResolvedValue({ theme: "light" }),
     saveUserPreferences: vi.fn().mockImplementation(async (theme: string) => ({
       theme,
@@ -398,6 +404,25 @@ function findDocumentButton(text: string) {
   );
 }
 
+async function clickRunOutputSectionButton(text: string) {
+  const buttons = [
+    ...document.body.querySelectorAll('[data-testid="run-output-sections"] button'),
+  ].filter((button) => button.textContent?.includes(text));
+  const button = buttons.at(-1);
+
+  if (button) {
+    await new DOMWrapper(button).trigger("click");
+  }
+}
+
+function findDialogButton(text: string) {
+  return [
+    ...(document.body
+      .querySelector('[data-slot="alert-dialog-content"]')
+      ?.querySelectorAll("button") ?? []),
+  ].find((button) => button.textContent?.includes(text));
+}
+
 async function flushOutputHighlighting() {
   for (let i = 0; i < 10; i += 1) {
     await flushPromises();
@@ -417,8 +442,25 @@ describe("App", () => {
     const wrapper = mount(App);
     await flushPromises();
 
-    expect(wrapper.text()).toContain("Template");
+    expect(wrapper.text()).toContain("Source");
     expect(wrapper.text()).toContain("Review Template");
+  });
+
+  it("renders a fixed sidebar and keeps resizing inside the workspace", async () => {
+    installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    const nav = wrapper.find("#mac-nav");
+
+    expect(nav.exists()).toBe(true);
+    expect(nav.element.tagName).toBe("ASIDE");
+    expect(nav.classes()).toContain("w-[300px]");
+    expect(nav.classes()).toContain("min-w-[300px]");
+    expect(nav.classes()).toContain("max-w-[300px]");
+    expect(nav.element.nextElementSibling?.tagName).toBe("MAIN");
+    expect(wrapper.find('[data-testid="workspace-resize-handle"]').exists()).toBe(true);
   });
 
   it("keeps only status in the workflow detail toolbar actions area", async () => {
@@ -463,7 +505,7 @@ describe("App", () => {
 
     expect(wrapper.find('[data-testid="initial-shell-skeleton"]').exists()).toBe(true);
     expect(wrapper.findAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
-    expect(wrapper.text()).not.toContain("No template workflows registered.");
+    expect(wrapper.text()).not.toContain("No source workflows registered.");
   });
 
   it("replaces the initial shell with loaded data", async () => {
@@ -478,8 +520,12 @@ describe("App", () => {
     expect(wrapper.text()).toContain("Review Template");
     expect(wrapper.text()).toContain("Mac: Local Mac");
     expect(wrapper.text()).toContain("localhost");
+    expect(wrapper.text()).toContain("macOS 15");
+    expect(wrapper.text()).toContain("Apple silicon");
+    expect(wrapper.text()).toContain("Review and maintain the tracked source of truth");
     expect(api.macName).toHaveBeenCalled();
     expect(api.macHostname).toHaveBeenCalled();
+    expect(api.macSystemInfo).toHaveBeenCalled();
   });
 
   it("filters workflow list with search and category nav", async () => {
@@ -489,12 +535,12 @@ describe("App", () => {
     await flushPromises();
 
     await wrapper.find('[data-testid="app-search"]').setValue("does-not-exist");
-    expect(wrapper.text()).toContain("No template workflows registered.");
+    expect(wrapper.text()).toContain("No source workflows registered.");
 
     await wrapper.find('[data-testid="app-search"]').setValue("");
     await wrapper
       .findAll("button")
-      .find((button) => /^Update\s*\d*$/.test(button.text().trim()))
+      .find((button) => /^Apply\s*\d*$/.test(button.text().trim()))
       ?.trigger("click");
     await flushPromises();
 
@@ -511,7 +557,7 @@ describe("App", () => {
 
     await wrapper
       .findAll("button")
-      .find((button) => /^Update\s*\d*$/.test(button.text().trim()))
+      .find((button) => /^Apply\s*\d*$/.test(button.text().trim()))
       ?.trigger("click");
     await flushPromises();
 
@@ -524,7 +570,7 @@ describe("App", () => {
     expect(
       wrapper.findAll("button").some((button) => button.text().includes("Converge to Template")),
     ).toBe(false);
-    expect(wrapper.text()).toContain("No update workflows registered.");
+    expect(wrapper.text()).toContain("No apply workflows registered.");
 
     await wrapper.find('[data-testid="app-search"]').setValue("converge");
 
@@ -560,6 +606,9 @@ describe("App", () => {
       },
       expect.any(Function),
     );
+    expect(document.body.textContent).not.toContain("healthy");
+    await clickRunOutputSectionButton("Step 1: Validate template files");
+    await flushOutputHighlighting();
     expect(document.body.textContent).toContain("healthy");
     expect(document.body.textContent).toContain("completed");
   });
@@ -581,6 +630,9 @@ describe("App", () => {
     expect(document.body.textContent).toContain("Print tracked Homebrew bundle");
     expect(document.body.textContent).toContain("Run output");
     expect(document.body.textContent).toContain("Step 1: Validate template files");
+    expect(document.body.textContent).not.toContain("healthy");
+    await clickRunOutputSectionButton("Step 1: Validate template files");
+    await flushOutputHighlighting();
     expect(document.body.textContent).toContain("healthy");
     expect(document.body.textContent).not.toContain("phase_started running");
     expect(document.body.textContent).not.toContain("phase_finished ok");
@@ -647,6 +699,10 @@ describe("App", () => {
     const sections = document.body.querySelector('[data-testid="run-output-sections"]');
 
     expect(sections?.textContent).toContain("Step 3: List tracked apps");
+    expect(sections?.textContent).not.toContain("Ghostty");
+    expect(sections?.textContent).not.toContain("Raycast");
+    await clickRunOutputSectionButton("Step 3: List tracked apps");
+    await flushOutputHighlighting();
     expect(sections?.textContent).toContain("Ghostty");
     expect(sections?.textContent).toContain("Raycast");
   });
@@ -784,6 +840,9 @@ describe("App", () => {
     await flushOutputHighlighting();
 
     expect(document.body.querySelector('[data-slot="stepper"]')).not.toBeNull();
+    expect(document.body.textContent).not.toContain("boom");
+    await clickRunOutputSectionButton("Step 2: Print tracked Homebrew bundle");
+    await flushOutputHighlighting();
     expect(document.body.textContent).toContain("boom");
     expect(document.body.textContent).toContain("failed");
   });
@@ -810,6 +869,8 @@ describe("App", () => {
     await flushPromises();
 
     expect(wrapper.text()).not.toContain("Saved content loaded");
+    expect(wrapper.text()).toContain("Tracked app manifest");
+    expect(wrapper.text()).toContain("Defines the apps this template expects");
 
     await wrapper.find("textarea").setValue("apps:\n  - name: Ghostty\n  - name: Raycast\n");
     await wrapper
@@ -825,17 +886,34 @@ describe("App", () => {
     expect(wrapper.text()).toContain("Template file saved");
   });
 
-  it("opens template files from a template workflow in the expanded editor", async () => {
+  it("does not show the template file editor action on the review template workflow", async () => {
+    installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Review Template");
+    expect(wrapper.text()).not.toContain("Update Template Files");
+    expect(wrapper.find("#template-editor").exists()).toBe(false);
+  });
+
+  it("opens template files from an update template workflow in the expanded editor", async () => {
     const api = installApi();
 
     const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Update Template From This Mac"))
+      ?.trigger("click");
     await flushPromises();
 
     expect(wrapper.text()).toContain("Update Template Files");
 
     await wrapper
       .findAll("button")
-      .find((button) => button.text().includes("Update Template Files"))
+      .find((button) => button.text().trim().startsWith("Update Template Files"))
       ?.trigger("click");
     await flushPromises();
 
@@ -861,7 +939,13 @@ describe("App", () => {
 
     await wrapper
       .findAll("button")
-      .find((button) => button.text().includes("Update Template Files"))
+      .find((button) => button.text().includes("Update Template From This Mac"))
+      ?.trigger("click");
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().trim().startsWith("Update Template Files"))
       ?.trigger("click");
     await flushPromises();
 
@@ -873,8 +957,8 @@ describe("App", () => {
 
     expect(wrapper.find("#template-editor").exists()).toBe(false);
     expect(wrapper.find("#mac-detail").exists()).toBe(true);
-    expect(wrapper.text()).toContain("Review Template");
-    expect(wrapper.text()).toContain("Validate template files");
+    expect(wrapper.text()).toContain("Update Template From This Mac");
+    expect(wrapper.text()).toContain("Save current Mac snapshot");
   });
 
   it("prompts before Back discards dirty template file edits", async () => {
@@ -885,7 +969,13 @@ describe("App", () => {
 
     await wrapper
       .findAll("button")
-      .find((button) => button.text().includes("Update Template Files"))
+      .find((button) => button.text().includes("Update Template From This Mac"))
+      ?.trigger("click");
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().trim().startsWith("Update Template Files"))
       ?.trigger("click");
     await flushPromises();
     await wrapper
@@ -908,7 +998,7 @@ describe("App", () => {
     await flushPromises();
 
     expect(wrapper.find("#template-editor").exists()).toBe(false);
-    expect(wrapper.text()).toContain("Review Template");
+    expect(wrapper.text()).toContain("Update Template From This Mac");
   });
 
   it("prompts before Cancel discards dirty template file edits and stays in the editor", async () => {
@@ -919,7 +1009,13 @@ describe("App", () => {
 
     await wrapper
       .findAll("button")
-      .find((button) => button.text().includes("Update Template Files"))
+      .find((button) => button.text().includes("Update Template From This Mac"))
+      ?.trigger("click");
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().trim().startsWith("Update Template Files"))
       ?.trigger("click");
     await flushPromises();
     await wrapper
@@ -994,6 +1090,10 @@ describe("App", () => {
     await flushPromises();
 
     expect(api.runLog).toHaveBeenCalledWith("run-1");
+    const toolbar = wrapper.find('[data-testid="detail-toolbar"]');
+    expect(toolbar.text()).toContain("Check Setup");
+    expect(toolbar.text()).toContain("completed");
+    await flushOutputHighlighting();
     expect(wrapper.text()).toContain("ok");
     expect(wrapper.text()).toContain("live");
   });
@@ -1038,6 +1138,7 @@ describe("App", () => {
       .findAll("button")
       .find((button) => button.text().includes("Check Setup"))
       ?.trigger("click");
+    await flushPromises();
     await flushOutputHighlighting();
 
     expect(wrapper.text()).toContain("red output");
@@ -1051,21 +1152,21 @@ describe("App", () => {
     const wrapper = mount(App);
     await flushPromises();
 
-    // Default section is Template
+    // Default section is Source
     expect(wrapper.text()).toContain("Review Template");
 
     await wrapper
       .findAll("button")
-      .find((button) => /^Current state\s*\d*$/.test(button.text().trim()))
+      .find((button) => /^This Mac\s*\d*$/.test(button.text().trim()))
       ?.trigger("click");
     await flushPromises();
 
     expect(wrapper.text()).toContain("Inspect Current State");
-    expect(wrapper.text()).not.toContain("No current-state workflows registered.");
+    expect(wrapper.text()).not.toContain("No This Mac workflows registered.");
 
     await wrapper
       .findAll("button")
-      .find((button) => /^Update\s*\d*$/.test(button.text().trim()))
+      .find((button) => /^Apply\s*\d*$/.test(button.text().trim()))
       ?.trigger("click");
     await flushPromises();
 
@@ -1080,7 +1181,7 @@ describe("App", () => {
 
     await wrapper
       .findAll("button")
-      .find((button) => /^Current state\s*\d*$/.test(button.text().trim()))
+      .find((button) => /^This Mac\s*\d*$/.test(button.text().trim()))
       ?.trigger("click");
     await flushPromises();
     await wrapper
@@ -1123,11 +1224,78 @@ describe("App", () => {
       ?.trigger("click");
     await flushPromises();
 
+    expect(document.body.textContent).toContain("Save settings?");
+    expect(api.saveSettings).not.toHaveBeenCalled();
+
+    findDialogButton("Save settings")?.click();
+    await flushPromises();
+
     expect(api.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({
         repoRoot: "/repo-next",
         workflowDbPath: "/Users/gus/Library/Application Support/mac-os/workflows.sqlite3",
       }),
+    );
+    expect(wrapper.text()).toContain("Settings saved");
+  });
+
+  it("cancels settings save confirmation without persisting changes", async () => {
+    const api = installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Settings"))
+      ?.trigger("click");
+    await flushPromises();
+
+    await wrapper.find('[data-testid="settings-repo-root"]').setValue("/repo-next");
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Save settings"))
+      ?.trigger("click");
+    await flushPromises();
+
+    expect(document.body.textContent).toContain("Save settings?");
+
+    findDialogButton("Cancel")?.click();
+    await flushPromises();
+
+    expect(api.saveSettings).not.toHaveBeenCalled();
+    expect(wrapper.find<HTMLInputElement>('[data-testid="settings-repo-root"]').element.value).toBe(
+      "/repo-next",
+    );
+  });
+
+  it("saves changed step settings after confirmation", async () => {
+    const api = installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Repository root"))
+      ?.trigger("click");
+    await flushPromises();
+
+    await wrapper.find('[data-testid="step-setting-repoRoot"]').setValue("/repo-step");
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Save settings"))
+      ?.trigger("click");
+    await flushPromises();
+
+    expect(document.body.textContent).toContain("Save settings?");
+    expect(api.saveSettings).not.toHaveBeenCalled();
+
+    findDialogButton("Save settings")?.click();
+    await flushPromises();
+
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ repoRoot: "/repo-step" }),
     );
     expect(wrapper.text()).toContain("Settings saved");
   });
@@ -1217,6 +1385,9 @@ describe("App", () => {
       .findAll("button")
       .find((button) => button.text().includes("Save settings"))
       ?.trigger("click");
+    await flushPromises();
+
+    findDialogButton("Save settings")?.click();
     await flushPromises();
 
     expect(api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ repoRoot: "/broken" }));

@@ -9,16 +9,16 @@ import {
   Wand2,
 } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
-import type { SectionId, StepSettingsKey } from "@/components/app/types";
-import type { ToastItem, ToastTone } from "@/components/ui/toast";
-import { loadThemeFromBackend, useTheme } from "@/composables/useTheme";
-import { errorMessage } from "@/lib/format";
+import type { SectionId, StepSettingsKey } from "@app/types";
+import type { ToastItem, ToastTone } from "@ui/toast";
+import { loadThemeFromBackend, useTheme } from "@composables/useTheme";
+import { errorMessage } from "@lib/format";
 import {
   getWorkflowDetail,
   workflowsInCategory,
   type WorkflowCategory,
-} from "@/lib/workflowDetails";
-import { formatRunOutputSections } from "@/lib/runOutput";
+} from "@lib/workflowDetails";
+import { formatRunOutputSections } from "@lib/runOutput";
 import type {
   ConfirmationOption,
   OpItem,
@@ -27,11 +27,12 @@ import type {
   RunEvent,
   RunLog,
   RunSummary,
+  MacSystemInfo,
   RuntimeSettings,
   SettingsResponse,
   TemplateFileSummary,
   Workflow,
-} from "@/types/api";
+} from "@api";
 
 interface TemplateEditorReturnState {
   section: SectionId;
@@ -47,6 +48,12 @@ export function useAppController() {
   const selectedSettingsKey = ref<StepSettingsKey | null>(null);
   const macName = ref("");
   const macHostname = ref("");
+  const macSystemInfo = ref<MacSystemInfo>({
+    name: "",
+    hostname: "",
+    osLabel: "",
+    architectureLabel: "",
+  });
   const workflows = ref<Workflow[]>([]);
   const runs = ref<RunSummary[]>([]);
   const selectedWorkflowId = ref("");
@@ -62,7 +69,6 @@ export function useAppController() {
   const initialLoading = ref(true);
   const runLogLoading = ref(false);
   const loadError = ref("");
-  const navCollapsed = ref(false);
   const searchQuery = ref("");
   const logTab = ref("all");
   const settingsResponse = ref<SettingsResponse | null>(null);
@@ -73,6 +79,7 @@ export function useAppController() {
   const settingsPickerField = ref<keyof RuntimeSettings | null>(null);
   const settingsMessage = ref("");
   const settingsError = ref("");
+  const settingsSaveConfirmationOpen = ref(false);
   const opVaults = ref<OpVault[]>([]);
   const opItems = ref<OpItem[]>([]);
   const opVaultsLoading = ref(false);
@@ -97,7 +104,7 @@ export function useAppController() {
   const stepNavItems = computed(() => [
     {
       id: "template" as const,
-      label: "Template",
+      label: "Source",
       icon: FileText,
       count: workflowsLoading.value
         ? null
@@ -105,13 +112,13 @@ export function useAppController() {
     },
     {
       id: "current" as const,
-      label: "Current state",
+      label: "This Mac",
       icon: Eye,
       count: workflowsLoading.value ? null : workflowsInCategory(workflows.value, "current").length,
     },
     {
       id: "update" as const,
-      label: "Update",
+      label: "Apply",
       icon: Wand2,
       count: workflowsLoading.value ? null : workflowsInCategory(workflows.value, "update").length,
     },
@@ -129,21 +136,36 @@ export function useAppController() {
 
   const stepSectionMeta: Record<
     "template" | "current" | "update",
-    { title: string; emptyMessage: string; settingsKeys: StepSettingsKey[] }
+    {
+      id: "template" | "current" | "update";
+      title: string;
+      summary: string;
+      emptyMessage: string;
+      settingsKeys: StepSettingsKey[];
+    }
   > = {
     template: {
-      title: "Template",
-      emptyMessage: "No template workflows registered.",
+      id: "template",
+      title: "Source",
+      summary:
+        "Review and maintain the tracked source of truth: app manifests, secrets references, stow dotfiles, and template update workflows.",
+      emptyMessage: "No source workflows registered.",
       settingsKeys: ["repoRoot", "appsConfigPath", "secretsConfigPath"],
     },
     current: {
-      title: "Current state",
-      emptyMessage: "No current-state workflows registered.",
+      id: "current",
+      title: "This Mac",
+      summary:
+        "Inspect this Mac's installed tools, app inventory, saved snapshots, and generated review candidates.",
+      emptyMessage: "No This Mac workflows registered.",
       settingsKeys: ["archiveRoot", "generatedAppsPath", "workflowDbPath"],
     },
     update: {
-      title: "Update",
-      emptyMessage: "No update workflows registered.",
+      id: "update",
+      title: "Apply",
+      summary:
+        "Apply tracked template changes, restore snapshots, and remove untracked software from this Mac.",
+      emptyMessage: "No apply workflows registered.",
       settingsKeys: ["archiveRoot", "opVault", "opItem"],
     },
   };
@@ -430,6 +452,7 @@ export function useAppController() {
         themeResult,
         macNameResult,
         macHostnameResult,
+        macSystemInfoResult,
       ] = await Promise.allSettled([
         window.macOS.workflows(),
         window.macOS.runs(25),
@@ -437,6 +460,7 @@ export function useAppController() {
         loadThemeFromBackend(),
         window.macOS.macName(),
         window.macOS.macHostname(),
+        window.macOS.macSystemInfo?.() ?? Promise.reject(new Error("macSystemInfo unavailable")),
       ]);
 
       if (workflowsResult.status === "fulfilled") {
@@ -468,6 +492,15 @@ export function useAppController() {
       macName.value = macNameResult.status === "fulfilled" ? macNameResult.value : "Mac";
       macHostname.value =
         macHostnameResult.status === "fulfilled" ? macHostnameResult.value : "local";
+      macSystemInfo.value =
+        macSystemInfoResult.status === "fulfilled"
+          ? macSystemInfoResult.value
+          : {
+              name: macName.value,
+              hostname: macHostname.value,
+              osLabel: "",
+              architectureLabel: "",
+            };
       workflowsLoading.value = false;
       runsLoading.value = false;
       settingsLoading.value = false;
@@ -531,6 +564,23 @@ export function useAppController() {
         macHostname.value ||= "local";
       });
 
+    const macSystemInfoPromise = (
+      window.macOS.macSystemInfo?.() ?? Promise.reject(new Error("macSystemInfo unavailable"))
+    )
+      .then((info) => {
+        macSystemInfo.value = info;
+        macName.value = info.name;
+        macHostname.value = info.hostname;
+      })
+      .catch(() => {
+        macSystemInfo.value = {
+          name: macName.value || "Mac",
+          hostname: macHostname.value || "local",
+          osLabel: "",
+          architectureLabel: "",
+        };
+      });
+
     await Promise.allSettled([
       workflowsPromise,
       runsPromise,
@@ -538,6 +588,7 @@ export function useAppController() {
       themePromise,
       macNamePromise,
       macHostnamePromise,
+      macSystemInfoPromise,
     ]);
   }
 
@@ -1012,6 +1063,31 @@ export function useAppController() {
     }
   }
 
+  function requestSaveSettings() {
+    if (!settingsDirty.value || settingsSaving.value) {
+      return;
+    }
+
+    settingsSaveConfirmationOpen.value = true;
+  }
+
+  function updateSettingsSaveConfirmationOpen(open: boolean) {
+    if (settingsSaving.value) {
+      return;
+    }
+
+    settingsSaveConfirmationOpen.value = open;
+  }
+
+  async function confirmSaveSettings() {
+    if (settingsSaving.value) {
+      return;
+    }
+
+    await saveSettings();
+    settingsSaveConfirmationOpen.value = false;
+  }
+
   function pushToast(title: string, description?: string, tone: ToastTone = "info") {
     const id = crypto.randomUUID();
     const previous =
@@ -1032,6 +1108,7 @@ export function useAppController() {
     settingsForm.value = { ...(settingsResponse.value?.settings ?? emptySettings()) };
     settingsError.value = "";
     settingsMessage.value = "";
+    settingsSaveConfirmationOpen.value = false;
   }
 
   function updateSetting(key: keyof RuntimeSettings, value: string) {
@@ -1101,6 +1178,7 @@ export function useAppController() {
     selectedTemplateFiles,
     macName,
     macHostname,
+    macSystemInfo,
     selectedWorkflowId,
     selectedRunId,
     selectedRunLog,
@@ -1111,7 +1189,6 @@ export function useAppController() {
     initialLoading,
     runLogLoading,
     loadError,
-    navCollapsed,
     searchQuery,
     logTab,
     settingsResponse,
@@ -1122,6 +1199,7 @@ export function useAppController() {
     settingsPickerField,
     settingsMessage,
     settingsError,
+    settingsSaveConfirmationOpen,
     opVaultsLoading,
     opItemsLoading,
     opVaultsError,
@@ -1188,7 +1266,9 @@ export function useAppController() {
     runSelected,
     openRun,
     validateSettings,
-    saveSettings,
+    requestSaveSettings,
+    updateSettingsSaveConfirmationOpen,
+    confirmSaveSettings,
     dismissToast,
     resetSettingsForm,
     updateSetting,

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from "vue";
 import { ViewVerticalIcon } from "@radix-icons/vue";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { useSidebar } from "./utils";
+import { cn } from "@lib/utils";
+import { Button } from "@ui/button";
+import { useSidebar } from "@ui/sidebar/utils";
 
 const props = defineProps<{
   class?: HTMLAttributes["class"];

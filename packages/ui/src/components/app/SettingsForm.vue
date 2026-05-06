@@ -10,33 +10,20 @@ import {
   RefreshCw,
   Save,
 } from "lucide-vue-next";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import StatusBadge from "@/components/StatusBadge.vue";
-import type { SavedField, SelectOption } from "@/components/app/types";
-import type { RuntimeSettings, SettingsCheck, SettingsResponse } from "@/types/api";
+import { Avatar, AvatarFallback } from "@ui/avatar";
+import { Button } from "@ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
+import { Input } from "@ui/input";
+import { Label } from "@ui/label";
+import { ScrollArea } from "@ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ui/select";
+import { Separator } from "@ui/separator";
+import { Skeleton } from "@ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
+import StatusBadge from "@components/StatusBadge.vue";
+import type { SavedField, SelectOption } from "@app/types";
+import type { RuntimeSettings, SettingsCheck, SettingsResponse } from "@api";
 
 type SettingsKey = keyof RuntimeSettings;
 
@@ -71,7 +58,7 @@ const emit = defineEmits<{
   (event: "choose-save-file", key: SettingsKey): void;
   (event: "validate-settings"): void;
   (event: "reset-settings"): void;
-  (event: "save-settings"): void;
+  (event: "request-save-settings"): void;
   (event: "op-vault-change", value: unknown): void;
   (event: "op-item-change", value: unknown): void;
   (event: "signin-op-cli"): void;
@@ -531,7 +518,7 @@ const emit = defineEmits<{
       type="button"
       class="ml-auto"
       :disabled="!settingsDirty || settingsSaving"
-      @click="emit('save-settings')"
+      @click="emit('request-save-settings')"
     >
       <Loader2 v-if="settingsSaving" class="size-4 animate-spin" />
       <Save v-else class="size-4" />

@@ -9,7 +9,7 @@ import type {
   TemplateFileSummary,
   UserPreferences,
   Workflow,
-} from "../types/api";
+} from "@api";
 
 const fallbackWorkflows: Workflow[] = [
   {
@@ -242,6 +242,12 @@ export function installBrowserFallback() {
     },
     macName: async () => "Local Mac",
     macHostname: async () => "localhost",
+    macSystemInfo: async () => ({
+      name: "Local Mac",
+      hostname: "localhost",
+      osLabel: "macOS 15",
+      architectureLabel: "Apple silicon",
+    }),
     getUserPreferences: async () => fallbackPreferences,
     saveUserPreferences: async (theme) => {
       fallbackPreferences = { theme, updatedAt: new Date().toISOString() };

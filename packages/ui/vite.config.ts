@@ -8,7 +8,13 @@ export default defineConfig({
   cacheDir: resolve(__dirname, "../../storage/.cache/vite/ui"),
   resolve: {
     alias: {
-      "@": resolve(__dirname, "./src"),
+      "@entry": resolve(__dirname, "./src"),
+      "@app": resolve(__dirname, "./src/components/app"),
+      "@components": resolve(__dirname, "./src/components"),
+      "@ui": resolve(__dirname, "./src/components/ui"),
+      "@composables": resolve(__dirname, "./src/composables"),
+      "@lib": resolve(__dirname, "./src/lib"),
+      "@api": resolve(__dirname, "./src/types/api.ts"),
     },
   },
   server: {

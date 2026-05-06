@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { highlightAnsiOutput } from "@/lib/shiki";
+import { highlightAnsiOutput } from "@lib/shiki";
 import { computed, ref, watchEffect } from "vue";
 
 const props = withDefaults(

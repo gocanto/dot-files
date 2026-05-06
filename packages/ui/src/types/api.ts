@@ -104,6 +104,13 @@ export interface UserPreferences {
   updatedAt?: string;
 }
 
+export interface MacSystemInfo {
+  name: string;
+  hostname: string;
+  osLabel: string;
+  architectureLabel: string;
+}
+
 export interface OpVault {
   id: string;
   name: string;
@@ -147,6 +154,7 @@ export interface MacOSApi {
   openDevTools(): Promise<void>;
   macName(): Promise<string>;
   macHostname(): Promise<string>;
+  macSystemInfo?(): Promise<MacSystemInfo>;
   getUserPreferences(): Promise<UserPreferences>;
   saveUserPreferences(theme: string): Promise<UserPreferences>;
 }

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ShieldCheck } from "lucide-vue-next";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import { initials } from "@/lib/format";
+import { Avatar, AvatarFallback } from "@ui/avatar";
+import { Separator } from "@ui/separator";
+import { initials } from "@lib/format";
 
 defineProps<{
   section: string;

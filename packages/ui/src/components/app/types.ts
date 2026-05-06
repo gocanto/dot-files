@@ -1,5 +1,5 @@
 import type { Component } from "vue";
-import type { Phase, RuntimeSettings } from "@/types/api";
+import type { Phase, RuntimeSettings } from "@api";
 
 export type SectionId = "template" | "current" | "update" | "settings" | "logs";
 export type StepSettingsKey = keyof RuntimeSettings;
@@ -12,7 +12,9 @@ export interface NavItem {
 }
 
 export interface StepMeta {
+  id: "template" | "current" | "update";
   title: string;
+  summary: string;
   emptyMessage: string;
   settingsKeys: StepSettingsKey[];
 }

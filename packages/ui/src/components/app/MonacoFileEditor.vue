@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import type { editor } from "monaco-editor/esm/vs/editor/editor.api.js";
-import { setupMonaco } from "@/lib/monaco";
-import { templateFileLanguage } from "@/lib/templateFileLanguage";
+import { setupMonaco } from "@lib/monaco";
+import { templateFileLanguage } from "@lib/templateFileLanguage";
 
 const props = defineProps<{
   modelValue: string;

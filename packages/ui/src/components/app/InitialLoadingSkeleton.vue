@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@ui/separator";
+import { Skeleton } from "@ui/skeleton";
 </script>
 
 <template>

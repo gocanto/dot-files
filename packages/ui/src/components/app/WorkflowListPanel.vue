@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { Files, Search, Settings, TerminalSquare } from "lucide-vue-next";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
-import WorkflowCardList from "@/components/WorkflowCardList.vue";
+import { Input } from "@ui/input";
+import { ScrollArea } from "@ui/scroll-area";
+import { Separator } from "@ui/separator";
+import { Skeleton } from "@ui/skeleton";
+import WorkflowCardList from "@components/WorkflowCardList.vue";
 import {
   listItemClass,
   panelHeaderClass,
   searchBarClass,
   selectedListItemClass,
-} from "@/components/app/styles";
-import type { StepMeta, StepSettingsKey } from "@/components/app/types";
-import { cn } from "@/lib/utils";
-import type { RuntimeSettings, SettingsResponse, Workflow } from "@/types/api";
+} from "@app/styles";
+import type { StepMeta, StepSettingsKey } from "@app/types";
+import { cn } from "@lib/utils";
+import type { RuntimeSettings, SettingsResponse, Workflow } from "@api";
 
 defineProps<{
   stepMeta: StepMeta;
@@ -40,8 +40,18 @@ const emit = defineEmits<{
 
 <template>
   <div class="flex h-full min-h-0 flex-col">
-    <div :class="cn('flex min-h-[var(--panel-header-h)] items-center px-4', panelHeaderClass)">
+    <div
+      :class="
+        cn(
+          'flex min-h-[var(--panel-header-h)] flex-col justify-center gap-1 px-4',
+          panelHeaderClass,
+        )
+      "
+    >
       <h1 class="text-xl font-bold">{{ stepMeta.title }}</h1>
+      <p class="line-clamp-2 text-sm leading-5 text-muted-foreground">
+        {{ stepMeta.summary }}
+      </p>
     </div>
     <Separator />
     <div :class="searchBarClass">
@@ -62,7 +72,7 @@ const emit = defineEmits<{
       <div
         v-if="workflowsLoading"
         data-testid="workflows-list-skeleton"
-        class="flex flex-col gap-2 p-4 pt-0"
+        class="flex flex-col gap-2 p-4"
       >
         <div
           v-for="index in 6"
@@ -107,7 +117,7 @@ const emit = defineEmits<{
         </template>
         <template v-else>
           <button
-            v-if="stepMeta.title === 'Template'"
+            v-if="stepMeta.id === 'template'"
             :class="
               cn(
                 'flex items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-all hover:bg-accent',
