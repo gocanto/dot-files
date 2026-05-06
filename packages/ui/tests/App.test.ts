@@ -1,7 +1,17 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../src/App.vue";
+import { templateFileLanguage } from "../src/lib/templateFileLanguage";
 import type { MacOSApi, RunEvent, SettingsResponse, Workflow } from "../src/types/api";
+
+vi.mock("@/components/app/MonacoFileEditor.vue", () => ({
+  default: {
+    props: ["modelValue", "path", "loading"],
+    emits: ["update:modelValue"],
+    template:
+      '<textarea data-testid="monaco-editor" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+  },
+}));
 
 const workflows: Workflow[] = [
   {
@@ -10,17 +20,39 @@ const workflows: Workflow[] = [
     description: "Validate and print the tracked source of truth.",
     changesMac: "No",
     phases: [
-      { id: "validate-template-files", name: "Validate template files", enabled: true },
-      { id: "print-tracked-homebrew-bundle", name: "Print tracked Homebrew bundle", enabled: true },
+      {
+        id: "validate-template-files",
+        name: "Validate template files",
+        enabled: true,
+      },
+      {
+        id: "print-tracked-homebrew-bundle",
+        name: "Print tracked Homebrew bundle",
+        enabled: true,
+      },
       { id: "list-tracked-apps", name: "List tracked apps", enabled: true },
-      { id: "list-tracked-macos-settings", name: "List tracked macOS settings", enabled: true },
-      { id: "list-tracked-dotfile-bundles", name: "List tracked dotfile bundles", enabled: true },
+      {
+        id: "list-tracked-macos-settings",
+        name: "List tracked macOS settings",
+        enabled: true,
+      },
+      {
+        id: "list-tracked-dotfile-bundles",
+        name: "List tracked dotfile bundles",
+        enabled: true,
+      },
     ],
     confirmation: {
       title: "Review Template",
       message: "Validate and print the template.",
       options: [
-        { id: "run-now", label: "Run now", description: "continue", continue: true, back: false },
+        {
+          id: "run-now",
+          label: "Run now",
+          description: "continue",
+          continue: true,
+          back: false,
+        },
         {
           id: "back",
           label: "Back",
@@ -37,7 +69,11 @@ const workflows: Workflow[] = [
     description: "Generate review candidates from this Mac.",
     changesMac: "Writes review candidates",
     phases: [
-      { id: "save-current-mac-snapshot", name: "Save current Mac snapshot", enabled: true },
+      {
+        id: "save-current-mac-snapshot",
+        name: "Save current Mac snapshot",
+        enabled: true,
+      },
       {
         id: "generate-installed-app-review-candidate",
         name: "Generate installed app review candidate",
@@ -55,7 +91,11 @@ const workflows: Workflow[] = [
           continue: true,
           back: false,
           phases: [
-            { id: "save-current-mac-snapshot", name: "Save current Mac snapshot", enabled: true },
+            {
+              id: "save-current-mac-snapshot",
+              name: "Save current Mac snapshot",
+              enabled: true,
+            },
             {
               id: "generate-installed-app-review-candidate",
               name: "Generate installed app review candidate",
@@ -70,7 +110,11 @@ const workflows: Workflow[] = [
           continue: true,
           back: false,
           phases: [
-            { id: "save-current-mac-snapshot", name: "Save current Mac snapshot", enabled: true },
+            {
+              id: "save-current-mac-snapshot",
+              name: "Save current Mac snapshot",
+              enabled: true,
+            },
             {
               id: "generate-installed-app-review-candidate",
               name: "Generate installed app review candidate",
@@ -91,7 +135,13 @@ const workflows: Workflow[] = [
       title: "Inspect Current State",
       message: "Run health checks only.",
       options: [
-        { id: "run-now", label: "Run now", description: "continue", continue: true, back: false },
+        {
+          id: "run-now",
+          label: "Run now",
+          description: "continue",
+          continue: true,
+          back: false,
+        },
       ],
     },
   },
@@ -100,7 +150,13 @@ const workflows: Workflow[] = [
     name: "Converge to Template",
     description: "Install configured applications.",
     changesMac: "Yes",
-    phases: [{ id: "install-homebrew-apps", name: "Install Homebrew apps", enabled: true }],
+    phases: [
+      {
+        id: "install-homebrew-apps",
+        name: "Install Homebrew apps",
+        enabled: true,
+      },
+    ],
     confirmation: {
       title: "Converge to Template",
       message: "Install configured applications.",
@@ -158,17 +214,52 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
     }),
     templateFiles: vi.fn().mockResolvedValue([
       {
+        path: "/repo/apps.generated.yaml",
+        relative: "apps.generated.yaml",
+        kind: "apps",
+        size: 18194,
+        exists: true,
+      },
+      {
         path: "/repo/apps.yaml",
         relative: "apps.yaml",
         kind: "apps",
-        size: 64,
+        size: 10897,
+        exists: true,
+      },
+      {
+        path: "/repo/secrets.yaml",
+        relative: "secrets.yaml",
+        kind: "secrets",
+        size: 271,
+        exists: true,
+      },
+      {
+        path: "/repo/stow/ghostty/.config/ghostty/config",
+        relative: "stow/ghostty/.config/ghostty/config",
+        kind: "stow",
+        size: 1520,
+        exists: true,
+      },
+      {
+        path: "/repo/stow/git/.config/git/ignore",
+        relative: "stow/git/.config/git/ignore",
+        kind: "stow",
+        size: 31,
         exists: true,
       },
       {
         path: "/repo/stow/shell/.zshrc",
         relative: "stow/shell/.zshrc",
         kind: "stow",
-        size: 20,
+        size: 5069,
+        exists: true,
+      },
+      {
+        path: "/repo/stow/vim/.vimrc",
+        relative: "stow/vim/.vimrc",
+        kind: "stow",
+        size: 2815,
         exists: true,
       },
     ]),
@@ -205,7 +296,13 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
         opItem: "Mac Migration Archive",
       },
       checks: [
-        { key: "repo_root", label: "Repository root", path: "/repo", status: "ok", message: "ok" },
+        {
+          key: "repo_root",
+          label: "Repository root",
+          path: "/repo",
+          status: "ok",
+          message: "ok",
+        },
         {
           key: "workflow_db_path",
           label: "Workflow SQLite database",
@@ -245,9 +342,10 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
     chooseFile: vi.fn().mockResolvedValue("/chosen/file.yaml"),
     chooseSaveFile: vi.fn().mockResolvedValue("/chosen/workflows.sqlite3"),
     listOpVaults: vi.fn().mockResolvedValue({ ok: true, vaults: [{ id: "v1", name: "Private" }] }),
-    listOpItems: vi
-      .fn()
-      .mockResolvedValue({ ok: true, items: [{ id: "i1", title: "Mac Migration Archive" }] }),
+    listOpItems: vi.fn().mockResolvedValue({
+      ok: true,
+      items: [{ id: "i1", title: "Mac Migration Archive" }],
+    }),
     signinOpCli: vi.fn().mockResolvedValue({ ok: true }),
     installOpDependencies: vi.fn().mockResolvedValue({ ok: true }),
     openDevTools: vi.fn().mockResolvedValue(undefined),
@@ -277,7 +375,12 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
           phaseName: "Validate template files",
           message: "healthy",
         });
-        onEvent({ runId: "run-2", seq: 3, type: "run_finished", status: "completed" });
+        onEvent({
+          runId: "run-2",
+          seq: 3,
+          type: "run_finished",
+          status: "completed",
+        });
 
         return { exitCode: 0 };
       }),
@@ -520,7 +623,12 @@ describe("App", () => {
             phaseName: "List tracked apps",
             status: "ok",
           });
-          onEvent({ runId: "run-streamed", seq: 5, type: "run_finished", status: "completed" });
+          onEvent({
+            runId: "run-streamed",
+            seq: 5,
+            type: "run_finished",
+            status: "completed",
+          });
 
           return { exitCode: 0 };
         }),
@@ -654,7 +762,12 @@ describe("App", () => {
             status: "failed",
             message: "failed",
           });
-          onEvent({ runId: "run-failed", seq: 4, type: "run_failed", status: "failed" });
+          onEvent({
+            runId: "run-failed",
+            seq: 4,
+            type: "run_failed",
+            status: "failed",
+          });
 
           return { exitCode: 1 };
         }),
@@ -696,6 +809,8 @@ describe("App", () => {
       ?.trigger("click");
     await flushPromises();
 
+    expect(wrapper.text()).not.toContain("Saved content loaded");
+
     await wrapper.find("textarea").setValue("apps:\n  - name: Ghostty\n  - name: Raycast\n");
     await wrapper
       .findAll("button")
@@ -707,7 +822,130 @@ describe("App", () => {
       "/repo/apps.yaml",
       "apps:\n  - name: Ghostty\n  - name: Raycast\n",
     );
-    expect(wrapper.text()).toContain("Template file saved.");
+    expect(wrapper.text()).toContain("Template file saved");
+  });
+
+  it("opens template files from a template workflow in the expanded editor", async () => {
+    const api = installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Update Template Files");
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Update Template Files"))
+      ?.trigger("click");
+    await flushPromises();
+
+    expect(api.templateFiles).toHaveBeenCalled();
+    expect(wrapper.find("#template-editor").exists()).toBe(true);
+    expect(wrapper.find("#mac-list").exists()).toBe(false);
+    expect(wrapper.find('[data-testid="expanded-template-editor"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("apps.yaml");
+    expect(wrapper.find('[data-testid="template-file-icon-generated-apps"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="template-file-icon-apps"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="template-file-icon-secrets"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="template-file-icon-terminal-config"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="template-file-icon-git-config"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="template-file-icon-shell-config"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="template-file-icon-vim-config"]').exists()).toBe(true);
+  });
+
+  it("returns to the previous workflow when Back is pressed from the expanded editor", async () => {
+    installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Update Template Files"))
+      ?.trigger("click");
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().trim() === "Back")
+      ?.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find("#template-editor").exists()).toBe(false);
+    expect(wrapper.find("#mac-detail").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Review Template");
+    expect(wrapper.text()).toContain("Validate template files");
+  });
+
+  it("prompts before Back discards dirty template file edits", async () => {
+    installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Update Template Files"))
+      ?.trigger("click");
+    await flushPromises();
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().trim().startsWith("apps.yaml"))
+      ?.trigger("click");
+    await flushPromises();
+
+    await wrapper.find('[data-testid="monaco-editor"]').setValue("apps:\n  - name: Raycast\n");
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().trim() === "Back")
+      ?.trigger("click");
+    await flushPromises();
+
+    expect(document.body.textContent).toContain("Discard unsaved changes?");
+    expect(wrapper.find("#template-editor").exists()).toBe(true);
+
+    findDocumentButton("Discard changes")?.click();
+    await flushPromises();
+
+    expect(wrapper.find("#template-editor").exists()).toBe(false);
+    expect(wrapper.text()).toContain("Review Template");
+  });
+
+  it("prompts before Cancel discards dirty template file edits and stays in the editor", async () => {
+    installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Update Template Files"))
+      ?.trigger("click");
+    await flushPromises();
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().trim().startsWith("apps.yaml"))
+      ?.trigger("click");
+    await flushPromises();
+
+    const editor = wrapper.find('[data-testid="monaco-editor"]');
+    await editor.setValue("apps:\n  - name: Raycast\n");
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().trim() === "Cancel")
+      ?.trigger("click");
+    await flushPromises();
+
+    expect(document.body.textContent).toContain("Discard unsaved changes?");
+
+    findDocumentButton("Discard changes")?.click();
+    await flushPromises();
+
+    expect(wrapper.find("#template-editor").exists()).toBe(true);
+    expect(
+      (wrapper.find('[data-testid="monaco-editor"]').element as HTMLTextAreaElement).value,
+    ).toBe("apps:\n  - name: Ghostty\n");
+    expect(wrapper.text()).not.toContain("Template file changes discarded.");
   });
 
   it("shows skeletons while template files load", async () => {
@@ -834,6 +1072,37 @@ describe("App", () => {
     expect(wrapper.text()).toContain("Converge to Template");
   });
 
+  it("does not show the template file editor action on non-template workflows", async () => {
+    installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => /^Current state\s*\d*$/.test(button.text().trim()))
+      ?.trigger("click");
+    await flushPromises();
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Inspect Current State"))
+      ?.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain("Update Template Files");
+  });
+
+  it("maps template file names to Monaco languages", () => {
+    expect(templateFileLanguage("/repo/apps.yaml")).toBe("yaml");
+    expect(templateFileLanguage("/repo/secrets.yml")).toBe("yaml");
+    expect(templateFileLanguage("/repo/stow/shell/.zshrc")).toBe("shell");
+    expect(templateFileLanguage("/repo/stow/shell/.bash_profile")).toBe("shell");
+    expect(templateFileLanguage("/repo/files/install.sh")).toBe("shell");
+    expect(templateFileLanguage("/repo/editors/vscode/settings.json")).toBe("json");
+    expect(templateFileLanguage("/repo/stow/git/.gitconfig")).toBe("plaintext");
+    expect(templateFileLanguage("/repo/stow/ghostty/.config/ghostty/config")).toBe("plaintext");
+  });
+
   it("renders settings and saves changed repo configuration", async () => {
     const api = installApi();
 
@@ -877,7 +1146,13 @@ describe("App", () => {
         opItem: "Mac Migration Archive",
       },
       checks: [
-        { key: "repo_root", label: "Repository root", path: "/repo", status: "ok", message: "ok" },
+        {
+          key: "repo_root",
+          label: "Repository root",
+          path: "/repo",
+          status: "ok",
+          message: "ok",
+        },
       ],
     };
     let call = 0;

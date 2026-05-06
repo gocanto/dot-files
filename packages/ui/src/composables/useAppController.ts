@@ -33,6 +33,13 @@ import type {
   Workflow,
 } from "@/types/api";
 
+interface TemplateEditorReturnState {
+  section: SectionId;
+  selectedWorkflowId: string;
+  selectedSettingsKey: StepSettingsKey | null;
+  enabledPhaseIds: Set<string>;
+}
+
 export function useAppController() {
   const { theme, toggleTheme } = useTheme();
 
@@ -85,6 +92,7 @@ export function useAppController() {
   const templateFileDraft = ref("");
   const templateFileError = ref("");
   const templateFileMessage = ref("");
+  const templateEditorReturnState = ref<TemplateEditorReturnState | null>(null);
 
   const stepNavItems = computed(() => [
     {
@@ -539,6 +547,7 @@ export function useAppController() {
     selectedWorkflowId.value = "";
     selectedSettingsKey.value = null;
     selectedTemplateFiles.value = false;
+    templateEditorReturnState.value = null;
 
     if (next === "logs") {
       void refreshRuns();
@@ -708,13 +717,48 @@ export function useAppController() {
   }
 
   async function selectTemplateFiles() {
-    selectedWorkflowId.value = "";
+    templateEditorReturnState.value = {
+      section: section.value,
+      selectedWorkflowId: selectedWorkflowId.value,
+      selectedSettingsKey: selectedSettingsKey.value,
+      enabledPhaseIds: new Set(enabledPhaseIds.value),
+    };
     selectedSettingsKey.value = null;
     selectedTemplateFiles.value = true;
 
     if (templateFiles.value.length === 0) {
       await loadTemplateFiles();
     }
+  }
+
+  function closeTemplateFiles() {
+    const returnState = templateEditorReturnState.value;
+    selectedTemplateFiles.value = false;
+    templateEditorReturnState.value = null;
+    templateFileError.value = "";
+    templateFileMessage.value = "";
+
+    if (!returnState?.selectedWorkflowId) {
+      section.value = "template";
+      selectedWorkflowId.value = "";
+      selectedSettingsKey.value = null;
+      enabledPhaseIds.value = new Set();
+
+      return;
+    }
+
+    section.value = returnState.section;
+    selectedWorkflowId.value = returnState.selectedWorkflowId;
+    selectedSettingsKey.value = returnState.selectedSettingsKey;
+    enabledPhaseIds.value = new Set(returnState.enabledPhaseIds);
+  }
+
+  function cancelTemplateFileEdit() {
+    templateFileDraft.value = templateFileContent.value;
+    templateFileError.value = "";
+    templateFileMessage.value = selectedTemplateFilePath.value
+      ? "Template file changes discarded."
+      : "";
   }
 
   function resetEnabledPhases() {
@@ -1123,9 +1167,11 @@ export function useAppController() {
     selectSection,
     selectStepSetting,
     selectTemplateFiles,
+    closeTemplateFiles,
     loadTemplateFiles,
     selectTemplateFile,
     saveTemplateFile,
+    cancelTemplateFileEdit,
     updateTemplateFileDraft,
     loadOpVaults,
     onOpVaultChange,

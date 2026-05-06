@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckCircle2, Circle } from "lucide-vue-next";
+import { CheckCircle2, Circle, Files } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -23,6 +23,7 @@ const emit = defineEmits<{
   (event: "reset-phases"): void;
   (event: "toggle-phase", phase: Phase): void;
   (event: "open-confirmation", option: ConfirmationOption): void;
+  (event: "open-template-files"): void;
   (event: "close-detail"): void;
 }>();
 </script>
@@ -47,19 +48,25 @@ const emit = defineEmits<{
             <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Purpose
             </div>
-            <p class="mt-1 text-sm leading-6">{{ selectedWorkflowDetail.purpose }}</p>
+            <p class="mt-1 text-sm leading-6">
+              {{ selectedWorkflowDetail.purpose }}
+            </p>
           </div>
           <div v-if="selectedWorkflowDetail.details">
             <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               What it does
             </div>
-            <p class="mt-1 text-sm leading-6">{{ selectedWorkflowDetail.details }}</p>
+            <p class="mt-1 text-sm leading-6">
+              {{ selectedWorkflowDetail.details }}
+            </p>
           </div>
           <div v-if="selectedWorkflowDetail.whenToRun">
             <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               When to run
             </div>
-            <p class="mt-1 text-sm leading-6">{{ selectedWorkflowDetail.whenToRun }}</p>
+            <p class="mt-1 text-sm leading-6">
+              {{ selectedWorkflowDetail.whenToRun }}
+            </p>
           </div>
           <div v-if="selectedWorkflowDetail.sideEffects.length">
             <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -82,6 +89,27 @@ const emit = defineEmits<{
             </ul>
           </div>
         </div>
+      </section>
+
+      <section v-if="selectedWorkflowDetail?.category === 'template'" :class="detailSectionClass">
+        <h2 class="mb-1 text-sm font-semibold">Update Template Files</h2>
+        <p class="mb-3 text-sm leading-6 text-muted-foreground">
+          Open the expanded editor for allowlisted manifests and stow dotfiles. Back returns here
+          with your selected phases preserved.
+        </p>
+        <Button
+          variant="ghost"
+          class="h-auto w-full justify-start gap-3 whitespace-normal border border-section-border bg-section-muted px-3 py-2 text-left text-foreground hover:bg-accent hover:text-foreground"
+          @click="emit('open-template-files')"
+        >
+          <Files class="size-4 shrink-0 text-muted-foreground" />
+          <span class="min-w-0 flex-1">
+            <span class="block font-medium">Update Template Files</span>
+            <span class="block text-xs text-muted-foreground">
+              Edit apps, secrets, generated app lists, and stow files
+            </span>
+          </span>
+        </Button>
       </section>
 
       <section :class="detailSectionClass">
@@ -109,7 +137,9 @@ const emit = defineEmits<{
       </section>
 
       <section v-if="selectedWorkflow.confirmation" :class="detailSectionClass">
-        <h2 class="mb-2 text-sm font-semibold">{{ selectedWorkflow.confirmation.title }}</h2>
+        <h2 class="mb-2 text-sm font-semibold">
+          {{ selectedWorkflow.confirmation.title }}
+        </h2>
         <p class="mb-3 text-sm leading-6 text-muted-foreground">
           {{ selectedWorkflow.confirmation.message }}
         </p>

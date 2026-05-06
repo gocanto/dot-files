@@ -95,9 +95,11 @@ const {
   selectSection,
   selectStepSetting,
   selectTemplateFiles,
+  closeTemplateFiles,
   loadTemplateFiles,
   selectTemplateFile,
   saveTemplateFile,
+  cancelTemplateFileEdit,
   loadOpVaults,
   onOpVaultChange,
   onOpItemChange,
@@ -159,88 +161,16 @@ const {
 
         <ResizableHandle with-handle />
 
-        <ResizablePanel id="mac-list" :default-size="32" :min-size="28">
-          <div :class="cn('flex h-full min-h-0 flex-col', panelFrameClass)">
-            <WorkflowListPanel
-              v-if="stepMeta"
-              v-model:search-query="searchQuery"
-              :step-meta="stepMeta"
-              :workflows="matchingWorkflows"
-              :selected-workflow-id="selectedWorkflowId"
-              :selected-settings-key="selectedSettingsKey"
-              :selected-template-files="selectedTemplateFiles"
-              :workflows-loading="workflowsLoading"
-              :settings-loading="settingsLoading"
-              :settings-response="settingsResponse"
-              :settings-form="settingsForm"
-              :settings-key-labels="settingsKeyLabels"
-              @select-workflow="selectWorkflow"
-              @select-step-setting="selectStepSetting"
-              @select-template-files="selectTemplateFiles"
-              @open-devtools="openDevTools"
-            />
-
-            <LogsListPanel
-              v-else-if="section === 'logs'"
-              v-model:log-tab="logTab"
-              v-model:search-query="searchQuery"
-              :runs="matchingRuns"
-              :selected-run-id="selectedRunId"
-              :runs-loading="runsLoading"
-              @open-run="openRun"
-            />
-
-            <SettingsListPanel
-              v-else-if="section === 'settings'"
-              :settings-loading="settingsLoading"
-              :settings-response="settingsResponse"
-              :settings-groups="settingsGroups"
-              :workflows-loading="workflowsLoading"
-              :settings-workflows="settingsWorkflows"
-              :selected-workflow-id="selectedWorkflowId"
-              @select-workflow="selectWorkflow"
-            />
-          </div>
-        </ResizablePanel>
-
-        <ResizableHandle v-if="detailPaneOpen" with-handle />
-
-        <ResizablePanel v-if="detailPaneOpen" id="mac-detail" :default-size="50" :min-size="35">
+        <ResizablePanel
+          v-if="selectedTemplateFiles"
+          id="template-editor"
+          :default-size="82"
+          :min-size="60"
+        >
           <div class="flex h-full min-h-0 flex-col bg-background">
-            <DetailToolbar
-              :has-step-meta="Boolean(stepMeta)"
-              :selected-workflow="selectedWorkflow"
-              :run-status="runStatus"
-            />
-
-            <Separator />
-
-            <div v-if="loadError" class="grid flex-1 place-items-center p-8">
-              <div
-                class="max-w-xl rounded-lg border border-destructive/40 bg-section p-5 shadow-sm"
-              >
-                <div class="flex items-center gap-2 font-semibold text-destructive">
-                  <AlertTriangle class="size-5" />
-                  Load failed
-                </div>
-                <p class="mt-2 text-sm text-muted-foreground">{{ loadError }}</p>
-              </div>
-            </div>
-
-            <StepSettingDetail
-              v-else-if="stepMeta && selectedSettingsKey"
-              :selected-settings-key="selectedSettingsKey"
-              :settings-key-labels="settingsKeyLabels"
-              :step-title="stepMeta.title"
-              :settings-form="settingsForm"
-              :settings-response="settingsResponse"
-              @update-setting="updateSetting"
-              @choose-directory="chooseDirectory"
-            />
-
             <TemplateFilesDetail
-              v-else-if="stepMeta && selectedTemplateFiles"
               v-model:draft="templateFileDraft"
+              :theme="theme"
               :files="templateFiles"
               :files-loading="templateFilesLoading"
               :content-loading="templateFileContentLoading"
@@ -252,80 +182,170 @@ const {
               @refresh-files="loadTemplateFiles"
               @select-file="selectTemplateFile"
               @save-file="saveTemplateFile"
+              @cancel-edit="cancelTemplateFileEdit"
+              @back="closeTemplateFiles"
             />
-
-            <WorkflowDetailSkeleton v-else-if="stepMeta && workflowsLoading && !selectedWorkflow" />
-
-            <template v-else-if="stepMeta && !selectedWorkflow">
-              <div
-                class="grid flex-1 place-items-center p-8 text-center text-sm text-muted-foreground"
-              >
-                <div>
-                  <Inbox class="mx-auto mb-3 size-8" />
-                  <p>Select a workflow or a step setting to begin.</p>
-                </div>
-              </div>
-            </template>
-
-            <WorkflowDetail
-              v-else-if="stepMeta && selectedWorkflow"
-              :selected-workflow="selectedWorkflow"
-              :selected-workflow-detail="selectedWorkflowDetail"
-              :display-phases="displayPhases"
-              :workflow-progress="workflowProgress"
-              @reset-phases="resetEnabledPhases"
-              @toggle-phase="togglePhase"
-              @open-confirmation="openConfirmation"
-              @close-detail="closeDetailPane"
-            />
-
-            <RunLogDetail
-              v-else-if="section === 'logs'"
-              :run-log-loading="runLogLoading"
-              :selected-run-log="selectedRunLog"
-              :selected-run-output-sections="selectedRunOutputSections"
-            />
-
-            <SettingsForm
-              v-else-if="section === 'settings'"
-              :settings-form="settingsForm"
-              :settings-response="settingsResponse"
-              :settings-checks="settingsChecks"
-              :settings-dirty="settingsDirty"
-              :settings-loading="settingsLoading"
-              :settings-saving="settingsSaving"
-              :settings-validating="settingsValidating"
-              :settings-picker-field="settingsPickerField"
-              :settings-error="settingsError"
-              :settings-message="settingsMessage"
-              :op-vault-options="opVaultOptions"
-              :op-item-options="opItemOptions"
-              :op-vaults-error="opVaultsError"
-              :op-items-error="opItemsError"
-              :op-items-loaded-for="opItemsLoadedFor"
-              :op-vaults-loading="opVaultsLoading"
-              :op-items-loading="opItemsLoading"
-              :op-item-select-disabled="opItemSelectDisabled"
-              :op-signin-loading="opSigninLoading"
-              :op-install-loading="opInstallLoading"
-              :op-saved-fields="opSavedFields"
-              @update-setting="updateSetting"
-              @choose-directory="chooseDirectory"
-              @choose-file="chooseFile"
-              @choose-save-file="chooseSaveFile"
-              @validate-settings="validateSettings"
-              @reset-settings="resetSettingsForm"
-              @save-settings="saveSettings"
-              @op-vault-change="onOpVaultChange"
-              @op-item-change="onOpItemChange"
-              @signin-op-cli="signinOpCli"
-              @install-op-dependencies="installOpDependencies"
-              @load-op-vaults="loadOpVaults"
-            />
-
-            <EmptyDetail v-else :section="section" />
           </div>
         </ResizablePanel>
+
+        <template v-else>
+          <ResizablePanel id="mac-list" :default-size="32" :min-size="28">
+            <div :class="cn('flex h-full min-h-0 flex-col', panelFrameClass)">
+              <WorkflowListPanel
+                v-if="stepMeta"
+                v-model:search-query="searchQuery"
+                :step-meta="stepMeta"
+                :workflows="matchingWorkflows"
+                :selected-workflow-id="selectedWorkflowId"
+                :selected-settings-key="selectedSettingsKey"
+                :selected-template-files="selectedTemplateFiles"
+                :workflows-loading="workflowsLoading"
+                :settings-loading="settingsLoading"
+                :settings-response="settingsResponse"
+                :settings-form="settingsForm"
+                :settings-key-labels="settingsKeyLabels"
+                @select-workflow="selectWorkflow"
+                @select-step-setting="selectStepSetting"
+                @select-template-files="selectTemplateFiles"
+                @open-devtools="openDevTools"
+              />
+
+              <LogsListPanel
+                v-else-if="section === 'logs'"
+                v-model:log-tab="logTab"
+                v-model:search-query="searchQuery"
+                :runs="matchingRuns"
+                :selected-run-id="selectedRunId"
+                :runs-loading="runsLoading"
+                @open-run="openRun"
+              />
+
+              <SettingsListPanel
+                v-else-if="section === 'settings'"
+                :settings-loading="settingsLoading"
+                :settings-response="settingsResponse"
+                :settings-groups="settingsGroups"
+                :workflows-loading="workflowsLoading"
+                :settings-workflows="settingsWorkflows"
+                :selected-workflow-id="selectedWorkflowId"
+                @select-workflow="selectWorkflow"
+              />
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle v-if="detailPaneOpen" with-handle />
+
+          <ResizablePanel v-if="detailPaneOpen" id="mac-detail" :default-size="50" :min-size="35">
+            <div class="flex h-full min-h-0 flex-col bg-background">
+              <DetailToolbar
+                :has-step-meta="Boolean(stepMeta)"
+                :selected-workflow="selectedWorkflow"
+                :run-status="runStatus"
+              />
+
+              <Separator />
+
+              <div v-if="loadError" class="grid flex-1 place-items-center p-8">
+                <div
+                  class="max-w-xl rounded-lg border border-destructive/40 bg-section p-5 shadow-sm"
+                >
+                  <div class="flex items-center gap-2 font-semibold text-destructive">
+                    <AlertTriangle class="size-5" />
+                    Load failed
+                  </div>
+                  <p class="mt-2 text-sm text-muted-foreground">
+                    {{ loadError }}
+                  </p>
+                </div>
+              </div>
+
+              <StepSettingDetail
+                v-else-if="stepMeta && selectedSettingsKey"
+                :selected-settings-key="selectedSettingsKey"
+                :settings-key-labels="settingsKeyLabels"
+                :step-title="stepMeta.title"
+                :settings-form="settingsForm"
+                :settings-response="settingsResponse"
+                @update-setting="updateSetting"
+                @choose-directory="chooseDirectory"
+              />
+
+              <WorkflowDetailSkeleton
+                v-else-if="stepMeta && workflowsLoading && !selectedWorkflow"
+              />
+
+              <template v-else-if="stepMeta && !selectedWorkflow">
+                <div
+                  class="grid flex-1 place-items-center p-8 text-center text-sm text-muted-foreground"
+                >
+                  <div>
+                    <Inbox class="mx-auto mb-3 size-8" />
+                    <p>Select a workflow or a step setting to begin.</p>
+                  </div>
+                </div>
+              </template>
+
+              <WorkflowDetail
+                v-else-if="stepMeta && selectedWorkflow"
+                :selected-workflow="selectedWorkflow"
+                :selected-workflow-detail="selectedWorkflowDetail"
+                :display-phases="displayPhases"
+                :workflow-progress="workflowProgress"
+                @reset-phases="resetEnabledPhases"
+                @toggle-phase="togglePhase"
+                @open-confirmation="openConfirmation"
+                @open-template-files="selectTemplateFiles"
+                @close-detail="closeDetailPane"
+              />
+
+              <RunLogDetail
+                v-else-if="section === 'logs'"
+                :run-log-loading="runLogLoading"
+                :selected-run-log="selectedRunLog"
+                :selected-run-output-sections="selectedRunOutputSections"
+              />
+
+              <SettingsForm
+                v-else-if="section === 'settings'"
+                :settings-form="settingsForm"
+                :settings-response="settingsResponse"
+                :settings-checks="settingsChecks"
+                :settings-dirty="settingsDirty"
+                :settings-loading="settingsLoading"
+                :settings-saving="settingsSaving"
+                :settings-validating="settingsValidating"
+                :settings-picker-field="settingsPickerField"
+                :settings-error="settingsError"
+                :settings-message="settingsMessage"
+                :op-vault-options="opVaultOptions"
+                :op-item-options="opItemOptions"
+                :op-vaults-error="opVaultsError"
+                :op-items-error="opItemsError"
+                :op-items-loaded-for="opItemsLoadedFor"
+                :op-vaults-loading="opVaultsLoading"
+                :op-items-loading="opItemsLoading"
+                :op-item-select-disabled="opItemSelectDisabled"
+                :op-signin-loading="opSigninLoading"
+                :op-install-loading="opInstallLoading"
+                :op-saved-fields="opSavedFields"
+                @update-setting="updateSetting"
+                @choose-directory="chooseDirectory"
+                @choose-file="chooseFile"
+                @choose-save-file="chooseSaveFile"
+                @validate-settings="validateSettings"
+                @reset-settings="resetSettingsForm"
+                @save-settings="saveSettings"
+                @op-vault-change="onOpVaultChange"
+                @op-item-change="onOpItemChange"
+                @signin-op-cli="signinOpCli"
+                @install-op-dependencies="installOpDependencies"
+                @load-op-vaults="loadOpVaults"
+              />
+
+              <EmptyDetail v-else :section="section" />
+            </div>
+          </ResizablePanel>
+        </template>
       </ResizablePanelGroup>
     </div>
 

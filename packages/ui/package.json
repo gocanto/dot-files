@@ -28,6 +28,8 @@
     "electron": "41.5.0",
     "ghostty-web": "0.4.0",
     "lucide-vue-next": "^0.561.0",
+    "monaco-editor": "^0.55.1",
+    "monaco-yaml": "^5.4.1",
     "reka-ui": "^2.9.6",
     "shiki": "^4.0.2",
     "tailwind-merge": "^3.4.0",
