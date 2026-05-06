@@ -58,8 +58,6 @@ export function useAppController() {
   const navCollapsed = ref(false);
   const searchQuery = ref("");
   const logTab = ref("all");
-  const mutedNotes = ref(false);
-  const noteText = ref("");
   const settingsResponse = ref<SettingsResponse | null>(null);
   const settingsForm = ref<RuntimeSettings>(emptySettings());
   const settingsSaving = ref(false);
@@ -381,18 +379,27 @@ export function useAppController() {
     return Math.round((completed / phases.length) * 100);
   });
 
-  const selectedRunOutput = computed(
-    () =>
-      selectedRunLog.value?.events
-        .filter((event) => event.type === "phase_output" || event.type === "confirmation_output")
-        .map((event) => event.message ?? "")
-        .filter(Boolean)
-        .join("") ?? "",
-  );
-
   const selectedRunOutputSections = computed(() =>
     formatRunOutputSections(selectedRunLog.value?.events ?? []),
   );
+
+  const detailPaneOpen = computed(() => {
+    if (loadError.value) {
+      return true;
+    }
+
+    if (stepMeta.value) {
+      return Boolean(
+        selectedWorkflow.value || selectedSettingsKey.value || selectedTemplateFiles.value,
+      );
+    }
+
+    if (section.value === "logs") {
+      return Boolean(selectedRunId.value);
+    }
+
+    return section.value === "settings";
+  });
 
   onMounted(() => {
     void loadAll();
@@ -690,6 +697,16 @@ export function useAppController() {
     runEvents.value = [];
   }
 
+  function closeDetailPane() {
+    selectedWorkflowId.value = "";
+    selectedSettingsKey.value = null;
+    selectedTemplateFiles.value = false;
+    selectedRunId.value = "";
+    selectedRunLog.value = null;
+    runEvents.value = [];
+    pendingOption.value = null;
+  }
+
   async function selectTemplateFiles() {
     selectedWorkflowId.value = "";
     selectedSettingsKey.value = null;
@@ -719,6 +736,12 @@ export function useAppController() {
   }
 
   function openConfirmation(option?: ConfirmationOption) {
+    if (option?.back) {
+      closeDetailPane();
+
+      return;
+    }
+
     if (!selectedWorkflow.value?.confirmation) {
       return;
     }
@@ -1047,8 +1070,6 @@ export function useAppController() {
     navCollapsed,
     searchQuery,
     logTab,
-    mutedNotes,
-    noteText,
     settingsResponse,
     settingsForm,
     settingsSaving,
@@ -1096,8 +1117,8 @@ export function useAppController() {
     outputText,
     outputSections,
     workflowProgress,
-    selectedRunOutput,
     selectedRunOutputSections,
+    detailPaneOpen,
     loadAll,
     selectSection,
     selectStepSetting,
@@ -1113,6 +1134,7 @@ export function useAppController() {
     installOpDependencies,
     openDevTools,
     selectWorkflow,
+    closeDetailPane,
     resetEnabledPhases,
     togglePhase,
     openConfirmation,

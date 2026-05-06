@@ -29,6 +29,13 @@ const fallbackWorkflows: Workflow[] = [
       message: "Validate and print the tracked source of truth.",
       options: [
         { id: "run-now", label: "Run now", description: "continue", continue: true, back: false },
+        {
+          id: "back",
+          label: "Back",
+          description: "return to workflow menu",
+          continue: false,
+          back: true,
+        },
       ],
     },
   },

@@ -43,8 +43,6 @@ const {
   navCollapsed,
   searchQuery,
   logTab,
-  mutedNotes,
-  noteText,
   settingsResponse,
   settingsForm,
   settingsSaving,
@@ -92,9 +90,8 @@ const {
   outputText,
   outputSections,
   workflowProgress,
-  selectedRunOutput,
   selectedRunOutputSections,
-  loadAll,
+  detailPaneOpen,
   selectSection,
   selectStepSetting,
   selectTemplateFiles,
@@ -108,6 +105,7 @@ const {
   installOpDependencies,
   openDevTools,
   selectWorkflow,
+  closeDetailPane,
   resetEnabledPhases,
   togglePhase,
   openConfirmation,
@@ -205,22 +203,14 @@ const {
           </div>
         </ResizablePanel>
 
-        <ResizableHandle with-handle />
+        <ResizableHandle v-if="detailPaneOpen" with-handle />
 
-        <ResizablePanel id="mac-detail" :default-size="50" :min-size="35">
+        <ResizablePanel v-if="detailPaneOpen" id="mac-detail" :default-size="50" :min-size="35">
           <div class="flex h-full min-h-0 flex-col bg-background">
             <DetailToolbar
               :has-step-meta="Boolean(stepMeta)"
               :selected-workflow="selectedWorkflow"
               :run-status="runStatus"
-              :section="section"
-              :workflows-loading="workflowsLoading"
-              :runs-loading="runsLoading"
-              :settings-loading="settingsLoading"
-              :running="running"
-              @refresh="loadAll"
-              @reset-phases="resetEnabledPhases"
-              @open-confirmation="openConfirmation()"
             />
 
             <Separator />
@@ -279,23 +269,20 @@ const {
 
             <WorkflowDetail
               v-else-if="stepMeta && selectedWorkflow"
-              v-model:note-text="noteText"
-              v-model:muted-notes="mutedNotes"
               :selected-workflow="selectedWorkflow"
               :selected-workflow-detail="selectedWorkflowDetail"
               :display-phases="displayPhases"
               :workflow-progress="workflowProgress"
-              :output-text="outputText"
               @reset-phases="resetEnabledPhases"
               @toggle-phase="togglePhase"
               @open-confirmation="openConfirmation"
+              @close-detail="closeDetailPane"
             />
 
             <RunLogDetail
               v-else-if="section === 'logs'"
               :run-log-loading="runLogLoading"
               :selected-run-log="selectedRunLog"
-              :selected-run-output="selectedRunOutput"
               :selected-run-output-sections="selectedRunOutputSections"
             />
 

@@ -1,13 +1,8 @@
 <script setup lang="ts">
-import { CheckCircle2, Circle, Send } from "lucide-vue-next";
+import { CheckCircle2, Circle } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import OutputBlock from "@/components/OutputBlock.vue";
 import StatusBadge from "@/components/StatusBadge.vue";
 import { detailSectionBodyClass, detailSectionClass } from "@/components/app/styles";
 import type { DisplayPhase } from "@/components/app/types";
@@ -22,17 +17,13 @@ defineProps<{
   selectedWorkflowDetail: WorkflowDetailInfo | null;
   displayPhases: DisplayPhase[];
   workflowProgress: number;
-  outputText: string;
-  noteText: string;
-  mutedNotes: boolean;
 }>();
 
 const emit = defineEmits<{
   (event: "reset-phases"): void;
   (event: "toggle-phase", phase: Phase): void;
   (event: "open-confirmation", option: ConfirmationOption): void;
-  (event: "update:noteText", value: string): void;
-  (event: "update:mutedNotes", value: boolean): void;
+  (event: "close-detail"): void;
 }>();
 </script>
 
@@ -133,7 +124,7 @@ const emit = defineEmits<{
                 confirmationStyle(option.id).buttonClass,
               )
             "
-            @click="emit('open-confirmation', option)"
+            @click="option.back ? emit('close-detail') : emit('open-confirmation', option)"
           >
             <component
               :is="confirmationIcon(option.id)"
@@ -146,47 +137,6 @@ const emit = defineEmits<{
           </Button>
         </div>
       </section>
-
-      <section :class="detailSectionClass">
-        <h2 class="mb-2 text-sm font-semibold">Output</h2>
-        <ScrollArea
-          class="h-72 rounded-md border border-section-border bg-terminal text-terminal-foreground"
-        >
-          <OutputBlock
-            :code="outputText"
-            empty-text="No workflow output yet."
-            class="text-xs leading-5"
-          />
-        </ScrollArea>
-      </section>
     </div>
   </ScrollArea>
-
-  <Separator />
-
-  <div class="border-t border-section-border bg-section p-4">
-    <div class="grid gap-4">
-      <Textarea
-        :model-value="noteText"
-        class="p-4"
-        :placeholder="`Add a note for ${selectedWorkflow.name}...`"
-        @update:model-value="emit('update:noteText', String($event))"
-      />
-      <div class="flex items-center">
-        <Label html-for="mute-notes" class="flex items-center gap-2 text-xs font-normal">
-          <Switch
-            id="mute-notes"
-            :model-value="mutedNotes"
-            aria-label="Mute workflow notes"
-            @update:model-value="emit('update:mutedNotes', Boolean($event))"
-          />
-          Mute workflow notes
-        </Label>
-        <Button type="button" size="sm" class="ml-auto" :disabled="!noteText.trim()">
-          <Send class="size-4" />
-          Send
-        </Button>
-      </div>
-    </div>
-  </div>
 </template>

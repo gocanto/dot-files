@@ -21,6 +21,13 @@ const workflows: Workflow[] = [
       message: "Validate and print the template.",
       options: [
         { id: "run-now", label: "Run now", description: "continue", continue: true, back: false },
+        {
+          id: "back",
+          label: "Back",
+          description: "return to workflow menu",
+          continue: false,
+          back: true,
+        },
       ],
     },
   },
@@ -311,6 +318,39 @@ describe("App", () => {
     expect(wrapper.text()).toContain("Review Template");
   });
 
+  it("keeps only status in the workflow detail toolbar actions area", async () => {
+    installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    const toolbar = wrapper.find('[data-testid="detail-toolbar"]');
+
+    expect(toolbar.text()).toContain("idle");
+    expect(toolbar.text()).not.toContain("Refresh");
+    expect(toolbar.text()).not.toContain("Reset phases");
+    expect(toolbar.text()).not.toContain("Run workflow");
+  });
+
+  it("closes the workflow detail pane when the confirmation Back row is clicked", async () => {
+    const api = installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    expect(wrapper.find("#mac-detail").exists()).toBe(true);
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Back"))
+      ?.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find("#mac-detail").exists()).toBe(false);
+    expect(document.body.querySelector('[data-slot="alert-dialog-content"]')).toBeNull();
+    expect(api.runWorkflow).not.toHaveBeenCalled();
+  });
+
   it("shows skeletons while initial data is loading", () => {
     installApi({
       workflows: vi.fn(() => new Promise<Workflow[]>(() => {})),
@@ -417,8 +457,8 @@ describe("App", () => {
       },
       expect.any(Function),
     );
-    expect(wrapper.text()).toContain("healthy");
-    expect(wrapper.text()).toContain("completed");
+    expect(document.body.textContent).toContain("healthy");
+    expect(document.body.textContent).toContain("completed");
   });
 
   it("shows workflow progress in a stepper dialog", async () => {

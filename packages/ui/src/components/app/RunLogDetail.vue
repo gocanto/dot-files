@@ -1,13 +1,9 @@
 <script setup lang="ts">
-import { Send, TerminalSquare } from "lucide-vue-next";
+import { TerminalSquare } from "lucide-vue-next";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import RunOutputSections from "@/components/app/RunOutputSections.vue";
 import StatusBadge from "@/components/StatusBadge.vue";
 import type { RunOutputSection } from "@/components/app/types";
@@ -17,7 +13,6 @@ import type { RunLog } from "@/types/api";
 defineProps<{
   runLogLoading: boolean;
   selectedRunLog: RunLog | null;
-  selectedRunOutput: string;
   selectedRunOutputSections: RunOutputSection[];
 }>();
 </script>
@@ -71,25 +66,6 @@ defineProps<{
         empty-text="No log output recorded."
       />
     </ScrollArea>
-    <Separator />
-    <div class="border-t border-section-border bg-section p-4">
-      <div class="grid gap-4">
-        <Textarea
-          class="p-4"
-          :placeholder="`Add a note for ${selectedRunLog.run.workflowName}...`"
-        />
-        <div class="flex items-center">
-          <Label html-for="mute-run-notes" class="flex items-center gap-2 text-xs font-normal">
-            <Switch id="mute-run-notes" aria-label="Mute run notes" />
-            Mute run notes
-          </Label>
-          <Button type="button" size="sm" class="ml-auto" disabled>
-            <Send class="size-4" />
-            Send
-          </Button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <div v-else class="grid flex-1 place-items-center p-8 text-center text-sm text-muted-foreground">
