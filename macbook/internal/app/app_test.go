@@ -295,6 +295,12 @@ func TestConvergeConfirmationOptions(t *testing.T) {
 		t.Fatalf("expected final option to go back: %#v", confirmation.Options)
 	}
 
+	for _, idx := range []int{2, 3, 4} {
+		if !confirmation.Options[idx].RequiresApproval || confirmation.Options[idx].Approve == nil {
+			t.Fatalf("expected option %d to require approval: %#v", idx, confirmation.Options[idx])
+		}
+	}
+
 	if err := confirmation.Options[2].Run(&stdout); err != nil {
 		t.Fatal(err)
 	}
@@ -319,11 +325,11 @@ func TestConvergeEraseFirstOpensResetSettingsOnDarwin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(calls) != 2 {
+	if len(calls) != 1 {
 		t.Fatalf("calls = %#v", calls)
 	}
 
-	if calls[0] != "sudo -v" || !strings.Contains(calls[1], "x-apple.systempreferences") {
+	if !strings.Contains(calls[0], "x-apple.systempreferences") {
 		t.Fatalf("calls = %#v", calls)
 	}
 }
@@ -372,28 +378,39 @@ func TestConvergePreviewDoesNotOpenResetSettings(t *testing.T) {
 	}
 }
 
-func TestConvergeEraseFirstStopsWhenAdminValidationFails(t *testing.T) {
+func TestHostApprovalFailsWhenPasswordPromptFails(t *testing.T) {
 	var calls []string
+	errPrompt := os.ErrPermission
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{
 		calls:  &calls,
-		errors: map[string]error{"sudo -v": os.ErrPermission},
+		errors: map[string]error{},
 	})
 	a.goos = "darwin"
-	freshDry := options{dryRun: true, apps: true}
-	freshLive := options{apps: true}
+	a.runner = errRunner{err: errPrompt}
 
-	err := a.convergeConfirmation(freshDry, freshLive, freshDry, freshLive).Options[2].Run(io.Discard)
+	err := a.approveHostPermissions(io.Discard)
 
-	if err == nil {
-		t.Fatal("expected admin validation error")
-	}
-
-	if len(calls) != 1 || calls[0] != "sudo -v" {
-		t.Fatalf("calls = %#v", calls)
-	}
-
-	if !strings.Contains(err.Error(), "validate administrator access") {
+	if err == nil || !strings.Contains(err.Error(), "host password approval required") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestApprovingWorkflowConfirmationMarksOnlyLiveOption(t *testing.T) {
+	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
+	confirmation := approvingWorkflowConfirmation(
+		"Title",
+		"Message",
+		[]workflowdomain.Phase{{Name: "Preview", Enabled: true}},
+		[]workflowdomain.Phase{{Name: "Live", Enabled: true}},
+		a.approvalOption,
+	)
+
+	if confirmation.Options[0].RequiresApproval {
+		t.Fatalf("preview should not require approval: %#v", confirmation.Options[0])
+	}
+
+	if !confirmation.Options[1].RequiresApproval || confirmation.Options[1].Approve == nil {
+		t.Fatalf("live option should require approval: %#v", confirmation.Options[1])
 	}
 }
 

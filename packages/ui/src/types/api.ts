@@ -10,6 +10,7 @@ export interface ConfirmationOption {
   description: string;
   continue: boolean;
   back: boolean;
+  requiresApproval: boolean;
   phases?: Phase[];
 }
 
@@ -109,6 +110,7 @@ export interface MacSystemInfo {
   hostname: string;
   osLabel: string;
   architectureLabel: string;
+  avatarUrl?: string;
 }
 
 export interface OpVault {

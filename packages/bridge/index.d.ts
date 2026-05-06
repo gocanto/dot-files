@@ -12,6 +12,7 @@ export interface ConfirmationOption {
   description: string;
   continue: boolean;
   back: boolean;
+  requiresApproval: boolean;
   phases: Phase[];
 }
 

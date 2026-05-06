@@ -149,11 +149,12 @@ func (a app) workflows() []workflowdomain.Workflow {
 			Description: "Restore supported app settings from a prior snapshot.",
 			ChangesMac:  "Yes",
 			Phases:      restoreAppSettingsPhases(a, appDryRunOpts),
-			Confirmation: workflowConfirmation(
+			Confirmation: approvingWorkflowConfirmation(
 				"Restore Snapshot",
 				"Restore supported app settings from a prior snapshot. Preview shows the restore plan without changing app files.",
 				restoreAppSettingsPhases(a, appDryRunOpts),
 				restoreAppSettingsPhases(a, appLiveOpts),
+				a.approvalOption,
 			),
 		},
 		{
@@ -161,11 +162,12 @@ func (a app) workflows() []workflowdomain.Workflow {
 			Description: "Uninstall Homebrew formulae and casks that are not in the tracked Brewfile, plus a best-effort Mac App Store cleanup pass.",
 			ChangesMac:  "Yes (destructive)",
 			Phases:      removeUntrackedPhases(a, removeUntrackedDryOpts(baseOpts)),
-			Confirmation: workflowConfirmation(
+			Confirmation: approvingWorkflowConfirmation(
 				"Remove Untracked Apps",
 				"Scan installed Homebrew formulae, casks, and App Store apps and remove anything not in the tracked template. Preview lists candidates without uninstalling. Run now writes a snapshot first, then uninstalls.",
 				removeUntrackedPhases(a, removeUntrackedDryOpts(baseOpts)),
 				removeUntrackedPhases(a, removeUntrackedLiveOpts(baseOpts)),
+				a.approvalOption,
 			),
 		},
 	})
@@ -250,11 +252,11 @@ func (a app) convergeConfirmation(freshDry, freshLive, reconvergeDry, reconverge
 		Options: []workflowdomain.ConfirmationOption{
 			{Label: "Preview only (fresh)", Description: "show what a fresh setup would do", Continue: true, Phases: a.convergePhases(freshDry, convergeFresh)},
 			{Label: "Preview only (re-converge)", Description: "show what a re-converge would do", Continue: true, Phases: a.convergePhases(reconvergeDry, convergeReconverge)},
-			{Label: "Erase first", Description: "open reset settings and stop", Continue: false, Phases: a.convergePhases(freshLive, convergeFresh), Run: func(w io.Writer) error {
+			a.approvalOption(workflowdomain.ConfirmationOption{Label: "Erase first", Description: "open reset settings and stop", Continue: false, Phases: a.convergePhases(freshLive, convergeFresh), Run: func(w io.Writer) error {
 				return a.withStdout(w).openEraseAssistant(false)
-			}},
-			{Label: "Fresh setup", Description: "install everything and adopt existing dotfiles", Continue: true, Phases: a.convergePhases(freshLive, convergeFresh)},
-			{Label: "Re-converge", Description: "update from policy and restore from latest snapshot", Continue: true, Phases: a.convergePhases(reconvergeLive, convergeReconverge)},
+			}}),
+			a.approvalOption(workflowdomain.ConfirmationOption{Label: "Fresh setup", Description: "install everything and adopt existing dotfiles", Continue: true, Phases: a.convergePhases(freshLive, convergeFresh)}),
+			a.approvalOption(workflowdomain.ConfirmationOption{Label: "Re-converge", Description: "update from policy and restore from latest snapshot", Continue: true, Phases: a.convergePhases(reconvergeLive, convergeReconverge)}),
 			{Label: "Back", Description: "return to workflow menu", Back: true},
 		},
 	}
@@ -317,6 +319,13 @@ func workflowConfirmation(title, message string, previewPhases, livePhases []wor
 			{Label: "Back", Description: "return to workflow menu", Back: true},
 		},
 	}
+}
+
+func approvingWorkflowConfirmation(title, message string, previewPhases, livePhases []workflowdomain.Phase, approve func(workflowdomain.ConfirmationOption) workflowdomain.ConfirmationOption) *workflowdomain.Confirmation {
+	confirmation := workflowConfirmation(title, message, previewPhases, livePhases)
+	confirmation.Options[1] = approve(confirmation.Options[1])
+
+	return confirmation
 }
 
 func safeWorkflowConfirmation(title, message string, phases []workflowdomain.Phase) *workflowdomain.Confirmation {

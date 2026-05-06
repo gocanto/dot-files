@@ -51,6 +51,7 @@ const selectedListItemClass = "border-primary/50 bg-accent text-accent-foregroun
         {{ workflow.description }}
       </div>
     </button>
+    <slot />
 
     <div
       v-if="workflows.length === 0"

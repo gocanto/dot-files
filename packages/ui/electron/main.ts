@@ -17,7 +17,7 @@ import {
   type WorkflowBridgeClient,
   type WorkflowEvent,
 } from "@dot-files/bridge";
-import { type ChildProcess, spawn } from "node:child_process";
+import { execFileSync, type ChildProcess, spawn } from "node:child_process";
 import {
   copyFileSync,
   existsSync,
@@ -30,7 +30,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..", "..", "..");
@@ -61,6 +61,51 @@ function osLabel() {
   const release = os.release();
 
   return type === "Darwin" ? `macOS ${release}` : `${type} ${release}`;
+}
+
+function dsclRead(user: string, key: "JPEGPhoto" | "Picture") {
+  try {
+    return execFileSync("dscl", [".", "-read", `/Users/${user}`, key], {
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024 * 4,
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 1000,
+    });
+  } catch {
+    return "";
+  }
+}
+
+function accountAvatarUrl() {
+  if (process.platform !== "darwin") {
+    return undefined;
+  }
+
+  const username = os.userInfo().username;
+  const jpegPhoto = dsclRead(username, "JPEGPhoto");
+  const jpegHex = jpegPhoto.replace(/^JPEGPhoto:\s*/u, "").replace(/[^a-fA-F0-9]/gu, "");
+
+  if (jpegHex.length >= 2) {
+    try {
+      const image = Buffer.from(jpegHex, "hex");
+
+      if (image.length > 0) {
+        return `data:image/jpeg;base64,${image.toString("base64")}`;
+      }
+    } catch {
+      // Fall back to the Picture path below.
+    }
+  }
+
+  const picture = dsclRead(username, "Picture")
+    .replace(/^Picture:\s*/u, "")
+    .trim();
+
+  if (!picture || !existsSync(picture)) {
+    return undefined;
+  }
+
+  return pathToFileURL(picture).toString();
 }
 
 const singleInstanceLock = app.requestSingleInstanceLock();
@@ -310,6 +355,7 @@ ipcMain.handle("system:macSystemInfo", () => ({
   hostname: os.hostname(),
   osLabel: osLabel(),
   architectureLabel: architectureLabel(os.arch()),
+  avatarUrl: accountAvatarUrl(),
 }));
 ipcMain.handle("system:openDevTools", () => {
   if (!mainWindow || mainWindow.isDestroyed()) {

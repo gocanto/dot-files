@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { Avatar, AvatarFallback } from "@ui/avatar";
 import { Skeleton } from "@ui/skeleton";
 import StatusBadge from "@components/StatusBadge.vue";
+import MachineAvatar from "@app/MachineAvatar.vue";
 import { panelHeaderClass } from "@app/styles";
-import { formatDate, initials } from "@lib/format";
+import { formatDate } from "@lib/format";
 import { getWorkflowDetail } from "@lib/workflowDetails";
 import { cn } from "@lib/utils";
 import type { RunLog, Workflow } from "@api";
@@ -24,9 +24,7 @@ defineProps<{
     :class="cn('flex min-h-[var(--panel-header-h)] items-center gap-3 px-4', panelHeaderClass)"
   >
     <div v-if="hasStepMeta && selectedWorkflow" class="flex items-start gap-3 text-sm">
-      <Avatar size="sm">
-        <AvatarFallback>{{ initials(selectedWorkflow.name) }}</AvatarFallback>
-      </Avatar>
+      <MachineAvatar :alt="`Machine avatar for ${selectedWorkflow.name}`" />
       <div class="grid gap-1">
         <div class="font-semibold">{{ selectedWorkflow.name }}</div>
         <div class="line-clamp-1 text-xs">{{ selectedWorkflow.description }}</div>
@@ -53,9 +51,7 @@ defineProps<{
       v-else-if="section === 'logs' && selectedRunLog"
       class="flex min-w-0 items-start gap-3 text-sm"
     >
-      <Avatar size="sm">
-        <AvatarFallback>{{ initials(selectedRunLog.run.workflowName) }}</AvatarFallback>
-      </Avatar>
+      <MachineAvatar :alt="`Machine avatar for ${selectedRunLog.run.workflowName}`" />
       <div class="grid min-w-0 gap-1">
         <div class="truncate font-semibold">{{ selectedRunLog.run.workflowName }}</div>
         <div class="line-clamp-1 text-xs">

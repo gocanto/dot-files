@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { Apple, Moon, Sun } from "lucide-vue-next";
+import { Moon, Sun, TerminalSquare } from "lucide-vue-next";
 import { Button } from "@ui/button";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
+import MachineAvatar from "@app/MachineAvatar.vue";
 import type { NavItem, SectionId } from "@app/types";
 import { cn } from "@lib/utils";
 import type { MacSystemInfo } from "@api";
@@ -21,6 +22,7 @@ defineProps<{
 
 const emit = defineEmits<{
   (event: "select-section", section: SectionId): void;
+  (event: "open-devtools"): void;
   (event: "toggle-theme"): void;
 }>();
 </script>
@@ -34,11 +36,12 @@ const emit = defineEmits<{
       )
     "
   >
-    <div
-      class="grid size-10 shrink-0 place-items-center rounded-lg border border-sidebar-border bg-background/70 text-foreground shadow-sm"
-    >
-      <Apple class="size-5" />
-    </div>
+    <MachineAvatar
+      shape="square"
+      class="rounded-lg border-sidebar-border text-foreground"
+      :src="macSystemInfo.avatarUrl"
+      :alt="`Machine avatar for ${macSystemInfo.name || macName || 'this Mac'}`"
+    />
     <div v-if="!collapsed" class="flex min-w-0 flex-1 flex-col gap-1">
       <div class="min-w-0">
         <span class="block truncate text-sm font-semibold"
@@ -186,6 +189,30 @@ const emit = defineEmits<{
           <span aria-hidden="true" class="size-6 justify-self-end" />
         </Button>
       </template>
+
+      <Tooltip v-if="collapsed">
+        <TooltipTrigger as-child>
+          <Button variant="ghost" size="icon" @click="emit('open-devtools')">
+            <TerminalSquare class="size-4" />
+            <span class="sr-only">DevTools</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="right">DevTools</TooltipContent>
+      </Tooltip>
+
+      <Button
+        v-else
+        variant="ghost"
+        size="sm"
+        class="grid w-full grid-cols-[1.5rem_minmax(0,1fr)_2.5rem] items-center gap-2 justify-self-stretch px-2"
+        @click="emit('open-devtools')"
+      >
+        <span class="grid size-6 place-items-center">
+          <TerminalSquare class="size-4" />
+        </span>
+        <span class="min-w-0 truncate text-left">DevTools</span>
+        <span aria-hidden="true" class="size-6 justify-self-end" />
+      </Button>
     </nav>
   </div>
 </template>

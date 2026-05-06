@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckCircle2, Circle, Files } from "lucide-vue-next";
+import { CheckCircle2, Circle, Files, KeyRound } from "lucide-vue-next";
 import { Button } from "@ui/button";
 import { Progress } from "@ui/progress";
 import { ScrollArea } from "@ui/scroll-area";
@@ -169,6 +169,13 @@ const emit = defineEmits<{
             <span class="min-w-0 flex-1">
               <span class="block font-medium">{{ option.label }}</span>
               <span class="block text-xs text-muted-foreground">{{ option.description }}</span>
+              <span
+                v-if="option.requiresApproval"
+                class="mt-1 flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-300"
+              >
+                <KeyRound class="size-3" />
+                Host password approval required before apply
+              </span>
             </span>
           </Button>
         </div>

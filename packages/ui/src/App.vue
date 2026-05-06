@@ -10,7 +10,7 @@ import RunLogDetail from "@app/RunLogDetail.vue";
 import SettingsForm from "@app/SettingsForm.vue";
 import SettingsListPanel from "@app/SettingsListPanel.vue";
 import SettingsSaveDialog from "@app/SettingsSaveDialog.vue";
-import StepSettingDetail from "@app/StepSettingDetail.vue";
+import SystemStatusPanel from "@app/SystemStatusPanel.vue";
 import TemplateFilesDetail from "@app/TemplateFilesDetail.vue";
 import WorkflowDetail from "@app/WorkflowDetail.vue";
 import WorkflowDetailSkeleton from "@app/WorkflowDetailSkeleton.vue";
@@ -27,7 +27,6 @@ const {
   theme,
   toggleTheme,
   section,
-  selectedSettingsKey,
   selectedTemplateFiles,
   macName,
   macHostname,
@@ -62,6 +61,7 @@ const {
   opInstallLoading,
   toasts,
   templateFiles,
+  templateFilesLoaded,
   templateFilesLoading,
   templateFileContentLoading,
   templateFileSaving,
@@ -72,8 +72,8 @@ const {
   stepNavItems,
   auxNavItems,
   stepMeta,
-  settingsKeyLabels,
   settingsWorkflows,
+  workflows,
   selectedWorkflow,
   selectedWorkflowDetail,
   settingsDirty,
@@ -94,8 +94,8 @@ const {
   workflowProgress,
   selectedRunOutputSections,
   detailPaneOpen,
+  loadAll,
   selectSection,
-  selectStepSetting,
   selectTemplateFiles,
   closeTemplateFiles,
   loadTemplateFiles,
@@ -149,6 +149,7 @@ const {
             :step-nav-items="stepNavItems"
             :aux-nav-items="auxNavItems"
             @select-section="selectSection"
+            @open-devtools="openDevTools"
             @toggle-theme="toggleTheme"
           />
         </aside>
@@ -190,17 +191,13 @@ const {
                   :step-meta="stepMeta"
                   :workflows="matchingWorkflows"
                   :selected-workflow-id="selectedWorkflowId"
-                  :selected-settings-key="selectedSettingsKey"
                   :selected-template-files="selectedTemplateFiles"
+                  :template-files-count="templateFiles.length"
+                  :template-files-loaded="templateFilesLoaded"
+                  :template-files-loading="templateFilesLoading"
                   :workflows-loading="workflowsLoading"
-                  :settings-loading="settingsLoading"
-                  :settings-response="settingsResponse"
-                  :settings-form="settingsForm"
-                  :settings-key-labels="settingsKeyLabels"
                   @select-workflow="selectWorkflow"
-                  @select-step-setting="selectStepSetting"
                   @select-template-files="selectTemplateFiles"
-                  @open-devtools="openDevTools"
                 />
 
                 <LogsListPanel
@@ -222,6 +219,14 @@ const {
                   :settings-workflows="settingsWorkflows"
                   :selected-workflow-id="selectedWorkflowId"
                   @select-workflow="selectWorkflow"
+                />
+
+                <SystemStatusPanel
+                  v-else-if="section === 'status'"
+                  :settings-loading="settingsLoading"
+                  :settings-response="settingsResponse"
+                  :workflows="workflows"
+                  @refresh="loadAll"
                 />
               </div>
             </ResizablePanel>
@@ -265,22 +270,6 @@ const {
                   </div>
                 </div>
 
-                <StepSettingDetail
-                  v-else-if="stepMeta && selectedSettingsKey"
-                  :selected-settings-key="selectedSettingsKey"
-                  :settings-key-labels="settingsKeyLabels"
-                  :step-title="stepMeta.title"
-                  :settings-form="settingsForm"
-                  :settings-response="settingsResponse"
-                  :settings-dirty="settingsDirty"
-                  :settings-saving="settingsSaving"
-                  :settings-loading="settingsLoading"
-                  @update-setting="updateSetting"
-                  @choose-directory="chooseDirectory"
-                  @reset-settings="resetSettingsForm"
-                  @request-save-settings="requestSaveSettings"
-                />
-
                 <WorkflowDetailSkeleton
                   v-else-if="stepMeta && workflowsLoading && !selectedWorkflow"
                 />
@@ -291,7 +280,7 @@ const {
                   >
                     <div>
                       <Inbox class="mx-auto mb-3 size-8" />
-                      <p>Select a workflow or a step setting to begin.</p>
+                      <p>Select a workflow to begin.</p>
                     </div>
                   </div>
                 </template>

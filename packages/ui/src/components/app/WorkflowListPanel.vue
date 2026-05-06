@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { Files, Search, Settings, TerminalSquare } from "lucide-vue-next";
+import { computed } from "vue";
+import { FileCode2, Search } from "lucide-vue-next";
+import { Badge } from "@ui/badge";
 import { Input } from "@ui/input";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
@@ -11,31 +13,35 @@ import {
   searchBarClass,
   selectedListItemClass,
 } from "@app/styles";
-import type { StepMeta, StepSettingsKey } from "@app/types";
+import type { StepMeta } from "@app/types";
 import { cn } from "@lib/utils";
-import type { RuntimeSettings, SettingsResponse, Workflow } from "@api";
+import type { Workflow } from "@api";
 
-defineProps<{
+const props = defineProps<{
   stepMeta: StepMeta;
   searchQuery: string;
   workflows: Workflow[];
   selectedWorkflowId: string;
-  selectedSettingsKey: StepSettingsKey | null;
   selectedTemplateFiles: boolean;
+  templateFilesCount: number;
+  templateFilesLoaded: boolean;
+  templateFilesLoading: boolean;
   workflowsLoading: boolean;
-  settingsLoading: boolean;
-  settingsResponse: SettingsResponse | null;
-  settingsForm: RuntimeSettings;
-  settingsKeyLabels: Record<StepSettingsKey, string>;
 }>();
 
 const emit = defineEmits<{
   (event: "update:searchQuery", value: string): void;
   (event: "select-workflow", workflow: Workflow): void;
-  (event: "select-step-setting", key: StepSettingsKey): void;
   (event: "select-template-files"): void;
-  (event: "open-devtools"): void;
 }>();
+
+const templateFilesCountLabel = computed(() => {
+  if (props.templateFilesLoading || !props.templateFilesLoaded) {
+    return "Template files";
+  }
+
+  return `${props.templateFilesCount} ${props.templateFilesCount === 1 ? "file" : "files"}`;
+});
 </script>
 
 <template>
@@ -94,84 +100,40 @@ const emit = defineEmits<{
         :selected-id="selectedWorkflowId"
         :empty-message="stepMeta.emptyMessage"
         @select="emit('select-workflow', $event)"
-      />
-      <div
-        class="px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
       >
-        Step settings
-      </div>
-      <div class="flex flex-col gap-1 px-4 pb-4">
-        <template v-if="settingsLoading && !settingsResponse">
-          <div
-            v-for="key in stepMeta.settingsKeys"
-            :key="key"
-            data-testid="step-settings-skeleton"
-            class="flex items-center gap-3 rounded-lg border border-section-border bg-section px-3 py-2 shadow-sm"
-          >
-            <Skeleton class="size-4 rounded" />
-            <div class="min-w-0 flex-1 space-y-1">
-              <Skeleton class="h-4 w-32" />
-              <Skeleton class="h-3 w-48" />
-            </div>
-          </div>
-        </template>
-        <template v-else>
+        <template v-if="stepMeta.id === 'template'">
           <button
-            v-if="stepMeta.id === 'template'"
             :class="
               cn(
-                'flex items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-all hover:bg-accent',
+                'flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-all hover:bg-accent',
                 listItemClass,
                 selectedTemplateFiles && selectedListItemClass,
               )
             "
             @click="emit('select-template-files')"
           >
-            <Files class="size-4 text-muted-foreground" />
-            <div class="min-w-0 flex-1">
-              <div class="font-medium">Template Files</div>
-              <div class="truncate text-xs text-muted-foreground">
-                Explore and edit allowed template files
+            <div class="flex w-full flex-col gap-1">
+              <div class="flex min-w-0 items-center gap-2">
+                <div class="truncate font-semibold">Template Files</div>
+                <span v-if="selectedTemplateFiles" class="flex size-2 rounded-full bg-primary" />
+                <Badge
+                  variant="outline"
+                  class="ml-auto border-[var(--status-neutral-border)] bg-[var(--status-neutral-bg)] text-[var(--status-neutral-fg)]"
+                >
+                  <FileCode2 />
+                  Source
+                </Badge>
+              </div>
+              <div class="text-xs font-medium text-muted-foreground">
+                {{ templateFilesCountLabel }}
               </div>
             </div>
-          </button>
-          <button
-            v-for="key in stepMeta.settingsKeys"
-            :key="key"
-            :class="
-              cn(
-                'flex items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-all hover:bg-accent',
-                listItemClass,
-                selectedSettingsKey === key && selectedListItemClass,
-              )
-            "
-            @click="emit('select-step-setting', key)"
-          >
-            <Settings class="size-4 text-muted-foreground" />
-            <div class="min-w-0 flex-1">
-              <div class="font-medium">{{ settingsKeyLabels[key] }}</div>
-              <div class="truncate text-xs text-muted-foreground">
-                {{ settingsForm[key] || "not set" }}
-              </div>
-            </div>
-          </button>
-          <button
-            :class="
-              cn(
-                'flex items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-all',
-                listItemClass,
-              )
-            "
-            @click="emit('open-devtools')"
-          >
-            <TerminalSquare class="size-4 text-muted-foreground" />
-            <div class="min-w-0 flex-1">
-              <div class="font-medium">DevTools</div>
-              <div class="truncate text-xs text-muted-foreground">Open developer tools</div>
+            <div class="line-clamp-2 text-xs leading-5 text-muted-foreground">
+              Open the template source files for apps, secrets, macOS defaults, and dotfiles.
             </div>
           </button>
         </template>
-      </div>
+      </WorkflowCardList>
     </ScrollArea>
   </div>
 </template>

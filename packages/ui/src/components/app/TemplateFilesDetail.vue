@@ -381,7 +381,7 @@ function continueDirtyAction() {
           <p class="mt-1 text-sm text-muted-foreground">{{ error }}</p>
         </section>
 
-        <div class="h-full min-h-0 p-4">
+        <div class="grid h-full min-h-0 p-4">
           <template v-if="contentLoading">
             <div class="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3">
               <Skeleton class="h-4 w-44" />
@@ -389,7 +389,7 @@ function continueDirtyAction() {
             </div>
           </template>
           <template v-else-if="selectedPath">
-            <div class="h-full min-h-0">
+            <div class="flex h-full min-h-0">
               <MonacoFileEditor
                 :model-value="draft"
                 :path="selectedPath"

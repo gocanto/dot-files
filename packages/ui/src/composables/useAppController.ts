@@ -6,10 +6,11 @@ import {
   History,
   KeyRound,
   Settings,
+  ShieldCheck,
   Wand2,
 } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
-import type { SectionId, StepSettingsKey } from "@app/types";
+import type { SectionId } from "@app/types";
 import type { ToastItem, ToastTone } from "@ui/toast";
 import { loadThemeFromBackend, useTheme } from "@composables/useTheme";
 import { errorMessage } from "@lib/format";
@@ -37,7 +38,6 @@ import type {
 interface TemplateEditorReturnState {
   section: SectionId;
   selectedWorkflowId: string;
-  selectedSettingsKey: StepSettingsKey | null;
   enabledPhaseIds: Set<string>;
 }
 
@@ -45,7 +45,6 @@ export function useAppController() {
   const { theme, toggleTheme } = useTheme();
 
   const section = ref<SectionId>("template");
-  const selectedSettingsKey = ref<StepSettingsKey | null>(null);
   const macName = ref("");
   const macHostname = ref("");
   const macSystemInfo = ref<MacSystemInfo>({
@@ -91,6 +90,7 @@ export function useAppController() {
   const opInstallLoading = ref(false);
   const toasts = ref<ToastItem[]>([]);
   const templateFiles = ref<TemplateFileSummary[]>([]);
+  const templateFilesLoaded = ref(false);
   const templateFilesLoading = ref(false);
   const templateFileContentLoading = ref(false);
   const templateFileSaving = ref(false);
@@ -100,6 +100,24 @@ export function useAppController() {
   const templateFileError = ref("");
   const templateFileMessage = ref("");
   const templateEditorReturnState = ref<TemplateEditorReturnState | null>(null);
+
+  function chooseSelectedWorkflow(next: Workflow[]) {
+    const currentExists = next.some((workflow) => workflow.id === selectedWorkflowId.value);
+
+    if (currentExists) {
+      resetEnabledPhases();
+      return;
+    }
+
+    if (selectedTemplateFiles.value) {
+      selectedWorkflowId.value = "";
+      enabledPhaseIds.value = new Set();
+      return;
+    }
+
+    selectedWorkflowId.value = next[0]?.id ?? "";
+    resetEnabledPhases();
+  }
 
   const stepNavItems = computed(() => [
     {
@@ -125,6 +143,7 @@ export function useAppController() {
   ]);
 
   const auxNavItems = computed(() => [
+    { id: "status" as const, label: "Status", icon: ShieldCheck, count: null as number | null },
     { id: "settings" as const, label: "Settings", icon: Settings, count: null as number | null },
     {
       id: "logs" as const,
@@ -141,7 +160,6 @@ export function useAppController() {
       title: string;
       summary: string;
       emptyMessage: string;
-      settingsKeys: StepSettingsKey[];
     }
   > = {
     template: {
@@ -150,7 +168,6 @@ export function useAppController() {
       summary:
         "Review and maintain the tracked source of truth: app manifests, secrets references, stow dotfiles, and template update workflows.",
       emptyMessage: "No source workflows registered.",
-      settingsKeys: ["repoRoot", "appsConfigPath", "secretsConfigPath"],
     },
     current: {
       id: "current",
@@ -158,7 +175,6 @@ export function useAppController() {
       summary:
         "Inspect this Mac's installed tools, app inventory, saved snapshots, and generated review candidates.",
       emptyMessage: "No This Mac workflows registered.",
-      settingsKeys: ["archiveRoot", "generatedAppsPath", "workflowDbPath"],
     },
     update: {
       id: "update",
@@ -166,7 +182,6 @@ export function useAppController() {
       summary:
         "Apply tracked template changes, restore snapshots, and remove untracked software from this Mac.",
       emptyMessage: "No apply workflows registered.",
-      settingsKeys: ["archiveRoot", "opVault", "opItem"],
     },
   };
 
@@ -176,17 +191,6 @@ export function useAppController() {
     }
     return null;
   });
-
-  const settingsKeyLabels: Record<StepSettingsKey, string> = {
-    repoRoot: "Repository root",
-    appsConfigPath: "Apps manifest",
-    secretsConfigPath: "Secrets manifest",
-    generatedAppsPath: "Generated apps output",
-    archiveRoot: "Archive root",
-    workflowDbPath: "Workflow SQLite database",
-    opVault: "1Password vault",
-    opItem: "1Password item",
-  };
 
   const settingsWorkflows = computed(() => workflowsInCategory(workflows.value, "settings"));
 
@@ -335,7 +339,9 @@ export function useAppController() {
   const normalizedSearch = computed(() => searchQuery.value.trim().toLowerCase());
 
   const sectionWorkflows = computed(() => {
-    if (section.value === "logs" || section.value === "settings") return [];
+    if (section.value === "logs" || section.value === "settings" || section.value === "status") {
+      return [];
+    }
     return workflowsInCategory(workflows.value, section.value as WorkflowCategory);
   });
 
@@ -385,7 +391,12 @@ export function useAppController() {
 
   const outputText = computed(() =>
     runEvents.value
-      .filter((event) => event.type === "phase_output" || event.type === "confirmation_output")
+      .filter(
+        (event) =>
+          event.type === "phase_output" ||
+          event.type === "confirmation_output" ||
+          event.type === "permission_status",
+      )
       .map((event) => event.message ?? "")
       .filter(Boolean)
       .join(""),
@@ -419,13 +430,15 @@ export function useAppController() {
     }
 
     if (stepMeta.value) {
-      return Boolean(
-        selectedWorkflow.value || selectedSettingsKey.value || selectedTemplateFiles.value,
-      );
+      return Boolean(selectedWorkflow.value || selectedTemplateFiles.value);
     }
 
     if (section.value === "logs") {
       return Boolean(selectedRunId.value);
+    }
+
+    if (section.value === "status") {
+      return false;
     }
 
     return section.value === "settings";
@@ -465,8 +478,7 @@ export function useAppController() {
 
       if (workflowsResult.status === "fulfilled") {
         workflows.value = workflowsResult.value;
-        selectedWorkflowId.value = workflowsResult.value[0]?.id ?? "";
-        resetEnabledPhases();
+        chooseSelectedWorkflow(workflowsResult.value);
       } else {
         loadError.value = errorMessage(workflowsResult.reason);
       }
@@ -513,13 +525,7 @@ export function useAppController() {
       .workflows()
       .then((next) => {
         workflows.value = next;
-        if (
-          !selectedWorkflowId.value ||
-          !next.some((workflow) => workflow.id === selectedWorkflowId.value)
-        ) {
-          selectedWorkflowId.value = next[0]?.id ?? "";
-        }
-        resetEnabledPhases();
+        chooseSelectedWorkflow(next);
       })
       .catch((error) => {
         loadError.value = error instanceof Error ? error.message : String(error);
@@ -596,7 +602,6 @@ export function useAppController() {
     section.value = next;
     searchQuery.value = "";
     selectedWorkflowId.value = "";
-    selectedSettingsKey.value = null;
     selectedTemplateFiles.value = false;
     templateEditorReturnState.value = null;
 
@@ -608,16 +613,9 @@ export function useAppController() {
       void loadSettings();
       void loadOpVaults();
     }
-  }
 
-  function selectStepSetting(key: StepSettingsKey) {
-    selectedWorkflowId.value = "";
-    selectedSettingsKey.value = key;
-    selectedTemplateFiles.value = false;
-    void loadSettings();
-
-    if (key === "opVault" || key === "opItem") {
-      void loadOpVaults();
+    if (next === "status") {
+      void loadSettings();
     }
   }
 
@@ -751,7 +749,6 @@ export function useAppController() {
 
   function selectWorkflow(workflow: Workflow) {
     selectedWorkflowId.value = workflow.id;
-    selectedSettingsKey.value = null;
     selectedTemplateFiles.value = false;
     resetEnabledPhases();
     runEvents.value = [];
@@ -759,7 +756,6 @@ export function useAppController() {
 
   function closeDetailPane() {
     selectedWorkflowId.value = "";
-    selectedSettingsKey.value = null;
     selectedTemplateFiles.value = false;
     selectedRunId.value = "";
     selectedRunLog.value = null;
@@ -771,15 +767,14 @@ export function useAppController() {
     templateEditorReturnState.value = {
       section: section.value,
       selectedWorkflowId: selectedWorkflowId.value,
-      selectedSettingsKey: selectedSettingsKey.value,
       enabledPhaseIds: new Set(enabledPhaseIds.value),
     };
-    selectedSettingsKey.value = null;
-    selectedTemplateFiles.value = true;
 
     if (templateFiles.value.length === 0) {
       await loadTemplateFiles();
     }
+
+    selectedTemplateFiles.value = true;
   }
 
   function closeTemplateFiles() {
@@ -792,7 +787,6 @@ export function useAppController() {
     if (!returnState?.selectedWorkflowId) {
       section.value = "template";
       selectedWorkflowId.value = "";
-      selectedSettingsKey.value = null;
       enabledPhaseIds.value = new Set();
 
       return;
@@ -800,7 +794,6 @@ export function useAppController() {
 
     section.value = returnState.section;
     selectedWorkflowId.value = returnState.selectedWorkflowId;
-    selectedSettingsKey.value = returnState.selectedSettingsKey;
     enabledPhaseIds.value = new Set(returnState.enabledPhaseIds);
   }
 
@@ -899,15 +892,21 @@ export function useAppController() {
 
     try {
       templateFiles.value = await window.macOS.templateFiles();
+      templateFilesLoaded.value = true;
+      const selectedFile =
+        templateFiles.value.find((file) => file.path === selectedTemplateFilePath.value) ??
+        templateFiles.value.find((file) => file.exists) ??
+        templateFiles.value[0];
 
-      if (
-        selectedTemplateFilePath.value &&
-        !templateFiles.value.some((file) => file.path === selectedTemplateFilePath.value)
-      ) {
+      if (!selectedFile) {
         selectedTemplateFilePath.value = "";
         templateFileContent.value = "";
         templateFileDraft.value = "";
+
+        return;
       }
+
+      await selectTemplateFile(selectedFile);
     } catch (error) {
       templateFileError.value = errorMessage(error);
     } finally {
@@ -920,6 +919,14 @@ export function useAppController() {
     templateFileContentLoading.value = true;
     templateFileError.value = "";
     templateFileMessage.value = "";
+
+    if (!file.exists) {
+      templateFileContent.value = "";
+      templateFileDraft.value = "";
+      templateFileContentLoading.value = false;
+
+      return;
+    }
 
     try {
       const response = await window.macOS.readTemplateFile(file.path);
@@ -1174,11 +1181,11 @@ export function useAppController() {
     theme,
     toggleTheme,
     section,
-    selectedSettingsKey,
     selectedTemplateFiles,
     macName,
     macHostname,
     macSystemInfo,
+    workflows,
     selectedWorkflowId,
     selectedRunId,
     selectedRunLog,
@@ -1209,6 +1216,7 @@ export function useAppController() {
     opInstallLoading,
     toasts,
     templateFiles,
+    templateFilesLoaded,
     templateFilesLoading,
     templateFileContentLoading,
     templateFileSaving,
@@ -1219,7 +1227,6 @@ export function useAppController() {
     stepNavItems,
     auxNavItems,
     stepMeta,
-    settingsKeyLabels,
     settingsWorkflows,
     selectedWorkflow,
     selectedWorkflowDetail,
@@ -1243,7 +1250,6 @@ export function useAppController() {
     detailPaneOpen,
     loadAll,
     selectSection,
-    selectStepSetting,
     selectTemplateFiles,
     closeTemplateFiles,
     loadTemplateFiles,

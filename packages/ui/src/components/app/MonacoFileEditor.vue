@@ -131,6 +131,6 @@ onBeforeUnmount(disposeEditor);
 <template>
   <div
     ref="container"
-    class="h-full min-h-[360px] flex-1 overflow-hidden rounded-md border border-section-border"
+    class="h-full min-h-0 flex-1 overflow-hidden rounded-md border border-section-border"
   />
 </template>

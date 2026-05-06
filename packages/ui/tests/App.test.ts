@@ -1,8 +1,14 @@
 import { DOMWrapper, flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { defineComponent } from "vue";
 import App from "@entry/App.vue";
+import WorkflowListPanel from "@app/WorkflowListPanel.vue";
+import { useAppController } from "@composables/useAppController";
 import { templateFileLanguage } from "@lib/templateFileLanguage";
 import type { MacOSApi, RunEvent, SettingsResponse, Workflow } from "@api";
+
+const accountAvatarUrl =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23262626'/%3E%3Ccircle cx='20' cy='15' r='7' fill='%23f8fafc'/%3E%3Cpath d='M8 36c2.5-8 7.2-12 12-12s9.5 4 12 12' fill='%23f8fafc'/%3E%3C/svg%3E";
 
 vi.mock("@app/MonacoFileEditor.vue", () => ({
   default: {
@@ -52,6 +58,7 @@ const workflows: Workflow[] = [
           description: "continue",
           continue: true,
           back: false,
+          requiresApproval: false,
         },
         {
           id: "back",
@@ -59,6 +66,7 @@ const workflows: Workflow[] = [
           description: "return to workflow menu",
           continue: false,
           back: true,
+          requiresApproval: false,
         },
       ],
     },
@@ -90,6 +98,7 @@ const workflows: Workflow[] = [
           description: "show what would happen",
           continue: true,
           back: false,
+          requiresApproval: false,
           phases: [
             {
               id: "save-current-mac-snapshot",
@@ -109,6 +118,7 @@ const workflows: Workflow[] = [
           description: "make the described changes",
           continue: true,
           back: false,
+          requiresApproval: false,
           phases: [
             {
               id: "save-current-mac-snapshot",
@@ -141,6 +151,7 @@ const workflows: Workflow[] = [
           description: "continue",
           continue: true,
           back: false,
+          requiresApproval: false,
         },
       ],
     },
@@ -167,6 +178,7 @@ const workflows: Workflow[] = [
           description: "continue",
           continue: true,
           back: false,
+          requiresApproval: true,
         },
       ],
     },
@@ -356,6 +368,7 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
       hostname: "localhost",
       osLabel: "macOS 15",
       architectureLabel: "Apple silicon",
+      avatarUrl: accountAvatarUrl,
     }),
     getUserPreferences: vi.fn().mockResolvedValue({ theme: "light" }),
     saveUserPreferences: vi.fn().mockImplementation(async (theme: string) => ({
@@ -430,6 +443,19 @@ async function flushOutputHighlighting() {
   }
 }
 
+function mountController() {
+  return mount(
+    defineComponent({
+      setup() {
+        return {
+          controller: useAppController(),
+        };
+      },
+      template: '<button data-testid="reload" @click="controller.loadAll()">Reload</button>',
+    }),
+  );
+}
+
 describe("App", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -444,6 +470,34 @@ describe("App", () => {
 
     expect(wrapper.text()).toContain("Source");
     expect(wrapper.text()).toContain("Review Template");
+  });
+
+  it("shows the loaded template file count in the template files row", () => {
+    const wrapper = mount(WorkflowListPanel, {
+      props: {
+        stepMeta: {
+          id: "template",
+          title: "Source",
+          summary: "Review source files.",
+          emptyMessage: "No source workflows.",
+        },
+        searchQuery: "",
+        workflows: [workflows[0]],
+        selectedWorkflowId: "",
+        selectedTemplateFiles: false,
+        templateFilesCount: 7,
+        templateFilesLoaded: true,
+        templateFilesLoading: false,
+        workflowsLoading: false,
+      },
+    });
+
+    const templateFilesButton = wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Template Files"));
+
+    expect(templateFilesButton?.text()).toContain("7 files");
+    expect(templateFilesButton?.text()).not.toContain("Editable source files");
   });
 
   it("renders a fixed sidebar and keeps resizing inside the workspace", async () => {
@@ -523,9 +577,30 @@ describe("App", () => {
     expect(wrapper.text()).toContain("macOS 15");
     expect(wrapper.text()).toContain("Apple silicon");
     expect(wrapper.text()).toContain("Review and maintain the tracked source of truth");
+    expect(wrapper.findAll('[data-testid="machine-avatar"]')[0].find("img").attributes("src")).toBe(
+      accountAvatarUrl,
+    );
     expect(api.macName).toHaveBeenCalled();
     expect(api.macHostname).toHaveBeenCalled();
     expect(api.macSystemInfo).toHaveBeenCalled();
+  });
+
+  it("keeps the sidebar machine avatar fallback when no account avatar is available", async () => {
+    installApi({
+      macSystemInfo: vi.fn().mockResolvedValue({
+        name: "Local Mac",
+        hostname: "localhost",
+        osLabel: "macOS 15",
+        architectureLabel: "Apple silicon",
+      }),
+    });
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    const sidebarAvatar = wrapper.findAll('[data-testid="machine-avatar"]')[0];
+    expect(sidebarAvatar.find("img").exists()).toBe(false);
+    expect(sidebarAvatar.find('[aria-label="Default machine avatar"]').exists()).toBe(true);
   });
 
   it("filters workflow list with search and category nav", async () => {
@@ -860,6 +935,7 @@ describe("App", () => {
     await flushPromises();
 
     expect(api.templateFiles).toHaveBeenCalled();
+    expect(api.readTemplateFile).toHaveBeenCalledWith("/repo/apps.generated.yaml");
     expect(wrapper.text()).toContain("apps.yaml");
 
     await wrapper
@@ -884,6 +960,223 @@ describe("App", () => {
       "apps:\n  - name: Ghostty\n  - name: Raycast\n",
     );
     expect(wrapper.text()).toContain("Template file saved");
+  });
+
+  it("selects the first template file when the editor opens", async () => {
+    const api = installApi({
+      readTemplateFile: vi.fn().mockImplementation(async (path: string) => ({
+        file: {
+          path,
+          relative: path.replace("/repo/", ""),
+          kind: "apps",
+          size: 32,
+          exists: true,
+        },
+        content: `${path}\n`,
+      })),
+    });
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Template Files"))
+      ?.trigger("click");
+    await flushPromises();
+
+    expect(api.readTemplateFile).toHaveBeenCalledWith("/repo/apps.generated.yaml");
+    expect(wrapper.text()).toContain("Generated app inventory");
+    expect(wrapper.text()).toContain("Lists apps detected from this Mac");
+    expect(wrapper.text()).not.toContain("No file selected");
+    expect(
+      (wrapper.find('[data-testid="monaco-editor"]').element as HTMLTextAreaElement).value,
+    ).toBe("/repo/apps.generated.yaml\n");
+  });
+
+  it("opens the first existing template file when earlier allowlisted files are missing", async () => {
+    const api = installApi({
+      templateFiles: vi.fn().mockResolvedValue([
+        {
+          path: "/repo/apps.generated.yaml",
+          relative: "apps.generated.yaml",
+          kind: "apps",
+          size: 0,
+          exists: false,
+        },
+        {
+          path: "/repo/apps.yaml",
+          relative: "apps.yaml",
+          kind: "apps",
+          size: 32,
+          exists: true,
+        },
+      ]),
+      readTemplateFile: vi.fn().mockImplementation(async (path: string) => ({
+        file: {
+          path,
+          relative: path.replace("/repo/", ""),
+          kind: "apps",
+          size: 32,
+          exists: true,
+        },
+        content: `${path}\n`,
+      })),
+    });
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Template Files"))
+      ?.trigger("click");
+    await flushPromises();
+
+    expect(api.readTemplateFile).toHaveBeenCalledWith("/repo/apps.yaml");
+    expect(api.readTemplateFile).not.toHaveBeenCalledWith("/repo/apps.generated.yaml");
+    expect(wrapper.text()).toContain("Tracked app manifest");
+    expect(wrapper.text()).not.toContain("Template file error");
+  });
+
+  it("keeps the selected template file when the list is refreshed", async () => {
+    const api = installApi({
+      readTemplateFile: vi.fn().mockImplementation(async (path: string) => ({
+        file: {
+          path,
+          relative: path.replace("/repo/", ""),
+          kind: "apps",
+          size: 32,
+          exists: true,
+        },
+        content: `${path}\n`,
+      })),
+    });
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Template Files"))
+      ?.trigger("click");
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().trim().startsWith("apps.yaml"))
+      ?.trigger("click");
+    await flushPromises();
+
+    await wrapper.find('button[aria-label="Refresh template files"]').trigger("click");
+    await flushPromises();
+
+    expect(api.readTemplateFile).toHaveBeenLastCalledWith("/repo/apps.yaml");
+    expect(wrapper.text()).toContain("Tracked app manifest");
+    expect(
+      (wrapper.find('[data-testid="monaco-editor"]').element as HTMLTextAreaElement).value,
+    ).toBe("/repo/apps.yaml\n");
+  });
+
+  it("falls back to the first template file when the selected file disappears", async () => {
+    const refreshedFiles = [
+      {
+        path: "/repo/secrets.yaml",
+        relative: "secrets.yaml",
+        kind: "secrets",
+        size: 271,
+        exists: true,
+      },
+    ];
+    const api = installApi({
+      templateFiles: vi
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            path: "/repo/apps.generated.yaml",
+            relative: "apps.generated.yaml",
+            kind: "apps",
+            size: 18194,
+            exists: true,
+          },
+          {
+            path: "/repo/apps.yaml",
+            relative: "apps.yaml",
+            kind: "apps",
+            size: 10897,
+            exists: true,
+          },
+        ])
+        .mockResolvedValue(refreshedFiles),
+      readTemplateFile: vi.fn().mockImplementation(async (path: string) => ({
+        file: {
+          path,
+          relative: path.replace("/repo/", ""),
+          kind: path.includes("secrets") ? "secrets" : "apps",
+          size: 32,
+          exists: true,
+        },
+        content: `${path}\n`,
+      })),
+    });
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Template Files"))
+      ?.trigger("click");
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().trim().startsWith("apps.yaml"))
+      ?.trigger("click");
+    await flushPromises();
+
+    await wrapper.find('button[aria-label="Refresh template files"]').trigger("click");
+    await flushPromises();
+
+    expect(api.readTemplateFile).toHaveBeenLastCalledWith("/repo/secrets.yaml");
+    expect(wrapper.text()).toContain("Secret reference manifest");
+    expect(
+      (wrapper.find('[data-testid="monaco-editor"]').element as HTMLTextAreaElement).value,
+    ).toBe("/repo/secrets.yaml\n");
+  });
+
+  it("preserves the active workflow when data is reloaded", async () => {
+    installApi();
+
+    const wrapper = mountController();
+    await flushPromises();
+    const controller = (
+      wrapper.vm as unknown as { controller: ReturnType<typeof useAppController> }
+    ).controller;
+
+    controller.selectWorkflow(workflows[1]);
+    await wrapper.find('[data-testid="reload"]').trigger("click");
+    await flushPromises();
+
+    expect(controller.selectedWorkflowId.value).toBe("update-template-from-this-mac");
+  });
+
+  it("does not select the first workflow during reload while the template editor is active", async () => {
+    installApi();
+
+    const wrapper = mountController();
+    await flushPromises();
+    const controller = (
+      wrapper.vm as unknown as { controller: ReturnType<typeof useAppController> }
+    ).controller;
+
+    controller.closeDetailPane();
+    await controller.selectTemplateFiles();
+    await wrapper.find('[data-testid="reload"]').trigger("click");
+    await flushPromises();
+
+    expect(controller.selectedTemplateFiles.value).toBe(true);
+    expect(controller.selectedWorkflowId.value).toBe("");
   });
 
   it("does not show the template file editor action on the review template workflow", async () => {
@@ -1044,7 +1337,7 @@ describe("App", () => {
     expect(wrapper.text()).not.toContain("Template file changes discarded.");
   });
 
-  it("shows skeletons while template files load", async () => {
+  it("keeps the expanded editor hidden while template files load", async () => {
     let resolveFiles: (value: Awaited<ReturnType<MacOSApi["templateFiles"]>>) => void = () => {};
     installApi({
       templateFiles: vi.fn(
@@ -1064,12 +1357,14 @@ describe("App", () => {
       ?.trigger("click");
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="template-files-skeleton"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="expanded-template-editor"]').exists()).toBe(false);
+    expect(wrapper.find("#mac-detail").exists()).toBe(true);
 
     resolveFiles([]);
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="template-files-skeleton"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="expanded-template-editor"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("Choose a file from the list to inspect or edit it.");
   });
 
   it("opens persisted logs", async () => {
@@ -1173,6 +1468,51 @@ describe("App", () => {
     expect(wrapper.text()).toContain("Converge to Template");
   });
 
+  it("does not render settings or DevTools cards in workflow lists", async () => {
+    installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    for (const buttonText of ["Source", "This Mac", "Apply"]) {
+      await wrapper
+        .findAll("button")
+        .find((button) => button.text().trim().startsWith(buttonText))
+        ?.trigger("click");
+      await flushPromises();
+
+      const listText = wrapper.find("#mac-list").text();
+      expect(listText).not.toContain("Step settings");
+      expect(listText).not.toContain("Repository root");
+      expect(listText).not.toContain("Archive root");
+      expect(listText).not.toContain("1Password vault");
+      expect(listText).not.toContain("DevTools");
+    }
+  });
+
+  it("opens DevTools from the sidebar without changing sections", async () => {
+    const api = installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => /^This Mac\s*\d*$/.test(button.text().trim()))
+      ?.trigger("click");
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().trim() === "DevTools")
+      ?.trigger("click");
+    await flushPromises();
+
+    expect(api.openDevTools).toHaveBeenCalled();
+    expect(wrapper.find("#mac-list").text()).toContain("Inspect Current State");
+    expect(wrapper.find("#mac-list").text()).not.toContain("Review Template");
+  });
+
   it("does not show the template file editor action on non-template workflows", async () => {
     installApi();
 
@@ -1267,37 +1607,6 @@ describe("App", () => {
     expect(wrapper.find<HTMLInputElement>('[data-testid="settings-repo-root"]').element.value).toBe(
       "/repo-next",
     );
-  });
-
-  it("saves changed step settings after confirmation", async () => {
-    const api = installApi();
-
-    const wrapper = mount(App);
-    await flushPromises();
-
-    await wrapper
-      .findAll("button")
-      .find((button) => button.text().includes("Repository root"))
-      ?.trigger("click");
-    await flushPromises();
-
-    await wrapper.find('[data-testid="step-setting-repoRoot"]').setValue("/repo-step");
-    await wrapper
-      .findAll("button")
-      .find((button) => button.text().includes("Save settings"))
-      ?.trigger("click");
-    await flushPromises();
-
-    expect(document.body.textContent).toContain("Save settings?");
-    expect(api.saveSettings).not.toHaveBeenCalled();
-
-    findDialogButton("Save settings")?.click();
-    await flushPromises();
-
-    expect(api.saveSettings).toHaveBeenCalledWith(
-      expect.objectContaining({ repoRoot: "/repo-step" }),
-    );
-    expect(wrapper.text()).toContain("Settings saved");
   });
 
   it("shows skeletons while settings load on entering Settings", async () => {

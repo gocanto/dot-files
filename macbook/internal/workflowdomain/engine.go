@@ -140,6 +140,14 @@ func (e Executor) Execute(runID string, plan RunPlan) error {
 			return err
 		}
 
+		if plan.ConfirmationOption.RequiresApproval {
+			if err := e.approve(runID, plan.ConfirmationOption); err != nil {
+				_ = e.apply(flow, state, TransitionFail)
+
+				return err
+			}
+		}
+
 		if plan.ConfirmationOption.Run != nil {
 			if err := e.runConfirmation(runID, plan.ConfirmationOption); err != nil {
 				_ = e.apply(flow, state, TransitionFail)
@@ -281,6 +289,24 @@ func (e Executor) runConfirmation(runID string, option *ConfirmationOption) erro
 	return e.runWriter(option.Run, func(message string) Event {
 		return Event{RunID: runID, Type: "confirmation_output", Message: message}
 	})
+}
+
+func (e Executor) approve(runID string, option *ConfirmationOption) error {
+	if err := e.emit(Event{RunID: runID, Type: "permission_status", Status: "needs_approval", Message: "Host password approval required."}); err != nil {
+		return err
+	}
+
+	err := e.runWriter(option.Approve, func(message string) Event {
+		return Event{RunID: runID, Type: "permission_status", Message: message}
+	})
+
+	if err != nil {
+		_ = e.emit(Event{RunID: runID, Type: "permission_status", Status: "failed", Message: "Host password approval failed."})
+
+		return err
+	}
+
+	return e.emit(Event{RunID: runID, Type: "permission_status", Status: "ok", Message: "Host password approval accepted."})
 }
 
 func (e Executor) runPhase(runID string, phase Phase) error {

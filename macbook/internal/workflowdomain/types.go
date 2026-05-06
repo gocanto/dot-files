@@ -30,13 +30,15 @@ type Confirmation struct {
 }
 
 type ConfirmationOption struct {
-	ID          string
-	Label       string
-	Description string
-	Continue    bool
-	Back        bool
-	Phases      []Phase
-	Run         func(io.Writer) error
+	ID               string
+	Label            string
+	Description      string
+	Continue         bool
+	Back             bool
+	RequiresApproval bool
+	Phases           []Phase
+	Run              func(io.Writer) error
+	Approve          func(io.Writer) error
 }
 
 type WorkflowMetadata struct {
@@ -61,12 +63,13 @@ type ConfirmationMetadata struct {
 }
 
 type ConfirmationOptionMetadata struct {
-	ID          string          `json:"id"`
-	Label       string          `json:"label"`
-	Description string          `json:"description"`
-	Continue    bool            `json:"continue"`
-	Back        bool            `json:"back"`
-	Phases      []PhaseMetadata `json:"phases,omitempty"`
+	ID               string          `json:"id"`
+	Label            string          `json:"label"`
+	Description      string          `json:"description"`
+	Continue         bool            `json:"continue"`
+	Back             bool            `json:"back"`
+	RequiresApproval bool            `json:"requiresApproval"`
+	Phases           []PhaseMetadata `json:"phases,omitempty"`
 }
 
 var slugPattern = regexp.MustCompile(`[^a-z0-9]+`)
@@ -128,12 +131,13 @@ func Metadata(workflows []Workflow) []WorkflowMetadata {
 
 			for _, option := range workflow.Confirmation.Options {
 				item.Confirmation.Options = append(item.Confirmation.Options, ConfirmationOptionMetadata{
-					ID:          option.ID,
-					Label:       option.Label,
-					Description: option.Description,
-					Continue:    option.Continue,
-					Back:        option.Back,
-					Phases:      phaseMetadata(option.Phases),
+					ID:               option.ID,
+					Label:            option.Label,
+					Description:      option.Description,
+					Continue:         option.Continue,
+					Back:             option.Back,
+					RequiresApproval: option.RequiresApproval,
+					Phases:           phaseMetadata(option.Phases),
 				})
 			}
 		}

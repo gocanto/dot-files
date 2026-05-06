@@ -28,13 +28,21 @@ const fallbackWorkflows: Workflow[] = [
       title: "Review Template",
       message: "Validate and print the tracked source of truth.",
       options: [
-        { id: "run-now", label: "Run now", description: "continue", continue: true, back: false },
+        {
+          id: "run-now",
+          label: "Run now",
+          description: "continue",
+          continue: true,
+          back: false,
+          requiresApproval: false,
+        },
         {
           id: "back",
           label: "Back",
           description: "return to workflow menu",
           continue: false,
           back: true,
+          requiresApproval: false,
         },
       ],
     },
@@ -67,6 +75,7 @@ const fallbackWorkflows: Workflow[] = [
           description: "show what would happen",
           continue: true,
           back: false,
+          requiresApproval: false,
         },
         {
           id: "run-now",
@@ -74,6 +83,7 @@ const fallbackWorkflows: Workflow[] = [
           description: "save snapshot and write candidates",
           continue: true,
           back: false,
+          requiresApproval: false,
         },
       ],
     },
@@ -88,7 +98,14 @@ const fallbackWorkflows: Workflow[] = [
       title: "Check Setup",
       message: "Run health checks only.",
       options: [
-        { id: "run-now", label: "Run now", description: "continue", continue: true, back: false },
+        {
+          id: "run-now",
+          label: "Run now",
+          description: "continue",
+          continue: true,
+          back: false,
+          requiresApproval: false,
+        },
       ],
     },
   },
@@ -247,6 +264,8 @@ export function installBrowserFallback() {
       hostname: "localhost",
       osLabel: "macOS 15",
       architectureLabel: "Apple silicon",
+      avatarUrl:
+        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23262626'/%3E%3Ccircle cx='20' cy='15' r='7' fill='%23f8fafc'/%3E%3Cpath d='M8 36c2.5-8 7.2-12 12-12s9.5 4 12 12' fill='%23f8fafc'/%3E%3C/svg%3E",
     }),
     getUserPreferences: async () => fallbackPreferences,
     saveUserPreferences: async (theme) => {

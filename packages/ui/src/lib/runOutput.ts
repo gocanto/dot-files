@@ -1,7 +1,7 @@
 import type { RunOutputSection } from "@app/types";
 import type { Phase, RunEvent } from "@api";
 
-const outputEventTypes = new Set(["confirmation_output", "phase_output"]);
+const outputEventTypes = new Set(["confirmation_output", "permission_status", "phase_output"]);
 
 export function formatRunOutputSections(
   events: RunEvent[],
@@ -47,6 +47,16 @@ function updateSectionStatus(
     if (event.status) {
       section.status = event.status;
     }
+
+    return;
+  }
+
+  if (event.type === "permission_status") {
+    const section = ensureSection(sections, "permission", "Host Password Approval", "Permission");
+
+    if (event.status) {
+      section.status = event.status === "needs_approval" ? "pending" : event.status;
+    }
   }
 }
 
@@ -58,6 +68,10 @@ function sectionForEvent(
 ) {
   if (event.type === "phase_output" && event.phaseId) {
     return ensurePhaseSection(sections, event, phaseOrder, phaseNames);
+  }
+
+  if (event.type === "permission_status") {
+    return ensureSection(sections, "permission", "Host Password Approval", "Permission");
   }
 
   return ensureSection(sections, "confirmation", "Confirmation", "Confirmation");

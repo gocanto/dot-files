@@ -84,6 +84,80 @@ func TestExecutorStopsOnFirstFailingPhase(t *testing.T) {
 	}
 }
 
+func TestExecutorRequiresApprovalBeforePhases(t *testing.T) {
+	collector := &eventCollector{}
+
+	var approved bool
+
+	var ran bool
+	plan := RunPlan{
+		Workflow: Workflow{Name: "Sample"},
+		ConfirmationOption: &ConfirmationOption{
+			Label:            "Run now",
+			Continue:         true,
+			RequiresApproval: true,
+			Approve: func(io.Writer) error {
+				approved = true
+
+				return nil
+			},
+		},
+		Phases: []Phase{{Name: "apply", Enabled: true, Run: func(io.Writer) error {
+			ran = true
+
+			if !approved {
+				return errors.New("phase ran before approval")
+			}
+
+			return nil
+		}}},
+	}
+	plan.Workflow = Normalize([]Workflow{plan.Workflow})[0]
+
+	if err := (Executor{Sink: collector}).Execute("run-1", plan); err != nil {
+		t.Fatal(err)
+	}
+
+	if !approved || !ran {
+		t.Fatalf("approved=%v ran=%v", approved, ran)
+	}
+
+	if collector.events[0].Type != "permission_status" || collector.events[0].Status != "needs_approval" {
+		t.Fatalf("events = %#v", collector.events)
+	}
+}
+
+func TestExecutorStopsWhenApprovalFails(t *testing.T) {
+	collector := &eventCollector{}
+
+	var ran bool
+	plan := RunPlan{
+		Workflow: Workflow{Name: "Sample"},
+		ConfirmationOption: &ConfirmationOption{
+			Label:            "Run now",
+			Continue:         true,
+			RequiresApproval: true,
+			Approve:          func(io.Writer) error { return errors.New("denied") },
+		},
+		Phases: []Phase{{Name: "apply", Enabled: true, Run: func(io.Writer) error {
+			ran = true
+
+			return nil
+		}}},
+	}
+	plan.Workflow = Normalize([]Workflow{plan.Workflow})[0]
+
+	err := (Executor{Sink: collector}).Execute("run-1", plan)
+
+	if err == nil {
+		t.Fatal("expected approval error")
+	}
+
+	if ran {
+		t.Fatal("phase ran after failed approval")
+	}
+}
+
 func TestExecutorStreamsPhaseOutputBeforePhaseFinishes(t *testing.T) {
 	collector := &eventCollector{}
 	plan := RunPlan{
