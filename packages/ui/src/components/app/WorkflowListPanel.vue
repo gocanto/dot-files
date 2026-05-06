@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Search, Settings, TerminalSquare } from "lucide-vue-next";
+import { Files, Search, Settings, TerminalSquare } from "lucide-vue-next";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -21,6 +21,7 @@ defineProps<{
   workflows: Workflow[];
   selectedWorkflowId: string;
   selectedSettingsKey: StepSettingsKey | null;
+  selectedTemplateFiles: boolean;
   workflowsLoading: boolean;
   settingsLoading: boolean;
   settingsResponse: SettingsResponse | null;
@@ -32,6 +33,7 @@ const emit = defineEmits<{
   (event: "update:searchQuery", value: string): void;
   (event: "select-workflow", workflow: Workflow): void;
   (event: "select-step-setting", key: StepSettingsKey): void;
+  (event: "select-template-files"): void;
   (event: "open-devtools"): void;
 }>();
 </script>
@@ -104,6 +106,25 @@ const emit = defineEmits<{
           </div>
         </template>
         <template v-else>
+          <button
+            v-if="stepMeta.title === 'Template'"
+            :class="
+              cn(
+                'flex items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-all hover:bg-accent',
+                listItemClass,
+                selectedTemplateFiles && selectedListItemClass,
+              )
+            "
+            @click="emit('select-template-files')"
+          >
+            <Files class="size-4 text-muted-foreground" />
+            <div class="min-w-0 flex-1">
+              <div class="font-medium">Template Files</div>
+              <div class="truncate text-xs text-muted-foreground">
+                Explore and edit allowed template files
+              </div>
+            </div>
+          </button>
           <button
             v-for="key in stepMeta.settingsKeys"
             :key="key"

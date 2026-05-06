@@ -5,24 +5,54 @@ import type {
   RunSummary,
   RuntimeSettings,
   SettingsResponse,
+  TemplateFileContent,
+  TemplateFileSummary,
   UserPreferences,
   Workflow,
 } from "../types/api";
 
 const fallbackWorkflows: Workflow[] = [
   {
-    id: "set-up-this-mac",
-    name: "Set Up This Mac",
-    description: "Run the complete setup flow for this Mac.",
-    changesMac: "Yes",
+    id: "review-template",
+    name: "Review Template",
+    description: "Validate and print the tracked source of truth.",
+    changesMac: "No",
     phases: [
-      { id: "check-install-prerequisites", name: "Check/install prerequisites", enabled: true },
-      { id: "install-homebrew-packages", name: "Install Homebrew packages", enabled: true },
-      { id: "run-health-checks", name: "Run health checks", enabled: true },
+      { id: "validate-template-files", name: "Validate template files", enabled: true },
+      { id: "print-tracked-homebrew-bundle", name: "Print tracked Homebrew bundle", enabled: true },
+      { id: "list-tracked-apps", name: "List tracked apps", enabled: true },
+      { id: "list-tracked-macos-settings", name: "List tracked macOS settings", enabled: true },
+      { id: "list-tracked-dotfile-bundles", name: "List tracked dotfile bundles", enabled: true },
     ],
     confirmation: {
-      title: "Set Up This Mac",
-      message: "Run the complete setup flow for a clean or intentionally reconfigured Mac.",
+      title: "Review Template",
+      message: "Validate and print the tracked source of truth.",
+      options: [
+        { id: "run-now", label: "Run now", description: "continue", continue: true, back: false },
+      ],
+    },
+  },
+  {
+    id: "update-template-from-this-mac",
+    name: "Update Template From This Mac",
+    description: "Save this Mac and generate review-candidate template updates.",
+    changesMac: "Writes review candidates",
+    phases: [
+      { id: "save-current-mac-snapshot", name: "Save current Mac snapshot", enabled: true },
+      {
+        id: "generate-installed-app-review-candidate",
+        name: "Generate installed app review candidate",
+        enabled: true,
+      },
+      {
+        id: "generate-dotfile-review-candidates",
+        name: "Generate dotfile review candidates",
+        enabled: true,
+      },
+    ],
+    confirmation: {
+      title: "Update Template From This Mac",
+      message: "Generate review candidates without overwriting tracked template files.",
       options: [
         {
           id: "preview-only",
@@ -34,7 +64,7 @@ const fallbackWorkflows: Workflow[] = [
         {
           id: "run-now",
           label: "Run now",
-          description: "make the described changes",
+          description: "save snapshot and write candidates",
           continue: true,
           back: false,
         },
@@ -42,8 +72,8 @@ const fallbackWorkflows: Workflow[] = [
     },
   },
   {
-    id: "check-setup",
-    name: "Check Setup",
+    id: "inspect-current-state",
+    name: "Inspect Current State",
     description: "Check whether prerequisites, tools, and expected setup state look correct.",
     changesMac: "No",
     phases: [{ id: "run-health-checks", name: "Run health checks", enabled: true }],
@@ -74,6 +104,28 @@ export function installBrowserFallback() {
     opVault: "Private",
     opItem: "Mac Migration Archive",
   };
+  let fallbackTemplateFiles: TemplateFileContent[] = [
+    {
+      file: {
+        path: "/repo/apps.yaml",
+        relative: "apps.yaml",
+        kind: "apps",
+        size: 48,
+        exists: true,
+      },
+      content: "apps:\n  - name: Ghostty\n    install_method: brew\n",
+    },
+    {
+      file: {
+        path: "/repo/stow/shell/.zshrc",
+        relative: "stow/shell/.zshrc",
+        kind: "stow",
+        size: 19,
+        exists: true,
+      },
+      content: "export EDITOR=vim\n",
+    },
+  ];
 
   const settingsResponse = (settings: RuntimeSettings): SettingsResponse => ({
     settings,
@@ -113,6 +165,42 @@ export function installBrowserFallback() {
   const api: MacOSApi = {
     workflows: async () => fallbackWorkflows,
     runs: async (limit = 25) => fallbackRuns.map((run) => run.run).slice(0, limit),
+    templateFiles: async (): Promise<TemplateFileSummary[]> =>
+      fallbackTemplateFiles.map((entry) => entry.file),
+    readTemplateFile: async (path): Promise<TemplateFileContent> => {
+      const file = fallbackTemplateFiles.find((entry) => entry.file.path === path);
+
+      if (!file) {
+        throw new Error(`Template file not found: ${path}`);
+      }
+
+      return file;
+    },
+    saveTemplateFile: async (path, content): Promise<TemplateFileContent> => {
+      const index = fallbackTemplateFiles.findIndex((entry) => entry.file.path === path);
+
+      if (index < 0) {
+        throw new Error(`Template file not found: ${path}`);
+      }
+
+      const current = fallbackTemplateFiles[index];
+      const next = {
+        file: {
+          ...current.file,
+          size: new TextEncoder().encode(content).length,
+          modifiedAt: new Date().toISOString(),
+        },
+        content,
+      };
+
+      fallbackTemplateFiles = [
+        ...fallbackTemplateFiles.slice(0, index),
+        next,
+        ...fallbackTemplateFiles.slice(index + 1),
+      ];
+
+      return next;
+    },
     settings: async () => settingsResponse(fallbackSettings),
     validateSettings: async (settings) => settingsResponse(settings),
     saveSettings: async (settings) => {
@@ -191,7 +279,8 @@ export function installBrowserFallback() {
           type: "phase_output",
           phaseId,
           phaseName,
-          message: "preview complete",
+          message:
+            phaseId === "validate-template-files" ? "validation complete" : "preview complete",
         });
         events.push({
           runId,

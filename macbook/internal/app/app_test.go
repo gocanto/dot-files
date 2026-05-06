@@ -51,8 +51,8 @@ func TestWorkflowsUsePlainMenuLabels(t *testing.T) {
 	workflows := a.workflows()
 
 	wantNames := []string{
-		"Preview Template",
-		"Validate Template",
+		"Review Template",
+		"Update Template From This Mac",
 		"Inspect Current State",
 		"Regenerate Installed App List",
 		"Save Snapshot",
@@ -78,6 +78,86 @@ func TestWorkflowsUsePlainMenuLabels(t *testing.T) {
 
 		if workflow.Description == "" || workflow.ChangesMac == "" || workflow.Confirmation == nil {
 			t.Fatalf("workflow missing explanation metadata: %#v", workflow)
+		}
+	}
+}
+
+func TestReviewTemplateCombinesValidationAndPreviewPhases(t *testing.T) {
+	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
+	workflows := a.workflows()
+
+	var workflow *workflowdomain.Workflow
+
+	for i := range workflows {
+		if workflows[i].Name == "Review Template" {
+			workflow = &workflows[i]
+
+			break
+		}
+	}
+
+	if workflow == nil {
+		t.Fatalf("missing Review Template workflow: %#v", workflows)
+	}
+
+	want := []string{
+		"Validate template files",
+		"Print tracked Homebrew bundle",
+		"List tracked apps",
+		"List tracked macOS settings",
+		"List tracked dotfile bundles",
+	}
+
+	if len(workflow.Phases) != len(want) {
+		t.Fatalf("phase count = %d, want %d: %#v", len(workflow.Phases), len(want), workflow.Phases)
+	}
+
+	for i, wantName := range want {
+		if workflow.Phases[i].Name != wantName {
+			t.Fatalf("phase[%d] = %q, want %q", i, workflow.Phases[i].Name, wantName)
+		}
+	}
+}
+
+func TestPreviewTemplateDotfilesReportsProgressForEachStowEntry(t *testing.T) {
+	repo := t.TempDir()
+
+	if err := os.MkdirAll(filepath.Join(repo, "stow", "shell"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(repo, "stow", "git"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(repo, "stow", "README.md"), []byte("notes\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	a := newApp("/Users/gus", repo, strings.NewReader(""), &stdout, io.Discard, stubRunner{})
+
+	if err := a.previewTemplateDotfiles(options{}); err != nil {
+		t.Fatal(err)
+	}
+
+	output := stdout.String()
+	want := []string{
+		"reading stow directory:",
+		"found 3 stow entries",
+		"# Tracked dotfile bundles under stow/",
+		"checking stow entry: README.md",
+		"skipped non-directory: README.md",
+		"checking stow entry: git",
+		"  - git",
+		"checking stow entry: shell",
+		"  - shell",
+		"done: found 2 dotfile bundles",
+	}
+
+	for _, text := range want {
+		if !strings.Contains(output, text) {
+			t.Fatalf("output missing %q:\n%s", text, output)
 		}
 	}
 }
@@ -135,6 +215,49 @@ func TestConvergeReconvergeUsesFullPhasesWithoutAdopt(t *testing.T) {
 		for _, phase := range phases {
 			if phase.Name == "Prepare existing dotfiles" {
 				t.Fatalf("Re-converge must not import host dotfiles: %#v", phases)
+			}
+		}
+	}
+}
+
+func TestUpdateTemplateFromThisMacUsesReviewCandidatePhases(t *testing.T) {
+	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
+	workflows := a.workflows()
+
+	var workflow *workflowdomain.Workflow
+
+	for i := range workflows {
+		if workflows[i].Name == "Update Template From This Mac" {
+			workflow = &workflows[i]
+
+			break
+		}
+	}
+
+	if workflow == nil {
+		t.Fatalf("missing Update Template From This Mac workflow: %#v", workflows)
+	}
+
+	if workflow.Confirmation == nil || len(workflow.Confirmation.Options) != 3 {
+		t.Fatalf("workflow confirmation = %#v", workflow.Confirmation)
+	}
+
+	want := []string{
+		"Save current Mac snapshot",
+		"Generate installed app review candidate",
+		"Generate dotfile review candidates",
+	}
+
+	for _, optionIndex := range []int{0, 1} {
+		phases := workflow.Confirmation.Options[optionIndex].Phases
+
+		if len(phases) != len(want) {
+			t.Fatalf("option %d phase count = %d, want %d: %#v", optionIndex, len(phases), len(want), phases)
+		}
+
+		for i, wantName := range want {
+			if phases[i].Name != wantName {
+				t.Fatalf("option %d phase[%d] = %q, want %q", optionIndex, i, phases[i].Name, wantName)
 			}
 		}
 	}

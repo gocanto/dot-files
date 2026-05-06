@@ -40,3 +40,11 @@ export interface SavedField {
 export type DisplayPhase = Phase & {
   status: string;
 };
+
+export interface RunOutputSection {
+  id: string;
+  label: string;
+  context: string;
+  status: string;
+  code: string;
+}

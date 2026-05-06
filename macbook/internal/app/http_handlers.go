@@ -43,6 +43,9 @@ func (s httpServer) buildMux() *http.ServeMux {
 	mux.HandleFunc("GET /v1/healthz", s.healthz)
 	mux.HandleFunc("GET /v1/workflows", s.listWorkflows)
 	mux.HandleFunc("POST /v1/workflows/run", s.runWorkflow)
+	mux.HandleFunc("GET /v1/template-files", s.listTemplateFiles)
+	mux.HandleFunc("GET /v1/template-files/content", s.readTemplateFile)
+	mux.HandleFunc("PUT /v1/template-files/content", s.saveTemplateFile)
 	mux.HandleFunc("GET /v1/runs", s.listRuns)
 	mux.HandleFunc("GET /v1/runs/{id}/log", s.runLog)
 	mux.HandleFunc("GET /v1/settings", s.getSettings)
@@ -53,6 +56,50 @@ func (s httpServer) buildMux() *http.ServeMux {
 	mux.HandleFunc("GET /v1/onepassword/items", s.listOpItems)
 
 	return mux
+}
+
+func (s httpServer) listTemplateFiles(w http.ResponseWriter, _ *http.Request) {
+	files, err := s.app.listTemplateFiles()
+
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"files": files})
+}
+
+func (s httpServer) readTemplateFile(w http.ResponseWriter, r *http.Request) {
+	content, err := s.app.readTemplateFile(r.URL.Query().Get("path"))
+
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+
+		return
+	}
+
+	writeJSON(w, http.StatusOK, content)
+}
+
+func (s httpServer) saveTemplateFile(w http.ResponseWriter, r *http.Request) {
+	var req saveTemplateFileRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("decode request: %w", err))
+
+		return
+	}
+
+	content, err := s.app.saveTemplateFile(req.Path, req.Content)
+
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+
+		return
+	}
+
+	writeJSON(w, http.StatusOK, content)
 }
 
 func (s httpServer) listOpVaults(w http.ResponseWriter, _ *http.Request) {

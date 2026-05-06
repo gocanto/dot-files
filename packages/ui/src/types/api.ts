@@ -60,6 +60,20 @@ export interface RunLog {
   events: Array<RunEvent & { id: number; createdAt: string }>;
 }
 
+export interface TemplateFileSummary {
+  path: string;
+  relative: string;
+  kind: string;
+  size: number;
+  modifiedAt?: string;
+  exists: boolean;
+}
+
+export interface TemplateFileContent {
+  file: TemplateFileSummary;
+  content: string;
+}
+
 export interface RuntimeSettings {
   repoRoot: string;
   appsConfigPath: string;
@@ -117,6 +131,9 @@ export interface MacOSApi {
   ): Promise<{ exitCode: number }>;
   runs(limit?: number): Promise<RunSummary[]>;
   runLog(runId: string): Promise<RunLog>;
+  templateFiles(): Promise<TemplateFileSummary[]>;
+  readTemplateFile(path: string): Promise<TemplateFileContent>;
+  saveTemplateFile(path: string, content: string): Promise<TemplateFileContent>;
   settings(): Promise<SettingsResponse>;
   validateSettings(settings: RuntimeSettings): Promise<SettingsResponse>;
   saveSettings(settings: RuntimeSettings): Promise<SettingsResponse>;

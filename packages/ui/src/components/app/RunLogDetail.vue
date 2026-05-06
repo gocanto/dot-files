@@ -8,8 +8,9 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import OutputBlock from "@/components/OutputBlock.vue";
+import RunOutputSections from "@/components/app/RunOutputSections.vue";
 import StatusBadge from "@/components/StatusBadge.vue";
+import type { RunOutputSection } from "@/components/app/types";
 import { formatDate, initials } from "@/lib/format";
 import type { RunLog } from "@/types/api";
 
@@ -17,6 +18,7 @@ defineProps<{
   runLogLoading: boolean;
   selectedRunLog: RunLog | null;
   selectedRunOutput: string;
+  selectedRunOutputSections: RunOutputSection[];
 }>();
 </script>
 
@@ -64,10 +66,9 @@ defineProps<{
     </div>
     <Separator />
     <ScrollArea class="min-h-0 flex-1 bg-terminal text-terminal-foreground">
-      <OutputBlock
-        :code="selectedRunOutput"
+      <RunOutputSections
+        :sections="selectedRunOutputSections"
         empty-text="No log output recorded."
-        class="text-sm leading-6"
       />
     </ScrollArea>
     <Separator />

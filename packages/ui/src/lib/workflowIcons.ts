@@ -30,10 +30,12 @@ import {
 } from "lucide-vue-next";
 
 const workflowActionIcons: Record<string, typeof Download> = {
-  "preview-template": Eye,
-  "validate-template": ShieldCheck,
+  "review-template": FileCheck2,
+  "update-template-from-this-mac": Files,
   "inspect-current": ShieldCheck,
+  "inspect-current-state": ShieldCheck,
   "regenerate-installed-list": FileCode2,
+  "regenerate-installed-app-list": FileCode2,
   "save-snapshot": Camera,
   "converge-to-template": RefreshCw,
   "restore-snapshot": ArchiveRestore,
@@ -67,6 +69,9 @@ const phaseIcons: Record<string, typeof Download> = {
   "list-tracked-macos-settings": Sliders,
   "list-tracked-dotfile-bundles": Files,
   "validate-template-files": FileCheck2,
+  "save-current-mac-snapshot": Camera,
+  "generate-installed-app-review-candidate": FileCode2,
+  "generate-dotfile-review-candidates": Files,
   "list-installed-homebrew-formulae-and-casks": Beer,
   "show-current-macos-defaults-values": Sliders,
   "scan-untracked-items": Search,

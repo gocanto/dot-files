@@ -27,6 +27,18 @@ interface RuntimeSettings {
   opItem: string;
 }
 
+interface TemplateFileContent {
+  file: {
+    path: string;
+    relative: string;
+    kind: string;
+    size: number;
+    modifiedAt?: string;
+    exists: boolean;
+  };
+  content: string;
+}
+
 interface OpVault {
   id: string;
   name: string;
@@ -50,6 +62,11 @@ contextBridge.exposeInMainWorld("macOS", {
   workflows: () => ipcRenderer.invoke("workflows:list"),
   runs: (limit?: number) => ipcRenderer.invoke("runs:list", limit ?? 50),
   runLog: (runId: string) => ipcRenderer.invoke("runs:log", runId),
+  templateFiles: () => ipcRenderer.invoke("template-files:list"),
+  readTemplateFile: (path: string): Promise<TemplateFileContent> =>
+    ipcRenderer.invoke("template-files:read", path),
+  saveTemplateFile: (path: string, content: string): Promise<TemplateFileContent> =>
+    ipcRenderer.invoke("template-files:save", path, content),
   settings: () => ipcRenderer.invoke("settings:get"),
   validateSettings: (settings: RuntimeSettings) =>
     ipcRenderer.invoke("settings:validate", settings),

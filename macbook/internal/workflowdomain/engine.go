@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"slices"
-	"strings"
 
 	"github.com/oullin/workflow/store"
 	engine "github.com/oullin/workflow/workflow"
@@ -49,8 +48,10 @@ type Executor struct {
 	Sink EventSink
 }
 
-type stringsWriter struct {
-	builder strings.Builder
+type eventWriter struct {
+	emit     func(string) error
+	writeErr error
+	written  int
 }
 
 const (
@@ -177,13 +178,7 @@ func (e Executor) Execute(runID string, plan RunPlan) error {
 			return err
 		}
 
-		output, err := runPhase(phase)
-
-		if output != "" {
-			if emitErr := e.emit(Event{RunID: runID, Type: "phase_output", PhaseID: phase.ID, PhaseName: phase.Name, Message: output}); emitErr != nil {
-				return emitErr
-			}
-		}
+		err := e.runPhase(runID, phase)
 
 		if err != nil {
 			if applyErr := e.apply(flow, state, TransitionFail); applyErr != nil {
@@ -283,15 +278,15 @@ func transitionCandidates(transition string) []string {
 }
 
 func (e Executor) runConfirmation(runID string, option *ConfirmationOption) error {
-	output, err := runWriter(option.Run)
+	return e.runWriter(option.Run, func(message string) Event {
+		return Event{RunID: runID, Type: "confirmation_output", Message: message}
+	})
+}
 
-	if output != "" {
-		if emitErr := e.emit(Event{RunID: runID, Type: "confirmation_output", Message: output}); emitErr != nil {
-			return emitErr
-		}
-	}
-
-	return err
+func (e Executor) runPhase(runID string, phase Phase) error {
+	return e.runWriter(phase.Run, func(message string) Event {
+		return Event{RunID: runID, Type: "phase_output", PhaseID: phase.ID, PhaseName: phase.Name, Message: message}
+	})
 }
 
 func (e Executor) emit(event Event) error {
@@ -320,25 +315,46 @@ func clonePhases(phases []Phase) []Phase {
 	return slices.Clone(phases)
 }
 
-func runPhase(phase Phase) (string, error) {
-	return runWriter(phase.Run)
-}
-
-func runWriter(run func(io.Writer) error) (string, error) {
+func (e Executor) runWriter(run func(io.Writer) error, event func(string) Event) error {
 	if run == nil {
-		return "", nil
+		return nil
 	}
 
-	writer := &stringsWriter{}
+	writer := &eventWriter{
+		emit: func(message string) error {
+			return e.emit(event(message))
+		},
+	}
+
 	err := run(writer)
 
-	return writer.String(), err
+	if writer.writeErr != nil {
+		return writer.writeErr
+	}
+
+	return err
 }
 
-func (w *stringsWriter) Write(p []byte) (int, error) {
-	return w.builder.Write(p)
+func (w *eventWriter) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+
+	if w.writeErr != nil {
+		return 0, w.writeErr
+	}
+
+	if err := w.emit(string(p)); err != nil {
+		w.writeErr = err
+
+		return 0, err
+	}
+
+	w.written += len(p)
+
+	return len(p), nil
 }
 
-func (w *stringsWriter) String() string {
-	return w.builder.String()
+func (w *eventWriter) Written() int {
+	return w.written
 }

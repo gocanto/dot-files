@@ -5,18 +5,72 @@ import type { MacOSApi, RunEvent, SettingsResponse, Workflow } from "../src/type
 
 const workflows: Workflow[] = [
   {
-    id: "preview-template",
-    name: "Preview Template",
-    description: "Print the tracked source of truth.",
+    id: "review-template",
+    name: "Review Template",
+    description: "Validate and print the tracked source of truth.",
     changesMac: "No",
     phases: [
+      { id: "validate-template-files", name: "Validate template files", enabled: true },
       { id: "print-tracked-homebrew-bundle", name: "Print tracked Homebrew bundle", enabled: true },
+      { id: "list-tracked-apps", name: "List tracked apps", enabled: true },
+      { id: "list-tracked-macos-settings", name: "List tracked macOS settings", enabled: true },
+      { id: "list-tracked-dotfile-bundles", name: "List tracked dotfile bundles", enabled: true },
     ],
     confirmation: {
-      title: "Preview Template",
-      message: "Print the template.",
+      title: "Review Template",
+      message: "Validate and print the template.",
       options: [
         { id: "run-now", label: "Run now", description: "continue", continue: true, back: false },
+      ],
+    },
+  },
+  {
+    id: "update-template-from-this-mac",
+    name: "Update Template From This Mac",
+    description: "Generate review candidates from this Mac.",
+    changesMac: "Writes review candidates",
+    phases: [
+      { id: "save-current-mac-snapshot", name: "Save current Mac snapshot", enabled: true },
+      {
+        id: "generate-installed-app-review-candidate",
+        name: "Generate installed app review candidate",
+        enabled: true,
+      },
+    ],
+    confirmation: {
+      title: "Update Template From This Mac",
+      message: "Generate review candidates.",
+      options: [
+        {
+          id: "preview-only",
+          label: "Preview only",
+          description: "show what would happen",
+          continue: true,
+          back: false,
+          phases: [
+            { id: "save-current-mac-snapshot", name: "Save current Mac snapshot", enabled: true },
+            {
+              id: "generate-installed-app-review-candidate",
+              name: "Generate installed app review candidate",
+              enabled: true,
+            },
+          ],
+        },
+        {
+          id: "run-now",
+          label: "Run now",
+          description: "make the described changes",
+          continue: true,
+          back: false,
+          phases: [
+            { id: "save-current-mac-snapshot", name: "Save current Mac snapshot", enabled: true },
+            {
+              id: "generate-installed-app-review-candidate",
+              name: "Generate installed app review candidate",
+              enabled: true,
+            },
+          ],
+        },
       ],
     },
   },
@@ -88,11 +142,49 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
           runId: "run-1",
           seq: 1,
           type: "phase_output",
+          phaseId: "doctor",
+          phaseName: "Run health checks",
           message: "ok",
           createdAt: "2026-05-04T00:00:00Z",
         },
       ],
     }),
+    templateFiles: vi.fn().mockResolvedValue([
+      {
+        path: "/repo/apps.yaml",
+        relative: "apps.yaml",
+        kind: "apps",
+        size: 64,
+        exists: true,
+      },
+      {
+        path: "/repo/stow/shell/.zshrc",
+        relative: "stow/shell/.zshrc",
+        kind: "stow",
+        size: 20,
+        exists: true,
+      },
+    ]),
+    readTemplateFile: vi.fn().mockResolvedValue({
+      file: {
+        path: "/repo/apps.yaml",
+        relative: "apps.yaml",
+        kind: "apps",
+        size: 64,
+        exists: true,
+      },
+      content: "apps:\n  - name: Ghostty\n",
+    }),
+    saveTemplateFile: vi.fn().mockImplementation(async (path: string, content: string) => ({
+      file: {
+        path,
+        relative: path.replace("/repo/", ""),
+        kind: "apps",
+        size: content.length,
+        exists: true,
+      },
+      content,
+    })),
     settings: vi.fn().mockResolvedValue({
       valid: true,
       settings: {
@@ -166,16 +258,16 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
           runId: "run-2",
           seq: 1,
           type: "phase_started",
-          phaseId: "run-health-checks",
-          phaseName: "Run health checks",
+          phaseId: "validate-template-files",
+          phaseName: "Validate template files",
           status: "running",
         });
         onEvent({
           runId: "run-2",
           seq: 2,
           type: "phase_output",
-          phaseId: "run-health-checks",
-          phaseName: "Run health checks",
+          phaseId: "validate-template-files",
+          phaseName: "Validate template files",
           message: "healthy",
         });
         onEvent({ runId: "run-2", seq: 3, type: "run_finished", status: "completed" });
@@ -216,7 +308,7 @@ describe("App", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("Template");
-    expect(wrapper.text()).toContain("Preview Template");
+    expect(wrapper.text()).toContain("Review Template");
   });
 
   it("shows skeletons while initial data is loading", () => {
@@ -240,7 +332,7 @@ describe("App", () => {
     await flushPromises();
 
     expect(wrapper.find('[data-testid="initial-shell-skeleton"]').exists()).toBe(false);
-    expect(wrapper.text()).toContain("Preview Template");
+    expect(wrapper.text()).toContain("Review Template");
     expect(wrapper.text()).toContain("Mac: Local Mac");
     expect(wrapper.text()).toContain("localhost");
     expect(api.macName).toHaveBeenCalled();
@@ -313,14 +405,297 @@ describe("App", () => {
 
     expect(api.runWorkflow).toHaveBeenCalledWith(
       {
-        workflowId: "preview-template",
+        workflowId: "review-template",
         confirmationOptionId: "run-now",
-        enabledPhaseIds: ["print-tracked-homebrew-bundle"],
+        enabledPhaseIds: [
+          "validate-template-files",
+          "print-tracked-homebrew-bundle",
+          "list-tracked-apps",
+          "list-tracked-macos-settings",
+          "list-tracked-dotfile-bundles",
+        ],
       },
       expect.any(Function),
     );
     expect(wrapper.text()).toContain("healthy");
     expect(wrapper.text()).toContain("completed");
+  });
+
+  it("shows workflow progress in a stepper dialog", async () => {
+    installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Run now"))
+      ?.trigger("click");
+    findDocumentButton("Continue")?.click();
+    await flushOutputHighlighting();
+
+    expect(document.body.querySelector('[data-slot="stepper"]')).not.toBeNull();
+    expect(document.body.textContent).toContain("Print tracked Homebrew bundle");
+    expect(document.body.textContent).toContain("Run output");
+    expect(document.body.textContent).toContain("Step 1: Validate template files");
+    expect(document.body.textContent).toContain("healthy");
+    expect(document.body.textContent).not.toContain("phase_started running");
+    expect(document.body.textContent).not.toContain("phase_finished ok");
+  });
+
+  it("groups streamed output chunks under the matching step", async () => {
+    installApi({
+      runWorkflow: vi
+        .fn()
+        .mockImplementation(async (_request, onEvent: (event: RunEvent) => void) => {
+          onEvent({
+            runId: "run-streamed",
+            seq: 1,
+            type: "phase_started",
+            phaseId: "list-tracked-apps",
+            phaseName: "List tracked apps",
+            status: "running",
+          });
+          onEvent({
+            runId: "run-streamed",
+            seq: 2,
+            type: "phase_output",
+            phaseId: "list-tracked-apps",
+            phaseName: "List tracked apps",
+            message: "Ghostty\n",
+          });
+          onEvent({
+            runId: "run-streamed",
+            seq: 3,
+            type: "phase_output",
+            phaseId: "list-tracked-apps",
+            phaseName: "List tracked apps",
+            message: "Raycast\n",
+          });
+          onEvent({
+            runId: "run-streamed",
+            seq: 4,
+            type: "phase_finished",
+            phaseId: "list-tracked-apps",
+            phaseName: "List tracked apps",
+            status: "ok",
+          });
+          onEvent({ runId: "run-streamed", seq: 5, type: "run_finished", status: "completed" });
+
+          return { exitCode: 0 };
+        }),
+    });
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Run now"))
+      ?.trigger("click");
+    findDocumentButton("Continue")?.click();
+    await flushOutputHighlighting();
+
+    const sections = document.body.querySelector('[data-testid="run-output-sections"]');
+
+    expect(sections?.textContent).toContain("Step 3: List tracked apps");
+    expect(sections?.textContent).toContain("Ghostty");
+    expect(sections?.textContent).toContain("Raycast");
+  });
+
+  it("separates confirmation dialog header body and footer surfaces", async () => {
+    installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Run now"))
+      ?.trigger("click");
+
+    expect(document.body.querySelector('[data-slot="alert-dialog-content"]')?.className).toContain(
+      "grid-rows-[auto_minmax(0,1fr)_auto]",
+    );
+    expect(document.body.querySelector('[data-slot="alert-dialog-content"]')?.className).toContain(
+      "h-[min(760px,calc(100vh-2rem))]",
+    );
+    expect(document.body.querySelector('[data-slot="alert-dialog-header"]')?.className).toContain(
+      "border-b",
+    );
+    expect(document.body.querySelector('[data-testid="alert-dialog-body"]')?.className).toContain(
+      "bg-background",
+    );
+    expect(document.body.querySelector('[data-testid="alert-dialog-body"]')?.className).toContain(
+      "min-h-0",
+    );
+    expect(document.body.querySelector('[data-slot="alert-dialog-footer"]')?.className).toContain(
+      "border-t",
+    );
+    expect(document.body.querySelector('[data-testid="run-output-panel"]')?.className).toContain(
+      "min-h-96",
+    );
+    expect(document.body.querySelector('[data-testid="run-output-panel"]')?.innerHTML).toContain(
+      "status-idle",
+    );
+  });
+
+  it("uses workflow confirmation copy in the progress dialog header", async () => {
+    installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Run now"))
+      ?.trigger("click");
+
+    const header = document.body.querySelector('[data-slot="alert-dialog-header"]');
+
+    expect(header?.textContent).toContain("Review Template");
+    expect(header?.textContent).toContain("Validate and print the template.");
+    expect(header?.textContent).not.toContain("continue");
+  });
+
+  it("scrolls the dialog body to the footer when a run completes", async () => {
+    const scrollIntoView = vi.fn();
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      installApi();
+
+      const wrapper = mount(App);
+      await flushPromises();
+
+      await wrapper
+        .findAll("button")
+        .find((button) => button.text().includes("Run now"))
+        ?.trigger("click");
+      findDocumentButton("Continue")?.click();
+      await flushPromises();
+
+      expect(scrollIntoView).toHaveBeenCalledWith(
+        expect.objectContaining({ block: "end", behavior: "smooth" }),
+      );
+    } finally {
+      Element.prototype.scrollIntoView = originalScrollIntoView;
+    }
+  });
+
+  it("keeps failed workflow output visible in the progress dialog", async () => {
+    installApi({
+      runWorkflow: vi
+        .fn()
+        .mockImplementation(async (_request, onEvent: (event: RunEvent) => void) => {
+          onEvent({
+            runId: "run-failed",
+            seq: 1,
+            type: "phase_started",
+            phaseId: "print-tracked-homebrew-bundle",
+            phaseName: "Print tracked Homebrew bundle",
+            status: "running",
+          });
+          onEvent({
+            runId: "run-failed",
+            seq: 2,
+            type: "phase_output",
+            phaseId: "print-tracked-homebrew-bundle",
+            phaseName: "Print tracked Homebrew bundle",
+            message: "boom",
+          });
+          onEvent({
+            runId: "run-failed",
+            seq: 3,
+            type: "phase_finished",
+            phaseId: "print-tracked-homebrew-bundle",
+            phaseName: "Print tracked Homebrew bundle",
+            status: "failed",
+            message: "failed",
+          });
+          onEvent({ runId: "run-failed", seq: 4, type: "run_failed", status: "failed" });
+
+          return { exitCode: 1 };
+        }),
+    });
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Run now"))
+      ?.trigger("click");
+    findDocumentButton("Continue")?.click();
+    await flushOutputHighlighting();
+
+    expect(document.body.querySelector('[data-slot="stepper"]')).not.toBeNull();
+    expect(document.body.textContent).toContain("boom");
+    expect(document.body.textContent).toContain("failed");
+  });
+
+  it("loads and saves allowlisted template files", async () => {
+    const api = installApi();
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Template Files"))
+      ?.trigger("click");
+    await flushPromises();
+
+    expect(api.templateFiles).toHaveBeenCalled();
+    expect(wrapper.text()).toContain("apps.yaml");
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().trim().startsWith("apps.yaml"))
+      ?.trigger("click");
+    await flushPromises();
+
+    await wrapper.find("textarea").setValue("apps:\n  - name: Ghostty\n  - name: Raycast\n");
+    await wrapper
+      .findAll("button")
+      .find((button) => /^Save$/.test(button.text().trim()))
+      ?.trigger("click");
+    await flushPromises();
+
+    expect(api.saveTemplateFile).toHaveBeenCalledWith(
+      "/repo/apps.yaml",
+      "apps:\n  - name: Ghostty\n  - name: Raycast\n",
+    );
+    expect(wrapper.text()).toContain("Template file saved.");
+  });
+
+  it("shows skeletons while template files load", async () => {
+    let resolveFiles: (value: Awaited<ReturnType<MacOSApi["templateFiles"]>>) => void = () => {};
+    installApi({
+      templateFiles: vi.fn(
+        (): Promise<Awaited<ReturnType<MacOSApi["templateFiles"]>>> =>
+          new Promise((resolve) => {
+            resolveFiles = resolve;
+          }),
+      ),
+    });
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Template Files"))
+      ?.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="template-files-skeleton"]').exists()).toBe(true);
+
+    resolveFiles([]);
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="template-files-skeleton"]').exists()).toBe(false);
   });
 
   it("opens persisted logs", async () => {
@@ -364,6 +739,8 @@ describe("App", () => {
             runId: "run-1",
             seq: 1,
             type: "phase_output",
+            phaseId: "doctor",
+            phaseName: "Run health checks",
             message: "\u001B[31mred output\u001B[0m",
             createdAt: "2026-05-04T00:00:00Z",
           },
@@ -397,7 +774,7 @@ describe("App", () => {
     await flushPromises();
 
     // Default section is Template
-    expect(wrapper.text()).toContain("Preview Template");
+    expect(wrapper.text()).toContain("Review Template");
 
     await wrapper
       .findAll("button")

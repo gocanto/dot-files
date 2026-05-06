@@ -11,28 +11,33 @@ export interface WorkflowDetail {
 }
 
 export const workflowDetails: Record<string, WorkflowDetail> = {
-  "preview-template": {
-    action: "Previews",
+  "review-template": {
+    action: "Reviews",
     category: "template",
-    purpose: "Print the tracked source of truth so you can see exactly what the template defines.",
+    purpose:
+      "Validate the tracked template, then print the source of truth so you can see exactly what it defines.",
     details:
-      "Outputs the tracked Homebrew bundle (formulae and casks), the apps from apps.yaml grouped by install method, the tracked macOS defaults, and the dotfile bundles under stow/. Read-only.",
+      "Checks apps.yaml, secrets.yaml, stow/, the tracked Brewfile, and tracked macOS settings, then outputs the tracked Homebrew bundle, apps from apps.yaml, macOS defaults, and dotfile bundles under stow/. Read-only.",
     whenToRun:
-      "Before any converge or remove workflow, or to confirm what the template currently declares.",
+      "After editing any template file, before opening a PR, or before any converge or remove workflow.",
     sideEffects: [],
     prerequisites: [],
   },
-  "validate-template": {
-    action: "Validates",
+  "update-template-from-this-mac": {
+    action: "Updates",
     category: "template",
     purpose:
-      "Check that apps.yaml, secrets.yaml, the stow directory, the tracked Brewfile, and the tracked macOS settings are well-formed.",
+      "Capture the current Mac and generate review candidates for template changes without overwriting the tracked source of truth.",
     details:
-      "Loads and validates each tracked manifest. Reports parse errors, missing files, or invalid install methods. Read-only.",
+      "Saves a snapshot first, regenerates apps.generated.yaml, and writes dotfile candidates under .template-candidates/current-mac for review.",
     whenToRun:
-      "After editing any template file, or before opening a PR that changes apps.yaml/secrets.yaml.",
-    sideEffects: [],
-    prerequisites: [],
+      "After configuring this Mac by hand and before deciding which current-state changes should become tracked template policy.",
+    sideEffects: [
+      "Writes a dated snapshot under the archive root",
+      "Writes apps.generated.yaml at the configured generated path",
+      "Writes dotfile review candidates under .template-candidates/current-mac",
+    ],
+    prerequisites: ["Write access to the archive root and repository review-candidate paths"],
   },
   "inspect-current": {
     action: "Inspects",
@@ -45,7 +50,32 @@ export const workflowDetails: Record<string, WorkflowDetail> = {
     sideEffects: [],
     prerequisites: [],
   },
+  "inspect-current-state": {
+    action: "Inspects",
+    category: "current",
+    purpose:
+      "Read-only snapshot of what is actually installed and configured on this Mac right now.",
+    details:
+      "Runs the doctor checks (git, gh, node, go, op, etc.), lists installed Homebrew formulae and casks via `brew list`, and prints the current values of tracked macOS defaults domains.",
+    whenToRun: "When something feels off, or before deciding whether to converge / remove.",
+    sideEffects: [],
+    prerequisites: [],
+  },
   "regenerate-installed-list": {
+    action: "Generates",
+    category: "current",
+    purpose:
+      "Regenerate the candidate apps list by scanning what is actually installed on this Mac.",
+    details:
+      "Scans GUI applications, Homebrew casks, and Mac App Store apps, then writes the merged result to apps.generated.yaml so you can review the diff against the tracked apps.yaml. The tracked apps.yaml source of truth is never modified.",
+    whenToRun:
+      "After installing or removing apps, or when preparing a PR that updates the tracked apps list.",
+    sideEffects: [
+      "Writes apps.generated.yaml at the configured generated path (never touches apps.yaml)",
+    ],
+    prerequisites: [],
+  },
+  "regenerate-installed-app-list": {
     action: "Generates",
     category: "current",
     purpose:
@@ -160,13 +190,17 @@ export function workflowsInCategory<T extends { id: string }>(
 }
 
 const actionPillClasses: Record<string, string> = {
-  "preview-template":
-    "border-[var(--status-neutral-border)] bg-[var(--status-neutral-bg)] text-[var(--status-neutral-fg)]",
-  "validate-template":
+  "review-template":
     "border-[var(--status-running-border)] bg-[var(--status-running-bg)] text-[var(--status-running-fg)]",
+  "update-template-from-this-mac":
+    "border-[var(--status-attention-border)] bg-[var(--status-attention-bg)] text-[var(--status-attention-fg)]",
   "inspect-current":
     "border-[var(--status-neutral-border)] bg-[var(--status-neutral-bg)] text-[var(--status-neutral-fg)]",
+  "inspect-current-state":
+    "border-[var(--status-neutral-border)] bg-[var(--status-neutral-bg)] text-[var(--status-neutral-fg)]",
   "regenerate-installed-list":
+    "border-[var(--status-running-border)] bg-[var(--status-running-bg)] text-[var(--status-running-fg)]",
+  "regenerate-installed-app-list":
     "border-[var(--status-running-border)] bg-[var(--status-running-bg)] text-[var(--status-running-fg)]",
   "save-snapshot":
     "border-[var(--status-success-border)] bg-[var(--status-success-bg)] text-[var(--status-success-fg)]",

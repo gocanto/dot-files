@@ -18,6 +18,7 @@ import {
   workflowsInCategory,
   type WorkflowCategory,
 } from "@/lib/workflowDetails";
+import { formatRunOutputSections } from "@/lib/runOutput";
 import type {
   ConfirmationOption,
   OpItem,
@@ -28,6 +29,7 @@ import type {
   RunSummary,
   RuntimeSettings,
   SettingsResponse,
+  TemplateFileSummary,
   Workflow,
 } from "@/types/api";
 
@@ -41,6 +43,7 @@ export function useAppController() {
   const workflows = ref<Workflow[]>([]);
   const runs = ref<RunSummary[]>([]);
   const selectedWorkflowId = ref("");
+  const selectedTemplateFiles = ref(false);
   const selectedRunId = ref("");
   const selectedRunLog = ref<RunLog | null>(null);
   const enabledPhaseIds = ref<Set<string>>(new Set());
@@ -75,6 +78,15 @@ export function useAppController() {
   const opSigninLoading = ref(false);
   const opInstallLoading = ref(false);
   const toasts = ref<ToastItem[]>([]);
+  const templateFiles = ref<TemplateFileSummary[]>([]);
+  const templateFilesLoading = ref(false);
+  const templateFileContentLoading = ref(false);
+  const templateFileSaving = ref(false);
+  const selectedTemplateFilePath = ref("");
+  const templateFileContent = ref("");
+  const templateFileDraft = ref("");
+  const templateFileError = ref("");
+  const templateFileMessage = ref("");
 
   const stepNavItems = computed(() => [
     {
@@ -277,6 +289,21 @@ export function useAppController() {
     }));
   });
 
+  const progressDialogPhases = computed(() => {
+    const phases =
+      pendingOption.value?.phases && pendingOption.value.phases.length > 0
+        ? pendingOption.value.phases
+        : displayPhases.value;
+
+    return phases.map((phase) => ({
+      ...phase,
+      enabled: enabledPhaseIds.value.has(phase.id),
+      status: phaseStatus(phase),
+    }));
+  });
+
+  const templateFileDirty = computed(() => templateFileDraft.value !== templateFileContent.value);
+
   const normalizedSearch = computed(() => searchQuery.value.trim().toLowerCase());
 
   const sectionWorkflows = computed(() => {
@@ -330,9 +357,14 @@ export function useAppController() {
 
   const outputText = computed(() =>
     runEvents.value
-      .map((event) => event.message || `${event.type} ${event.status || ""}`.trim())
+      .filter((event) => event.type === "phase_output" || event.type === "confirmation_output")
+      .map((event) => event.message ?? "")
       .filter(Boolean)
-      .join("\n"),
+      .join(""),
+  );
+
+  const outputSections = computed(() =>
+    formatRunOutputSections(runEvents.value, progressDialogPhases.value),
   );
 
   const workflowProgress = computed(() => {
@@ -352,9 +384,14 @@ export function useAppController() {
   const selectedRunOutput = computed(
     () =>
       selectedRunLog.value?.events
-        .map((event) => event.message || `${event.type} ${event.status || ""}`.trim())
+        .filter((event) => event.type === "phase_output" || event.type === "confirmation_output")
+        .map((event) => event.message ?? "")
         .filter(Boolean)
-        .join("\n") ?? "",
+        .join("") ?? "",
+  );
+
+  const selectedRunOutputSections = computed(() =>
+    formatRunOutputSections(selectedRunLog.value?.events ?? []),
   );
 
   onMounted(() => {
@@ -494,6 +531,7 @@ export function useAppController() {
     searchQuery.value = "";
     selectedWorkflowId.value = "";
     selectedSettingsKey.value = null;
+    selectedTemplateFiles.value = false;
 
     if (next === "logs") {
       void refreshRuns();
@@ -508,6 +546,7 @@ export function useAppController() {
   function selectStepSetting(key: StepSettingsKey) {
     selectedWorkflowId.value = "";
     selectedSettingsKey.value = key;
+    selectedTemplateFiles.value = false;
     void loadSettings();
 
     if (key === "opVault" || key === "opItem") {
@@ -646,8 +685,19 @@ export function useAppController() {
   function selectWorkflow(workflow: Workflow) {
     selectedWorkflowId.value = workflow.id;
     selectedSettingsKey.value = null;
+    selectedTemplateFiles.value = false;
     resetEnabledPhases();
     runEvents.value = [];
+  }
+
+  async function selectTemplateFiles() {
+    selectedWorkflowId.value = "";
+    selectedSettingsKey.value = null;
+    selectedTemplateFiles.value = true;
+
+    if (templateFiles.value.length === 0) {
+      await loadTemplateFiles();
+    }
   }
 
   function resetEnabledPhases() {
@@ -677,6 +727,10 @@ export function useAppController() {
   }
 
   function updateConfirmationOpen(open: boolean) {
+    if (running.value) {
+      return;
+    }
+
     if (!open) {
       pendingOption.value = null;
     }
@@ -689,7 +743,6 @@ export function useAppController() {
       return;
     }
 
-    pendingOption.value = null;
     running.value = true;
     runEvents.value = [];
 
@@ -700,7 +753,7 @@ export function useAppController() {
 
     try {
       pushToast("Workflow started", selectedWorkflow.value.name, "loading");
-      await window.macOS.runWorkflow(
+      const result = await window.macOS.runWorkflow(
         {
           workflowId: selectedWorkflow.value.id,
           confirmationOptionId: option.id,
@@ -708,13 +761,98 @@ export function useAppController() {
         },
         (event) => runEvents.value.push(event),
       );
-      pushToast("Workflow completed", selectedWorkflow.value.name, "success");
+
+      if (result.exitCode === 0) {
+        pushToast("Workflow completed", selectedWorkflow.value.name, "success");
+      } else {
+        pushToast("Workflow failed", selectedWorkflow.value.name, "error");
+      }
     } catch (error) {
       pushToast("Workflow failed", errorMessage(error), "error");
     } finally {
       running.value = false;
       await refreshRuns();
     }
+  }
+
+  async function loadTemplateFiles() {
+    templateFilesLoading.value = true;
+    templateFileError.value = "";
+
+    try {
+      templateFiles.value = await window.macOS.templateFiles();
+
+      if (
+        selectedTemplateFilePath.value &&
+        !templateFiles.value.some((file) => file.path === selectedTemplateFilePath.value)
+      ) {
+        selectedTemplateFilePath.value = "";
+        templateFileContent.value = "";
+        templateFileDraft.value = "";
+      }
+    } catch (error) {
+      templateFileError.value = errorMessage(error);
+    } finally {
+      templateFilesLoading.value = false;
+    }
+  }
+
+  async function selectTemplateFile(file: TemplateFileSummary) {
+    selectedTemplateFilePath.value = file.path;
+    templateFileContentLoading.value = true;
+    templateFileError.value = "";
+    templateFileMessage.value = "";
+
+    try {
+      const response = await window.macOS.readTemplateFile(file.path);
+
+      if (selectedTemplateFilePath.value !== file.path) {
+        return;
+      }
+
+      templateFileContent.value = response.content;
+      templateFileDraft.value = response.content;
+    } catch (error) {
+      templateFileError.value = errorMessage(error);
+      templateFileContent.value = "";
+      templateFileDraft.value = "";
+    } finally {
+      if (selectedTemplateFilePath.value === file.path) {
+        templateFileContentLoading.value = false;
+      }
+    }
+  }
+
+  async function saveTemplateFile() {
+    if (!selectedTemplateFilePath.value) {
+      return;
+    }
+
+    templateFileSaving.value = true;
+    templateFileError.value = "";
+    templateFileMessage.value = "";
+
+    try {
+      const response = await window.macOS.saveTemplateFile(
+        selectedTemplateFilePath.value,
+        templateFileDraft.value,
+      );
+
+      templateFileContent.value = response.content;
+      templateFileDraft.value = response.content;
+      templateFileMessage.value = "Template file saved.";
+      pushToast("Template file saved", response.file.relative, "success");
+      await loadTemplateFiles();
+    } catch (error) {
+      templateFileError.value = errorMessage(error);
+      pushToast("Template file save failed", templateFileError.value, "error");
+    } finally {
+      templateFileSaving.value = false;
+    }
+  }
+
+  function updateTemplateFileDraft(value: string) {
+    templateFileDraft.value = value;
   }
 
   async function refreshRuns() {
@@ -893,6 +1031,7 @@ export function useAppController() {
     toggleTheme,
     section,
     selectedSettingsKey,
+    selectedTemplateFiles,
     macName,
     macHostname,
     selectedWorkflowId,
@@ -926,6 +1065,14 @@ export function useAppController() {
     opSigninLoading,
     opInstallLoading,
     toasts,
+    templateFiles,
+    templateFilesLoading,
+    templateFileContentLoading,
+    templateFileSaving,
+    selectedTemplateFilePath,
+    templateFileDraft,
+    templateFileError,
+    templateFileMessage,
     stepNavItems,
     auxNavItems,
     stepMeta,
@@ -941,15 +1088,24 @@ export function useAppController() {
     opSavedFields,
     settingsGroups,
     displayPhases,
+    progressDialogPhases,
+    templateFileDirty,
     matchingWorkflows,
     matchingRuns,
     runStatus,
     outputText,
+    outputSections,
     workflowProgress,
     selectedRunOutput,
+    selectedRunOutputSections,
     loadAll,
     selectSection,
     selectStepSetting,
+    selectTemplateFiles,
+    loadTemplateFiles,
+    selectTemplateFile,
+    saveTemplateFile,
+    updateTemplateFileDraft,
     loadOpVaults,
     onOpVaultChange,
     onOpItemChange,

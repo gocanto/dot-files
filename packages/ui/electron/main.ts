@@ -186,6 +186,20 @@ ipcMain.handle("runs:list", async (_event, limit: number) => {
 
 ipcMain.handle("runs:log", async (_event, runId: string) => (await client()).runLog({ runId }));
 
+ipcMain.handle("template-files:list", async () => {
+  const response = await (await client()).listTemplateFiles();
+
+  return response.files ?? [];
+});
+
+ipcMain.handle("template-files:read", async (_event, path: string) =>
+  (await client()).readTemplateFile({ path }),
+);
+
+ipcMain.handle("template-files:save", async (_event, path: string, content: string) =>
+  (await client()).saveTemplateFile({ path, content }),
+);
+
 ipcMain.handle("settings:get", async () => (await client()).getSettings());
 
 ipcMain.handle("settings:validate", async (_event, settings: RuntimeSettings) =>

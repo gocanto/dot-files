@@ -57,6 +57,18 @@ class WorkflowBridgeClient {
     return this.request("GET", `/v1/runs/${encodeURIComponent(runId)}/log`);
   }
 
+  listTemplateFiles() {
+    return this.request("GET", "/v1/template-files");
+  }
+
+  readTemplateFile({ path }) {
+    return this.request("GET", `/v1/template-files/content?path=${encodeURIComponent(path)}`);
+  }
+
+  saveTemplateFile({ path, content }) {
+    return this.request("PUT", "/v1/template-files/content", { path, content });
+  }
+
   getSettings() {
     return this.request("GET", "/v1/settings");
   }

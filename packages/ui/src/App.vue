@@ -10,6 +10,7 @@ import RunLogDetail from "@/components/app/RunLogDetail.vue";
 import SettingsForm from "@/components/app/SettingsForm.vue";
 import SettingsListPanel from "@/components/app/SettingsListPanel.vue";
 import StepSettingDetail from "@/components/app/StepSettingDetail.vue";
+import TemplateFilesDetail from "@/components/app/TemplateFilesDetail.vue";
 import WorkflowDetail from "@/components/app/WorkflowDetail.vue";
 import WorkflowDetailSkeleton from "@/components/app/WorkflowDetailSkeleton.vue";
 import WorkflowListPanel from "@/components/app/WorkflowListPanel.vue";
@@ -26,6 +27,7 @@ const {
   toggleTheme,
   section,
   selectedSettingsKey,
+  selectedTemplateFiles,
   macName,
   macHostname,
   selectedWorkflowId,
@@ -59,6 +61,14 @@ const {
   opSigninLoading,
   opInstallLoading,
   toasts,
+  templateFiles,
+  templateFilesLoading,
+  templateFileContentLoading,
+  templateFileSaving,
+  selectedTemplateFilePath,
+  templateFileDraft,
+  templateFileError,
+  templateFileMessage,
   stepNavItems,
   auxNavItems,
   stepMeta,
@@ -74,15 +84,23 @@ const {
   opSavedFields,
   settingsGroups,
   displayPhases,
+  progressDialogPhases,
+  templateFileDirty,
   matchingWorkflows,
   matchingRuns,
   runStatus,
   outputText,
+  outputSections,
   workflowProgress,
   selectedRunOutput,
+  selectedRunOutputSections,
   loadAll,
   selectSection,
   selectStepSetting,
+  selectTemplateFiles,
+  loadTemplateFiles,
+  selectTemplateFile,
+  saveTemplateFile,
   loadOpVaults,
   onOpVaultChange,
   onOpItemChange,
@@ -152,6 +170,7 @@ const {
               :workflows="matchingWorkflows"
               :selected-workflow-id="selectedWorkflowId"
               :selected-settings-key="selectedSettingsKey"
+              :selected-template-files="selectedTemplateFiles"
               :workflows-loading="workflowsLoading"
               :settings-loading="settingsLoading"
               :settings-response="settingsResponse"
@@ -159,6 +178,7 @@ const {
               :settings-key-labels="settingsKeyLabels"
               @select-workflow="selectWorkflow"
               @select-step-setting="selectStepSetting"
+              @select-template-files="selectTemplateFiles"
               @open-devtools="openDevTools"
             />
 
@@ -228,6 +248,22 @@ const {
               @choose-directory="chooseDirectory"
             />
 
+            <TemplateFilesDetail
+              v-else-if="stepMeta && selectedTemplateFiles"
+              v-model:draft="templateFileDraft"
+              :files="templateFiles"
+              :files-loading="templateFilesLoading"
+              :content-loading="templateFileContentLoading"
+              :saving="templateFileSaving"
+              :dirty="templateFileDirty"
+              :selected-path="selectedTemplateFilePath"
+              :error="templateFileError"
+              :message="templateFileMessage"
+              @refresh-files="loadTemplateFiles"
+              @select-file="selectTemplateFile"
+              @save-file="saveTemplateFile"
+            />
+
             <WorkflowDetailSkeleton v-else-if="stepMeta && workflowsLoading && !selectedWorkflow" />
 
             <template v-else-if="stepMeta && !selectedWorkflow">
@@ -260,6 +296,7 @@ const {
               :run-log-loading="runLogLoading"
               :selected-run-log="selectedRunLog"
               :selected-run-output="selectedRunOutput"
+              :selected-run-output-sections="selectedRunOutputSections"
             />
 
             <SettingsForm
@@ -309,7 +346,13 @@ const {
 
     <ConfirmationDialog
       :pending-option="pendingOption"
+      :title="selectedWorkflow?.confirmation?.title ?? selectedWorkflow?.name ?? ''"
+      :summary="selectedWorkflow?.confirmation?.message ?? selectedWorkflow?.description ?? ''"
       :running="running"
+      :phases="progressDialogPhases"
+      :output-text="outputText"
+      :output-sections="outputSections"
+      :run-status="runStatus"
       @update:open="updateConfirmationOpen"
       @continue="runSelected"
     />

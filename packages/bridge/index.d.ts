@@ -64,6 +64,20 @@ export interface RunLog {
   events: WorkflowEvent[];
 }
 
+export interface TemplateFileSummary {
+  path: string;
+  relative: string;
+  kind: string;
+  size: number;
+  modifiedAt?: string;
+  exists: boolean;
+}
+
+export interface TemplateFileContent {
+  file: TemplateFileSummary;
+  content: string;
+}
+
 export interface RuntimeSettings {
   repoRoot: string;
   appsConfigPath: string;
@@ -128,6 +142,9 @@ export interface WorkflowBridgeClient {
   listWorkflows(): Promise<{ workflows: Workflow[] }>;
   listRuns(request: { limit: number }): Promise<{ runs: RunSummary[] }>;
   runLog(request: { runId: string }): Promise<RunLog>;
+  listTemplateFiles(): Promise<{ files: TemplateFileSummary[] }>;
+  readTemplateFile(request: { path: string }): Promise<TemplateFileContent>;
+  saveTemplateFile(request: { path: string; content: string }): Promise<TemplateFileContent>;
   getSettings(): Promise<SettingsResponse>;
   validateSettings(request: { settings: RuntimeSettings }): Promise<SettingsResponse>;
   getUserPreferences(): Promise<UserPreferencesResponse>;

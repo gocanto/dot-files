@@ -88,18 +88,23 @@ func (a app) workflows() []workflowdomain.Workflow {
 
 	return workflowdomain.Normalize([]workflowdomain.Workflow{
 		{
-			Name:         "Preview Template",
-			Description:  "Print the tracked source of truth: Homebrew bundle, apps.yaml, macOS defaults, and dotfile bundles. Read-only.",
+			Name:         "Review Template",
+			Description:  "Validate the tracked template, then print the source of truth: Homebrew bundle, apps.yaml, macOS defaults, and dotfile bundles. Read-only.",
 			ChangesMac:   "No",
-			Phases:       previewTemplatePhases(a, baseOpts),
-			Confirmation: safeWorkflowConfirmation("Preview Template", "Print the tracked source of truth. This does not change anything on this Mac.", previewTemplatePhases(a, baseOpts)),
+			Phases:       reviewTemplatePhases(a, baseOpts),
+			Confirmation: safeWorkflowConfirmation("Review Template", "Validate and print the tracked source of truth. This does not change anything on this Mac.", reviewTemplatePhases(a, baseOpts)),
 		},
 		{
-			Name:         "Validate Template",
-			Description:  "Validate that apps.yaml, secrets.yaml, the stow directory, the tracked Brewfile, and the tracked macOS settings are well-formed.",
-			ChangesMac:   "No",
-			Phases:       validateTemplatePhases(a, baseOpts),
-			Confirmation: safeWorkflowConfirmation("Validate Template", "Validate the source of truth. This does not change anything on this Mac.", validateTemplatePhases(a, baseOpts)),
+			Name:        "Update Template From This Mac",
+			Description: "Save a current-Mac snapshot, then write review-candidate template files without overwriting the tracked template.",
+			ChangesMac:  "Writes review candidates",
+			Phases:      updateTemplateFromMacPhases(a, updateTemplateFromMacDryOpts(baseOpts)),
+			Confirmation: workflowConfirmation(
+				"Update Template From This Mac",
+				"Capture this Mac and generate review candidates. Preview shows the candidate paths; run now saves a snapshot first and never overwrites tracked template files.",
+				updateTemplateFromMacPhases(a, updateTemplateFromMacDryOpts(baseOpts)),
+				updateTemplateFromMacPhases(a, updateTemplateFromMacLiveOpts(baseOpts)),
+			),
 		},
 		{
 			Name:         "Inspect Current State",
@@ -183,10 +188,43 @@ func previewTemplatePhases(a app, opts options) []workflowdomain.Phase {
 	}
 }
 
+func reviewTemplatePhases(a app, opts options) []workflowdomain.Phase {
+	return append(validateTemplatePhases(a, opts), previewTemplatePhases(a, opts)...)
+}
+
 func validateTemplatePhases(a app, opts options) []workflowdomain.Phase {
 	return []workflowdomain.Phase{
 		{Name: "Validate template files", Enabled: true, Run: func(w io.Writer) error {
 			return a.withStdout(w).validateTemplate(opts)
+		}},
+	}
+}
+
+func updateTemplateFromMacDryOpts(base options) options {
+	opts := base
+	opts.dryRun = true
+	opts.apps = true
+
+	return opts
+}
+
+func updateTemplateFromMacLiveOpts(base options) options {
+	opts := base
+	opts.apps = true
+
+	return opts
+}
+
+func updateTemplateFromMacPhases(a app, opts options) []workflowdomain.Phase {
+	return []workflowdomain.Phase{
+		{Name: "Save current Mac snapshot", Enabled: true, Run: func(w io.Writer) error {
+			return a.withStdout(w).captureArchive(opts)
+		}},
+		{Name: "Generate installed app review candidate", Enabled: true, Run: func(w io.Writer) error {
+			return a.withStdout(w).updateInstalledAppList(opts)
+		}},
+		{Name: "Generate dotfile review candidates", Enabled: true, Run: func(w io.Writer) error {
+			return a.withStdout(w).writeDotfileCandidates(opts)
 		}},
 	}
 }

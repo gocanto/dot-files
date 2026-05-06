@@ -34,8 +34,14 @@ func TestHTTPListWorkflowsReturnsMetadata(t *testing.T) {
 
 	first, _ := workflows[0].(map[string]any)
 
-	if first["id"] != "preview-template" {
+	if first["id"] != "review-template" {
 		t.Fatalf("first workflow = %#v", first)
+	}
+
+	second, _ := workflows[1].(map[string]any)
+
+	if second["id"] != "update-template-from-this-mac" {
+		t.Fatalf("second workflow = %#v", second)
 	}
 }
 
@@ -49,7 +55,7 @@ func TestHTTPRunPersistsEventsAndRunLog(t *testing.T) {
 	defer server.Close()
 
 	events := streamSSE(t, server.URL+"/v1/workflows/run", `{
-		"workflowId": "preview-template",
+		"workflowId": "review-template",
 		"confirmationOptionId": "run-now",
 		"enabledPhaseIds": ["print-tracked-homebrew-bundle"]
 	}`)
@@ -60,6 +66,14 @@ func TestHTTPRunPersistsEventsAndRunLog(t *testing.T) {
 		t.Fatalf("expected phase_output event in stream, got %#v", events)
 	}
 
+	workflowEvents := workflowSSEEvents(t, events)
+	outputIndex := eventTypeIndex(workflowEvents, "phase_output")
+	finishIndex := eventTypeIndex(workflowEvents, "phase_finished")
+
+	if outputIndex < 0 || finishIndex < 0 || outputIndex > finishIndex {
+		t.Fatalf("expected phase_output before phase_finished, got %#v", workflowEvents)
+	}
+
 	runs := getJSON(t, server.URL+"/v1/runs")
 	rows, _ := runs["runs"].([]any)
 
@@ -67,7 +81,7 @@ func TestHTTPRunPersistsEventsAndRunLog(t *testing.T) {
 		t.Fatalf("runs = %#v", rows)
 	}
 
-	if first, _ := rows[0].(map[string]any); first["workflowId"] != "preview-template" {
+	if first, _ := rows[0].(map[string]any); first["workflowId"] != "review-template" {
 		t.Fatalf("run = %#v", first)
 	}
 
@@ -255,6 +269,22 @@ func firstSSERunID(t *testing.T, events []sseEvent) string {
 }
 
 func hasSSEEventType(events []sseEvent, eventType string) bool {
+	for _, payload := range workflowSSEEvents(nil, events) {
+		if payload.Type == eventType {
+			return true
+		}
+	}
+
+	return false
+}
+
+func workflowSSEEvents(t *testing.T, events []sseEvent) []storage.EventRecord {
+	if t != nil {
+		t.Helper()
+	}
+
+	var payloads []storage.EventRecord
+
 	for _, event := range events {
 		if event.Event != "workflow" {
 			continue
@@ -263,13 +293,25 @@ func hasSSEEventType(events []sseEvent, eventType string) bool {
 		var payload storage.EventRecord
 
 		if err := json.Unmarshal([]byte(event.Data), &payload); err != nil {
+			if t != nil {
+				t.Fatalf("decode workflow event: %v", err)
+			}
+
 			continue
 		}
 
-		if payload.Type == eventType {
-			return true
+		payloads = append(payloads, payload)
+	}
+
+	return payloads
+}
+
+func eventTypeIndex(events []storage.EventRecord, eventType string) int {
+	for index, event := range events {
+		if event.Type == eventType {
+			return index
 		}
 	}
 
-	return false
+	return -1
 }

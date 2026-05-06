@@ -13,6 +13,7 @@ import (
 	convergemacos "github.com/gocanto/mac-os/internal/converge/macos"
 	currentapps "github.com/gocanto/mac-os/internal/currentstate/apps"
 	"github.com/gocanto/mac-os/internal/currentstate/doctor"
+	"github.com/gocanto/mac-os/internal/safefs"
 	"github.com/gocanto/mac-os/internal/snapshot"
 	"github.com/gocanto/mac-os/internal/template/appconfig"
 	"github.com/gocanto/mac-os/internal/template/brewfile"
@@ -184,6 +185,27 @@ func (a app) updateInstalledAppList(opts options) error {
 	return a.currentApps().GenerateInstalledList(currentapps.Options{DryRun: opts.dryRun, ConfigPath: opts.configPath, GeneratedPath: opts.generatedPath})
 }
 
+func (a app) writeDotfileCandidates(opts options) error {
+	dest := filepath.Join(a.repo, ".template-candidates", "current-mac")
+	fmt.Fprintf(a.stdout, "dotfile review candidate destination: %s\n", dest)
+
+	for _, item := range dotfiles.CapturePlan() {
+		if opts.dryRun {
+			fmt.Fprintf(a.stdout, "would write dotfile candidate: %s -> %s\n", item.Source, filepath.Join(dest, item.Target))
+
+			continue
+		}
+
+		if err := safefs.CopyPlanItem(dest, a.home, item); err != nil {
+			return fmt.Errorf("write dotfile candidate %s: %w", item.Target, err)
+		}
+
+		fmt.Fprintf(a.stdout, "wrote dotfile candidate: %s\n", filepath.Join(dest, item.Target))
+	}
+
+	return nil
+}
+
 func (a app) runDoctor(options) error {
 	return doctor.Service{GOOS: a.goos, GOARCH: a.goarch, Home: a.home, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}.Run(a.settings.OPVault, a.settings.OPItem, a.settings.SecretsConfigPath)
 }
@@ -296,23 +318,48 @@ func (a app) previewTemplateMacOS(_ options) error {
 
 func (a app) previewTemplateDotfiles(_ options) error {
 	stowDir := filepath.Join(a.repo, "stow")
+
+	fmt.Fprintf(a.stdout, "reading stow directory: %s\n", stowDir)
+
 	entries, err := os.ReadDir(stowDir)
 
 	if err != nil {
 		return fmt.Errorf("read stow dir %s: %w", stowDir, err)
 	}
 
+	fmt.Fprintf(a.stdout, "found %d stow %s\n", len(entries), plural(len(entries), "entry", "entries"))
 	fmt.Fprintln(a.stdout, "# Tracked dotfile bundles under stow/")
 
+	bundles := 0
+
 	for _, entry := range entries {
+		fmt.Fprintf(a.stdout, "checking stow entry: %s\n", entry.Name())
+
 		if !entry.IsDir() {
+			fmt.Fprintf(a.stdout, "  skipped non-directory: %s\n", entry.Name())
+
 			continue
 		}
 
 		fmt.Fprintf(a.stdout, "  - %s\n", entry.Name())
+		bundles++
 	}
 
+	if bundles == 0 {
+		fmt.Fprintln(a.stdout, "  (no dotfile bundle directories found)")
+	}
+
+	fmt.Fprintf(a.stdout, "done: found %d dotfile %s\n", bundles, plural(bundles, "bundle", "bundles"))
+
 	return nil
+}
+
+func plural(count int, singular, plural string) string {
+	if count == 1 {
+		return singular
+	}
+
+	return plural
 }
 
 func (a app) validateTemplate(opts options) error {
