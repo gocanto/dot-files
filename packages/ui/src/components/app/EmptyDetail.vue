@@ -7,16 +7,20 @@ import { initials } from "@lib/format";
 defineProps<{
   section: string;
 }>();
+
+function sectionLabel(section: string) {
+  return section.replaceAll("-", " ");
+}
 </script>
 
 <template>
   <div class="flex items-start bg-section p-4">
     <div class="flex items-start gap-4 text-sm">
       <Avatar size="sm">
-        <AvatarFallback>{{ initials(section.replace("-", " ")) }}</AvatarFallback>
+        <AvatarFallback>{{ initials(sectionLabel(section)) }}</AvatarFallback>
       </Avatar>
       <div class="grid gap-1">
-        <div class="font-semibold capitalize">{{ section.replace("-", " ") }}</div>
+        <div class="font-semibold capitalize">{{ sectionLabel(section) }}</div>
         <div class="line-clamp-1 text-xs">
           This area is available from the mail-style navigation.
         </div>

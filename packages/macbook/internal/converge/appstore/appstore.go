@@ -50,6 +50,10 @@ func (s Service) ApplyAppStore(opts Options) error {
 			continue
 		}
 
+		if app.Package == "" {
+			return fmt.Errorf("install App Store app %q: missing MAS package id", app.Name)
+		}
+
 		cmd := []string{"mas", "install", app.Package}
 
 		if opts.DryRun {

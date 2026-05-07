@@ -18,6 +18,15 @@ type Service struct {
 }
 
 func (s Service) Export(root string) error {
+	if s.Runner == nil {
+		return fmt.Errorf("defaults export: runner is nil")
+	}
+
+	stderr := s.Stderr
+	if stderr == nil {
+		stderr = io.Discard
+	}
+
 	domains := templatemacos.Domains()
 	exported := 0
 
@@ -25,7 +34,7 @@ func (s Service) Export(root string) error {
 		out, err := s.Runner.Run("defaults", "export", domain, "-")
 
 		if err != nil {
-			fmt.Fprintf(s.Stderr, "warning: defaults export %s failed: %v\n", domain, err)
+			fmt.Fprintf(stderr, "warning: defaults export %s failed: %v\n", domain, err)
 
 			continue
 		}

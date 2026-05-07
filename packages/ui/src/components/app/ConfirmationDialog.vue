@@ -48,6 +48,7 @@ const bodyBottom = ref<HTMLElement | null>(null);
 const headerTitle = computed(() => props.title || props.pendingOption?.label || "Run workflow");
 const headerSummary = computed(() => props.summary || props.pendingOption?.description || "");
 const terminalRunStatuses = new Set(["completed", "failed", "stopped"]);
+const hasResult = computed(() => terminalRunStatuses.has(props.runStatus));
 
 const activeStep = computed(() => {
   const runningIndex = props.phases.findIndex((phase) => phase.status === "running");
@@ -187,10 +188,10 @@ watch(
 
       <AlertDialogFooter>
         <AlertDialogCancel :disabled="running">
-          {{ running ? "Running" : outputText ? "Close" : "Cancel" }}
+          {{ running ? "Running" : hasResult ? "Close" : "Cancel" }}
         </AlertDialogCancel>
         <Button
-          :disabled="running || !pendingOption || Boolean(outputText)"
+          :disabled="running || !pendingOption || hasResult"
           @click="pendingOption && emit('continue', pendingOption)"
         >
           <Loader2 v-if="running" class="size-4 animate-spin" />

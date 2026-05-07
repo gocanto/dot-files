@@ -1,6 +1,7 @@
 package workflowdomain
 
 import (
+	"context"
 	"errors"
 	"io"
 	"testing"
@@ -10,7 +11,7 @@ type eventCollector struct {
 	events []Event
 }
 
-func (c *eventCollector) Emit(event Event) error {
+func (c *eventCollector) Emit(_ context.Context, event Event) error {
 	c.events = append(c.events, event)
 
 	return nil
@@ -55,7 +56,11 @@ func TestBuildRunPlanSelectsPreviewPhases(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if plan.Mode != RunModePreview || plan.Phases[0].Name != "preview" {
+	if plan.Mode != RunModePreview {
+		t.Fatalf("mode = %q, want %q", plan.Mode, RunModePreview)
+	}
+
+	if len(plan.Phases) == 0 || plan.Phases[0].Name != "preview" {
 		t.Fatalf("plan = %#v", plan)
 	}
 }
@@ -71,7 +76,7 @@ func TestExecutorStopsOnFirstFailingPhase(t *testing.T) {
 	}
 	plan.Workflow = Normalize([]Workflow{plan.Workflow})[0]
 
-	err := Executor{Sink: collector}.Execute("run-1", plan)
+	err := Executor{Sink: collector}.Execute(context.Background(), "run-1", plan)
 
 	if err == nil {
 		t.Fatal("expected error")
@@ -114,12 +119,16 @@ func TestExecutorRequiresApprovalBeforePhases(t *testing.T) {
 	}
 	plan.Workflow = Normalize([]Workflow{plan.Workflow})[0]
 
-	if err := (Executor{Sink: collector}).Execute("run-1", plan); err != nil {
+	if err := (Executor{Sink: collector}).Execute(context.Background(), "run-1", plan); err != nil {
 		t.Fatal(err)
 	}
 
 	if !approved || !ran {
 		t.Fatalf("approved=%v ran=%v", approved, ran)
+	}
+
+	if len(collector.events) == 0 {
+		t.Fatal("missing events")
 	}
 
 	if collector.events[0].Type != "permission_status" || collector.events[0].Status != "needs_approval" {
@@ -147,7 +156,7 @@ func TestExecutorStopsWhenApprovalFails(t *testing.T) {
 	}
 	plan.Workflow = Normalize([]Workflow{plan.Workflow})[0]
 
-	err := (Executor{Sink: collector}).Execute("run-1", plan)
+	err := (Executor{Sink: collector}).Execute(context.Background(), "run-1", plan)
 
 	if err == nil {
 		t.Fatal("expected approval error")
@@ -182,7 +191,7 @@ func TestExecutorStreamsPhaseOutputBeforePhaseFinishes(t *testing.T) {
 
 	executor := Executor{Sink: collector}
 
-	if err := executor.Execute("run-1", plan); err != nil {
+	if err := executor.Execute(context.Background(), "run-1", plan); err != nil {
 		t.Fatal(err)
 	}
 

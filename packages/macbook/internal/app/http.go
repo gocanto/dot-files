@@ -1,12 +1,15 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
+
+	"github.com/gocanto/mac-os/internal/storage"
 )
 
 func (a app) serveHTTP(args []string) int {
@@ -58,6 +61,22 @@ func (a app) serveHTTP(args []string) int {
 	a.settings = validation.Settings
 	a.repo = validation.Settings.RepoRoot
 
+	store, err := storage.Open(context.Background(), a.settings.WorkflowDBPath)
+
+	if err != nil {
+		fmt.Fprintf(a.stderr, "open workflow log database: %v\n", err)
+
+		return 1
+	}
+
+	defer func() {
+		if err := store.Close(); err != nil {
+			fmt.Fprintf(a.stderr, "close workflow log database: %v\n", err)
+		}
+	}()
+
+	a.store = store
+
 	if err := os.Remove(*socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		fmt.Fprintf(a.stderr, "remove stale http socket: %v\n", err)
 
@@ -73,8 +92,13 @@ func (a app) serveHTTP(args []string) int {
 	}
 
 	defer func() {
-		_ = listener.Close()
-		_ = os.Remove(*socketPath)
+		if err := listener.Close(); err != nil {
+			fmt.Fprintf(a.stderr, "close http listener: %v\n", err)
+		}
+
+		if err := os.Remove(*socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			fmt.Fprintf(a.stderr, "remove http socket: %v\n", err)
+		}
 	}()
 
 	server := &http.Server{Handler: httpServer{app: a}.buildMux()}

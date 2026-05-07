@@ -22,7 +22,7 @@ func (a app) approveHostPermissions(stdout io.Writer) error {
 	fmt.Fprintln(stdout, "requesting host password approval on this Mac")
 
 	script := `do shell script "/usr/bin/true" with prompt "Mac OS Manager needs your password to apply changes to this Mac." with administrator privileges`
-	cmd := []string{"osascript", "-e", script}
+	cmd := []string{"/usr/bin/osascript", "-e", script}
 
 	if _, err := a.runner.Run(cmd[0], cmd[1:]...); err != nil {
 		return fmt.Errorf("host password approval required: %w", err)

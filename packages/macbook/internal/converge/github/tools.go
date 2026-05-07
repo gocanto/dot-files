@@ -2,9 +2,12 @@ package github
 
 import (
 	"fmt"
+	"os/exec"
 
 	"github.com/gocanto/mac-os/internal/command"
 )
+
+var commandLookPath = exec.LookPath
 
 func (s Service) ensureTools(dryRun bool) error {
 	for _, tool := range []struct {
@@ -42,7 +45,7 @@ func (s Service) ensureTools(dryRun bool) error {
 }
 
 func (s Service) commandExists(name string) bool {
-	_, err := s.Runner.Run("sh", "-c", "command -v "+name)
+	_, err := commandLookPath(name)
 
 	return err == nil
 }

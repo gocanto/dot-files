@@ -23,7 +23,9 @@ func parseBrewCasks(out []byte) []string {
 		casks = append(casks, name)
 	}
 
-	sort.Strings(casks)
+	sort.Slice(casks, func(i, j int) bool {
+		return strings.ToLower(casks[i]) < strings.ToLower(casks[j])
+	})
 
 	return casks
 }

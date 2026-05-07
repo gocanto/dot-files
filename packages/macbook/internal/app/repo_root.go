@@ -19,13 +19,7 @@ func findRepoRoot(start string) string {
 
 func resolveRepoRoot(start, explicit string) (string, error) {
 	if strings.TrimSpace(explicit) != "" {
-		root, err := validateRepoRoot(explicit)
-
-		if err != nil {
-			return root, err
-		}
-
-		return root, nil
+		return validateRepoRoot(explicit)
 	}
 
 	if root, ok := walkForRepoRoot(start); ok {

@@ -41,7 +41,7 @@ func TestTemplateFilesListReadAndSaveAllowlistedFiles(t *testing.T) {
 		t.Fatalf("content = %q", content.Content)
 	}
 
-	saved, err := a.saveTemplateFile(stowFile, "export EDITOR=nvim\n")
+	saved, err := a.saveTemplateFile("stow/shell/.zshrc", "export EDITOR=nvim\n")
 
 	if err != nil {
 		t.Fatal(err)
@@ -69,6 +69,14 @@ func TestTemplateFilesRejectUnsafeFiles(t *testing.T) {
 
 	if _, err := a.readTemplateFile("../go.mod"); err == nil {
 		t.Fatal("expected traversal path to be rejected")
+	}
+
+	if _, err := a.saveTemplateFile(outside, "changed\n"); err == nil {
+		t.Fatal("expected outside save path to be rejected")
+	}
+
+	if _, err := a.saveTemplateFile("../go.mod", "changed\n"); err == nil {
+		t.Fatal("expected traversal save path to be rejected")
 	}
 
 	binary := filepath.Join(repo, "stow", "git", ".config", "git", "binary")

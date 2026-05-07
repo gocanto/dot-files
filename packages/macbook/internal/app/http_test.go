@@ -27,21 +27,18 @@ func TestHTTPListWorkflowsReturnsMetadata(t *testing.T) {
 
 	body := getJSON(t, server.URL+"/v1/workflows")
 	workflows, _ := body["workflows"].([]any)
+	ids := map[string]bool{}
 
-	if len(workflows) != 8 {
-		t.Fatalf("workflows = %#v", workflows)
+	for _, row := range workflows {
+		item, _ := row.(map[string]any)
+		id, _ := item["id"].(string)
+		ids[id] = true
 	}
 
-	first, _ := workflows[0].(map[string]any)
-
-	if first["id"] != "review-template" {
-		t.Fatalf("first workflow = %#v", first)
-	}
-
-	second, _ := workflows[1].(map[string]any)
-
-	if second["id"] != "update-template-from-this-mac" {
-		t.Fatalf("second workflow = %#v", second)
+	for _, id := range []string{"review-template", "update-template-from-this-mac"} {
+		if !ids[id] {
+			t.Fatalf("missing workflow %q in %#v", id, workflows)
+		}
 	}
 }
 

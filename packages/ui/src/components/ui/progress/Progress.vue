@@ -13,7 +13,13 @@ const props = withDefaults(
   },
 );
 
-const normalizedValue = computed(() => Math.min(100, Math.max(0, props.value)));
+const normalizedValue = computed(() => {
+  if (!Number.isFinite(props.value)) {
+    return 0;
+  }
+
+  return Math.min(100, Math.max(0, props.value));
+});
 </script>
 
 <template>

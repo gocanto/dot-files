@@ -55,7 +55,6 @@ async function mountEditor() {
   await nextTick();
 
   editorRef.value = monaco.editor.create(container.value, {
-    automaticLayout: true,
     fontFamily: "JetBrains Mono Variable, JetBrains Mono, monospace",
     fontSize: 12,
     lineHeight: 20,

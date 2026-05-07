@@ -42,7 +42,7 @@ function checkStatus(check: SettingsCheck) {
 </script>
 
 <template>
-  <div :class="cn('flex min-h-[var(--panel-header-h)] items-center px-4 py-2', panelHeaderClass)">
+  <div :class="cn('flex min-h-(--panel-header-h) items-center px-4 py-2', panelHeaderClass)">
     <div class="min-w-0">
       <h1 class="text-xl font-bold">System Status</h1>
       <p class="truncate text-xs text-muted-foreground">Permissions, settings, and apply gates</p>
@@ -101,12 +101,12 @@ function checkStatus(check: SettingsCheck) {
         <div class="flex items-center gap-3">
           <KeyRound class="size-4 text-muted-foreground" />
           <div class="min-w-0 flex-1">
-            <h2 class="text-sm font-semibold">Host Password Approval</h2>
+            <h2 class="text-sm font-semibold">Live Apply Prompts</h2>
             <p class="text-xs text-muted-foreground">Required only before live apply actions</p>
           </div>
           <StatusBadge
-            :status="approvalOptions.length ? 'pending' : 'ok'"
-            :label="approvalOptions.length ? 'Needs Approval' : 'Ready'"
+            status="ok"
+            :label="approvalOptions.length ? 'Configured' : 'Ready'"
           />
         </div>
 

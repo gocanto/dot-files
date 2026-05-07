@@ -19,6 +19,10 @@ func TestStorePersistsRunsAndEventsInOrder(t *testing.T) {
 	defer store.Close()
 
 	if err := store.Init(ctx); err != nil {
+		t.Fatalf("first init failed: %v", err)
+	}
+
+	if err := store.Init(ctx); err != nil {
 		t.Fatalf("second init should be idempotent: %v", err)
 	}
 
@@ -40,7 +44,7 @@ func TestStorePersistsRunsAndEventsInOrder(t *testing.T) {
 		{Type: "phase_started", PhaseID: "doctor", PhaseName: "Run health checks", Status: "running"},
 		{Type: "phase_output", PhaseID: "doctor", PhaseName: "Run health checks", Message: "ok"},
 	} {
-		if err := recorder.Emit(event); err != nil {
+		if err := recorder.Emit(ctx, event); err != nil {
 			t.Fatal(err)
 		}
 	}

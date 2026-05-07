@@ -160,12 +160,16 @@ func TestSetupRejectsEmptyPromptAnswer(t *testing.T) {
 
 func TestSetupDryRunInstallsMissingToolsWithoutMutating(t *testing.T) {
 	tmp := t.TempDir()
+	previousLookPath := commandLookPath
+	commandLookPath = func(string) (string, error) {
+		return "", errors.New("missing")
+	}
+	t.Cleanup(func() { commandLookPath = previousLookPath })
 
 	var calls []string
 
 	var stdout bytes.Buffer
 
-	missing := errors.New("missing")
 	s := Service{
 		Home:   filepath.Join(tmp, "home"),
 		Repo:   filepath.Join(tmp, "repo"),
@@ -173,11 +177,6 @@ func TestSetupDryRunInstallsMissingToolsWithoutMutating(t *testing.T) {
 		Stdout: &stdout,
 		Runner: stubRunner{
 			calls: &calls,
-			errors: map[string]error{
-				`sh -c 'command -v git'`: missing,
-				`sh -c 'command -v gh'`:  missing,
-				`sh -c 'command -v gpg'`: missing,
-			},
 			outputs: map[string][]byte{
 				`op item get 'Mac Migration Archive' --vault Private --format json`: opFieldsJSON(`
 					{"id":"github_username","value":"gocanto"},

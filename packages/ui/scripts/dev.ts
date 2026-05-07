@@ -344,8 +344,9 @@ async function stopChildren(): Promise<void> {
   stoppingChildren = false;
 }
 
-async function waitForPortless(readinessUrl: string): Promise<string> {
+async function waitForPortless(readinessUrl: string, timeoutMs = 30000): Promise<string> {
   console.log("Waiting for portless route");
+  const deadline = Date.now() + timeoutMs;
 
   for (;;) {
     try {
@@ -358,17 +359,27 @@ async function waitForPortless(readinessUrl: string): Promise<string> {
       }
     } catch {}
 
+    if (Date.now() >= deadline) {
+      throw new Error(`portless route was not ready after ${timeoutMs}ms`);
+    }
+
     await delay(500);
   }
 }
 
-async function waitForBackend(socketPath: string): Promise<void> {
+async function waitForBackend(socketPath: string, timeoutMs = 30000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+
   for (;;) {
     try {
       await access(socketPath, fsConstants.F_OK);
       await backendHealthz(socketPath);
       return;
     } catch {
+      if (Date.now() >= deadline) {
+        throw new Error(`backend was not ready after ${timeoutMs}ms at ${socketPath}`);
+      }
+
       await delay(100);
     }
   }

@@ -44,7 +44,7 @@ are deliberately excluded from the repo and from automatic replay.
 > [!IMPORTANT]
 > This is not a full Mac backup. It does not clone every app, account, browser
 > profile, keychain, database, container, cache, or private credential. Use a
-> real backup strategy for personnel files and app data that must be preserved
+> real backup strategy for personal files and app data that must be preserved
 > exactly.
 
 ## Fresh Mac Setup

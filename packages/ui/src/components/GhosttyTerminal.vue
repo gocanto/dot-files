@@ -12,12 +12,15 @@ const terminalContainer = ref<HTMLElement | null>(null);
 let terminal: Terminal | null = null;
 let fitAddon: FitAddon | null = null;
 let dataSubscription: IDisposable | null = null;
+let mounted = false;
 
 onMounted(async () => {
+  mounted = true;
+
   try {
     await init();
 
-    if (!terminalContainer.value) {
+    if (!mounted || !terminalContainer.value) {
       return;
     }
 
@@ -38,6 +41,11 @@ onMounted(async () => {
     terminal.open(terminalContainer.value);
 
     await nextTick();
+
+    if (!mounted) {
+      return;
+    }
+
     fitAddon.fit();
     terminal.focus();
     emit("ready");
@@ -47,6 +55,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  mounted = false;
   dataSubscription?.dispose();
   fitAddon?.dispose();
   terminal?.dispose();

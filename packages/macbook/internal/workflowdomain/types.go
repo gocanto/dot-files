@@ -148,16 +148,16 @@ func Metadata(workflows []Workflow) []WorkflowMetadata {
 	return metadata
 }
 
-func Find(workflows []Workflow, id string) (*Workflow, error) {
+func Find(workflows []Workflow, id string) (Workflow, error) {
 	normalized := Normalize(workflows)
 
 	for i := range normalized {
 		if normalized[i].ID == id {
-			return &normalized[i], nil
+			return normalized[i], nil
 		}
 	}
 
-	return nil, fmt.Errorf("unknown workflow %q", id)
+	return Workflow{}, fmt.Errorf("unknown workflow %q", id)
 }
 
 func phaseMetadata(phases []Phase) []PhaseMetadata {

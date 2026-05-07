@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -174,7 +175,7 @@ func (s httpServer) listRuns(w http.ResponseWriter, r *http.Request) {
 		limit = parsed
 	}
 
-	store, err := storage.Open(r.Context(), s.app.settings.WorkflowDBPath)
+	store, closeStore, err := s.app.workflowStore(r.Context())
 
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Errorf("open workflow log database: %w", err))
@@ -182,7 +183,7 @@ func (s httpServer) listRuns(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defer store.Close()
+	defer closeStore()
 
 	runs, err := store.ListRuns(r.Context(), limit)
 
@@ -198,7 +199,7 @@ func (s httpServer) listRuns(w http.ResponseWriter, r *http.Request) {
 func (s httpServer) runLog(w http.ResponseWriter, r *http.Request) {
 	runID := r.PathValue("id")
 
-	store, err := storage.Open(r.Context(), s.app.settings.WorkflowDBPath)
+	store, closeStore, err := s.app.workflowStore(r.Context())
 
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Errorf("open workflow log database: %w", err))
@@ -206,7 +207,7 @@ func (s httpServer) runLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defer store.Close()
+	defer closeStore()
 
 	log, err := store.RunLog(r.Context(), runID)
 
@@ -224,7 +225,7 @@ func (s httpServer) getSettings(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s httpServer) getPreferences(w http.ResponseWriter, r *http.Request) {
-	store, err := storage.Open(r.Context(), s.app.settings.WorkflowDBPath)
+	store, closeStore, err := s.app.workflowStore(r.Context())
 
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Errorf("open workflow log database: %w", err))
@@ -232,7 +233,7 @@ func (s httpServer) getPreferences(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defer store.Close()
+	defer closeStore()
 
 	prefs, err := store.GetUserPreferences(r.Context())
 
@@ -254,7 +255,7 @@ func (s httpServer) savePreferences(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	store, err := storage.Open(r.Context(), s.app.settings.WorkflowDBPath)
+	store, closeStore, err := s.app.workflowStore(r.Context())
 
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Errorf("open workflow log database: %w", err))
@@ -262,7 +263,7 @@ func (s httpServer) savePreferences(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defer store.Close()
+	defer closeStore()
 
 	prefs, err := store.SaveUserPreferences(r.Context(), storage.UserPreferences{Theme: req.Theme})
 
@@ -308,7 +309,7 @@ func (s httpServer) runWorkflow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	store, err := storage.Open(r.Context(), s.app.settings.WorkflowDBPath)
+	store, closeStore, err := s.app.workflowStore(r.Context())
 
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Errorf("open workflow log database: %w", err))
@@ -316,7 +317,7 @@ func (s httpServer) runWorkflow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defer store.Close()
+	defer closeStore()
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -347,7 +348,7 @@ func (s httpServer) runWorkflow(w http.ResponseWriter, r *http.Request) {
 		return writeSSE(w, rc, "workflow", event)
 	})
 
-	if err := recorder.Emit(workflowdomain.Event{
+	if err := recorder.Emit(r.Context(), workflowdomain.Event{
 		Type:    "run_started",
 		Status:  string(workflowdomain.RunStatusRunning),
 		Message: plan.Workflow.Name,
@@ -357,11 +358,11 @@ func (s httpServer) runWorkflow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	runErr := workflowdomain.Executor{Sink: recorder}.Execute(runID, plan)
+	runErr := workflowdomain.Executor{Sink: recorder}.Execute(r.Context(), runID, plan)
 	statusValue, message := finalRunStatus(plan, runErr)
 
 	if runErr != nil {
-		_ = recorder.Emit(workflowdomain.Event{Type: "run_failed", Status: string(statusValue), Message: message})
+		_ = recorder.Emit(r.Context(), workflowdomain.Event{Type: "run_failed", Status: string(statusValue), Message: message})
 	}
 
 	if err := store.CompleteRun(r.Context(), runID, statusValue, message); err != nil {
@@ -386,7 +387,9 @@ func (s httpServer) runWorkflow(w http.ResponseWriter, r *http.Request) {
 func writeJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(body)
+	if err := json.NewEncoder(w).Encode(body); err != nil {
+		fmt.Fprintf(os.Stderr, "json encode error: %v\n", err)
+	}
 }
 
 func writeError(w http.ResponseWriter, status int, err error) {

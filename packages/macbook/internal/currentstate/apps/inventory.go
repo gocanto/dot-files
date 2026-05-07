@@ -105,17 +105,21 @@ func (s Service) scanInventory(opts Options) (appInventory, []string, error) {
 	}
 
 	casksOut, err := s.Runner.Run("brew", "list", "--cask")
-	casks := parseBrewCasks(casksOut)
+	var casks []string
 
 	if err != nil {
 		warnings = append(warnings, fmt.Sprintf("brew cask inventory failed: %v", err))
+	} else {
+		casks = parseBrewCasks(casksOut)
 	}
 
 	masOut, err := s.Runner.Run("mas", "list")
-	masApps := parseMASList(masOut)
+	var masApps []masInstall
 
 	if err != nil {
 		warnings = append(warnings, fmt.Sprintf("Mac App Store inventory failed: %v", err))
+	} else {
+		masApps = parseMASList(masOut)
 	}
 
 	return appInventory{Bundles: bundles, Casks: casks, MAS: masApps}, warnings, nil

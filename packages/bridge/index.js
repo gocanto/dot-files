@@ -1,6 +1,8 @@
 import { EventEmitter } from "node:events";
 import { request as httpRequest } from "node:http";
 
+const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
+
 export function unixTarget(socketPath) {
   return { socketPath };
 }
@@ -141,8 +143,9 @@ class WorkflowBridgeClient {
     return stream;
   }
 
-  request(method, path, body) {
+  request(method, path, body, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS) {
     return new Promise((resolve, reject) => {
+      let settled = false;
       const headers = { Accept: "application/json" };
       const payload = body === undefined ? null : JSON.stringify(body);
 
@@ -150,6 +153,24 @@ class WorkflowBridgeClient {
         headers["Content-Type"] = "application/json";
         headers["Content-Length"] = Buffer.byteLength(payload);
       }
+
+      const fail = (error) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        reject(error);
+      };
+
+      const succeed = (value) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        resolve(value);
+      };
 
       const req = httpRequest({ socketPath: this.socketPath, method, path, headers }, (res) => {
         consumeBody(res)
@@ -159,16 +180,16 @@ class WorkflowBridgeClient {
               (res.headers["content-type"] ?? "").includes("application/json")
             ) {
               try {
-                resolve(JSON.parse(raw));
+                succeed(JSON.parse(raw));
               } catch (error) {
-                reject(error);
+                fail(error);
               }
 
               return;
             }
 
             if (res.statusCode === 200) {
-              resolve(undefined);
+              succeed(undefined);
 
               return;
             }
@@ -194,12 +215,16 @@ class WorkflowBridgeClient {
               }
             }
 
-            reject(error);
+            fail(error);
           })
-          .catch(reject);
+          .catch(fail);
       });
 
-      req.on("error", reject);
+      req.setTimeout(timeoutMs, () => {
+        req.destroy(new Error(`${method} ${path} timed out after ${timeoutMs}ms`));
+      });
+
+      req.on("error", fail);
 
       if (payload !== null) {
         req.write(payload);

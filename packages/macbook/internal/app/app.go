@@ -1,12 +1,14 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"runtime"
 
 	"github.com/gocanto/mac-os/internal/command"
+	"github.com/gocanto/mac-os/internal/storage"
 )
 
 type app struct {
@@ -19,6 +21,7 @@ type app struct {
 	stderr   io.Writer
 	stdin    io.Reader
 	runner   command.Runner
+	store    *storage.Store
 }
 
 type options struct {
@@ -34,6 +37,20 @@ type options struct {
 	secretsPath       string
 	opVault           string
 	opItem            string
+}
+
+func (a app) workflowStore(ctx context.Context) (*storage.Store, func(), error) {
+	if a.store != nil {
+		return a.store, func() {}, nil
+	}
+
+	store, err := storage.Open(ctx, a.settings.WorkflowDBPath)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return store, func() { _ = store.Close() }, nil
 }
 
 const (

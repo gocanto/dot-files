@@ -106,6 +106,10 @@ func (s runtimeSettings) withDefaults(home, fallbackRepo string) runtimeSettings
 func resolvePath(home, repo, path string) string {
 	path = strings.TrimSpace(path)
 
+	if path == "~" {
+		return filepath.Clean(home)
+	}
+
 	if strings.HasPrefix(path, "~/") {
 		return filepath.Join(home, strings.TrimPrefix(path, "~/"))
 	}
@@ -216,21 +220,48 @@ func pathNotFile(path string) error {
 
 func parentWritableOrCreatable(path string) error {
 	parent := filepath.Dir(path)
-	info, err := os.Stat(parent)
+	existing := parent
 
-	if err == nil && info.IsDir() {
-		return nil
+	for {
+		info, err := os.Stat(existing)
+
+		if err == nil {
+			if !info.IsDir() {
+				return fmt.Errorf("%s is not a directory", existing)
+			}
+
+			return writableDir(existing)
+		}
+
+		if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+
+		next := filepath.Dir(existing)
+		if next == existing {
+			return fmt.Errorf("no existing parent directory for %s", parent)
+		}
+
+		existing = next
+	}
+}
+
+func writableDir(path string) error {
+	probe, err := os.CreateTemp(path, ".write-check-*")
+
+	if err != nil {
+		return fmt.Errorf("%s is not writable: %w", path, err)
 	}
 
-	if err == nil && !info.IsDir() {
-		return fmt.Errorf("%s is not a directory", parent)
+	name := probe.Name()
+
+	if err := probe.Close(); err != nil {
+		_ = os.Remove(name)
+
+		return err
 	}
 
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-
-	return err
+	return os.Remove(name)
 }
 
 func sqlitePathValid(path string) error {

@@ -36,6 +36,7 @@ const props = withDefaults(
     "
     :as="as"
     :as-child="asChild"
+    :type="as === 'button' && !asChild ? 'button' : undefined"
   >
     <slot />
   </Primitive>

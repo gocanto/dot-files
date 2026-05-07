@@ -159,11 +159,14 @@ func detectApps(inventory appInventory) []detectedApp {
 
 func findDetectedByLooseName(apps map[string]detectedApp, name string) (string, detectedApp, bool) {
 	want := normalize(name)
+	const minLenForSubstring = 4
 
 	for key, app := range apps {
 		appName := normalize(app.Name)
 
-		if appName == want || strings.Contains(want, appName) || strings.Contains(appName, want) {
+		if appName == want ||
+			(len(want) >= minLenForSubstring && len(appName) >= minLenForSubstring &&
+				(strings.Contains(want, appName) || strings.Contains(appName, want))) {
 			return key, app, true
 		}
 	}

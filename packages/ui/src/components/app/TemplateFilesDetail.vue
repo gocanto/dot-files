@@ -57,7 +57,8 @@ const emit = defineEmits<{
 }>();
 
 const search = ref("");
-const pendingDirtyAction = ref<"back" | "cancel" | null>(null);
+const pendingDirtyAction = ref<"back" | "cancel" | "select" | null>(null);
+const pendingSelectedFile = ref<TemplateFileSummary | null>(null);
 const templateEditorPanelHeaderClass = "min-h-28 border-b border-section-border";
 
 const filteredFiles = computed(() => {
@@ -232,6 +233,16 @@ function requestCancel() {
   emit("cancel-edit");
 }
 
+function requestSelectFile(file: TemplateFileSummary) {
+  if (props.dirty && file.path !== props.selectedPath) {
+    pendingSelectedFile.value = file;
+    pendingDirtyAction.value = "select";
+    return;
+  }
+
+  emit("select-file", file);
+}
+
 function continueDirtyAction() {
   const action = pendingDirtyAction.value;
   pendingDirtyAction.value = null;
@@ -243,6 +254,12 @@ function continueDirtyAction() {
 
   if (action === "cancel") {
     emit("cancel-edit");
+    return;
+  }
+
+  if (action === "select" && pendingSelectedFile.value) {
+    emit("select-file", pendingSelectedFile.value);
+    pendingSelectedFile.value = null;
   }
 }
 </script>
@@ -333,7 +350,7 @@ function continueDirtyAction() {
                 selectedPath === file.path &&
                 'border-primary bg-primary/10 text-primary shadow-sm ring-2 ring-primary/30'
               "
-              @click="emit('select-file', file)"
+              @click="requestSelectFile(file)"
             >
               <span
                 class="mt-0.5 grid size-8 shrink-0 place-items-center rounded-md border border-section-border bg-background text-muted-foreground"

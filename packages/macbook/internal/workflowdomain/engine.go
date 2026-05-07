@@ -1,6 +1,7 @@
 package workflowdomain
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"slices"
@@ -41,7 +42,7 @@ type RunState struct {
 }
 
 type EventSink interface {
-	Emit(Event) error
+	Emit(context.Context, Event) error
 }
 
 type Executor struct {
@@ -64,6 +65,8 @@ const (
 	TransitionFinish  = "finish"
 )
 
+const ConfirmationOptionPreviewOnly = "preview-only"
+
 const (
 	RunModeLive          RunMode = "live"
 	RunModePreview       RunMode = "preview"
@@ -85,7 +88,7 @@ func BuildRunPlan(workflows []Workflow, req RunRequest) (RunPlan, error) {
 		return RunPlan{}, err
 	}
 
-	plan := RunPlan{Workflow: *workflow, Phases: clonePhases(workflow.Phases), Mode: RunModeLive}
+	plan := RunPlan{Workflow: workflow, Phases: clonePhases(workflow.Phases), Mode: RunModeLive}
 
 	if workflow.Confirmation != nil {
 		option, err := findOption(workflow.Confirmation.Options, req.ConfirmationOptionID)
@@ -105,7 +108,7 @@ func BuildRunPlan(workflows []Workflow, req RunRequest) (RunPlan, error) {
 			return RunPlan{}, fmt.Errorf("confirmation option %q goes back and cannot run", option.ID)
 		case !option.Continue:
 			plan.Mode = RunModeStopBeforeRun
-		case option.ID == "preview-only":
+		case option.ID == ConfirmationOptionPreviewOnly:
 			plan.Mode = RunModePreview
 		default:
 			plan.Mode = RunModeLive
@@ -127,7 +130,7 @@ func BuildRunPlan(workflows []Workflow, req RunRequest) (RunPlan, error) {
 	return plan, nil
 }
 
-func (e Executor) Execute(runID string, plan RunPlan) error {
+func (e Executor) Execute(ctx context.Context, runID string, plan RunPlan) error {
 	state := &RunState{Place: "pending"}
 	flow, err := NewEngine()
 
@@ -141,7 +144,7 @@ func (e Executor) Execute(runID string, plan RunPlan) error {
 		}
 
 		if plan.ConfirmationOption.RequiresApproval {
-			if err := e.approve(runID, plan.ConfirmationOption); err != nil {
+			if err := e.approve(ctx, runID, plan.ConfirmationOption); err != nil {
 				_ = e.apply(flow, state, TransitionFail)
 
 				return err
@@ -149,7 +152,7 @@ func (e Executor) Execute(runID string, plan RunPlan) error {
 		}
 
 		if plan.ConfirmationOption.Run != nil {
-			if err := e.runConfirmation(runID, plan.ConfirmationOption); err != nil {
+			if err := e.runConfirmation(ctx, runID, plan.ConfirmationOption); err != nil {
 				_ = e.apply(flow, state, TransitionFail)
 
 				return err
@@ -161,7 +164,7 @@ func (e Executor) Execute(runID string, plan RunPlan) error {
 				return err
 			}
 
-			return e.emit(Event{RunID: runID, Type: "run_stopped", Status: string(RunStatusStopped), Message: "Workflow stopped before phases."})
+			return e.emit(ctx, Event{RunID: runID, Type: "run_stopped", Status: string(RunStatusStopped), Message: "Workflow stopped before phases."})
 		}
 	}
 
@@ -171,7 +174,7 @@ func (e Executor) Execute(runID string, plan RunPlan) error {
 				return err
 			}
 
-			if err := e.emit(Event{RunID: runID, Type: "phase_skipped", PhaseID: phase.ID, PhaseName: phase.Name, Status: "skipped"}); err != nil {
+			if err := e.emit(ctx, Event{RunID: runID, Type: "phase_skipped", PhaseID: phase.ID, PhaseName: phase.Name, Status: "skipped"}); err != nil {
 				return err
 			}
 
@@ -182,18 +185,20 @@ func (e Executor) Execute(runID string, plan RunPlan) error {
 			return err
 		}
 
-		if err := e.emit(Event{RunID: runID, Type: "phase_started", PhaseID: phase.ID, PhaseName: phase.Name, Status: "running"}); err != nil {
+		if err := e.emit(ctx, Event{RunID: runID, Type: "phase_started", PhaseID: phase.ID, PhaseName: phase.Name, Status: "running"}); err != nil {
 			return err
 		}
 
-		err := e.runPhase(runID, phase)
+		err := e.runPhase(ctx, runID, phase)
 
 		if err != nil {
 			if applyErr := e.apply(flow, state, TransitionFail); applyErr != nil {
 				return applyErr
 			}
 
-			_ = e.emit(Event{RunID: runID, Type: "phase_finished", PhaseID: phase.ID, PhaseName: phase.Name, Status: "failed", Message: err.Error()})
+			if emitErr := e.emit(ctx, Event{RunID: runID, Type: "phase_finished", PhaseID: phase.ID, PhaseName: phase.Name, Status: "failed", Message: err.Error()}); emitErr != nil {
+				return emitErr
+			}
 
 			return err
 		}
@@ -202,7 +207,7 @@ func (e Executor) Execute(runID string, plan RunPlan) error {
 			return err
 		}
 
-		if err := e.emit(Event{RunID: runID, Type: "phase_finished", PhaseID: phase.ID, PhaseName: phase.Name, Status: "ok"}); err != nil {
+		if err := e.emit(ctx, Event{RunID: runID, Type: "phase_finished", PhaseID: phase.ID, PhaseName: phase.Name, Status: "ok"}); err != nil {
 			return err
 		}
 	}
@@ -211,7 +216,7 @@ func (e Executor) Execute(runID string, plan RunPlan) error {
 		return err
 	}
 
-	return e.emit(Event{RunID: runID, Type: "run_finished", Status: string(RunStatusCompleted), Message: "Workflow completed."})
+	return e.emit(ctx, Event{RunID: runID, Type: "run_finished", Status: string(RunStatusCompleted), Message: "Workflow completed."})
 }
 
 func NewEngine() (*engine.StateMachine[*RunState], error) {
@@ -285,42 +290,42 @@ func transitionCandidates(transition string) []string {
 	}
 }
 
-func (e Executor) runConfirmation(runID string, option *ConfirmationOption) error {
-	return e.runWriter(option.Run, func(message string) Event {
+func (e Executor) runConfirmation(ctx context.Context, runID string, option *ConfirmationOption) error {
+	return e.runWriter(ctx, option.Run, func(message string) Event {
 		return Event{RunID: runID, Type: "confirmation_output", Message: message}
 	})
 }
 
-func (e Executor) approve(runID string, option *ConfirmationOption) error {
-	if err := e.emit(Event{RunID: runID, Type: "permission_status", Status: "needs_approval", Message: "Host password approval required."}); err != nil {
+func (e Executor) approve(ctx context.Context, runID string, option *ConfirmationOption) error {
+	if err := e.emit(ctx, Event{RunID: runID, Type: "permission_status", Status: "needs_approval", Message: "Host password approval required."}); err != nil {
 		return err
 	}
 
-	err := e.runWriter(option.Approve, func(message string) Event {
+	err := e.runWriter(ctx, option.Approve, func(message string) Event {
 		return Event{RunID: runID, Type: "permission_status", Message: message}
 	})
 
 	if err != nil {
-		_ = e.emit(Event{RunID: runID, Type: "permission_status", Status: "failed", Message: "Host password approval failed."})
+		_ = e.emit(ctx, Event{RunID: runID, Type: "permission_status", Status: "failed", Message: "Host password approval failed."})
 
 		return err
 	}
 
-	return e.emit(Event{RunID: runID, Type: "permission_status", Status: "ok", Message: "Host password approval accepted."})
+	return e.emit(ctx, Event{RunID: runID, Type: "permission_status", Status: "ok", Message: "Host password approval accepted."})
 }
 
-func (e Executor) runPhase(runID string, phase Phase) error {
-	return e.runWriter(phase.Run, func(message string) Event {
+func (e Executor) runPhase(ctx context.Context, runID string, phase Phase) error {
+	return e.runWriter(ctx, phase.Run, func(message string) Event {
 		return Event{RunID: runID, Type: "phase_output", PhaseID: phase.ID, PhaseName: phase.Name, Message: message}
 	})
 }
 
-func (e Executor) emit(event Event) error {
+func (e Executor) emit(ctx context.Context, event Event) error {
 	if e.Sink == nil {
 		return nil
 	}
 
-	return e.Sink.Emit(event)
+	return e.Sink.Emit(ctx, event)
 }
 
 func findOption(options []ConfirmationOption, id string) (*ConfirmationOption, error) {
@@ -341,14 +346,14 @@ func clonePhases(phases []Phase) []Phase {
 	return slices.Clone(phases)
 }
 
-func (e Executor) runWriter(run func(io.Writer) error, event func(string) Event) error {
+func (e Executor) runWriter(ctx context.Context, run func(io.Writer) error, event func(string) Event) error {
 	if run == nil {
 		return nil
 	}
 
 	writer := &eventWriter{
 		emit: func(message string) error {
-			return e.emit(event(message))
+			return e.emit(ctx, event(message))
 		},
 	}
 

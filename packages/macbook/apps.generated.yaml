@@ -363,6 +363,7 @@ apps:
     install_method: system
     config_mode: manual
   - name: Ngrok
+    bundle_id: com.ngrok.client
     install_method: brew
     package: ngrok
     config_mode: manual

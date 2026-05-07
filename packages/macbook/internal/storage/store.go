@@ -244,7 +244,7 @@ func NewRecorder(store *Store, runID string, also func(workflowdomain.Event) err
 	return &Recorder{store: store, runID: runID, also: also}
 }
 
-func (r *Recorder) Emit(event workflowdomain.Event) error {
+func (r *Recorder) Emit(ctx context.Context, event workflowdomain.Event) error {
 	r.mu.Lock()
 
 	defer r.mu.Unlock()
@@ -253,7 +253,7 @@ func (r *Recorder) Emit(event workflowdomain.Event) error {
 	event.RunID = r.runID
 	event.Seq = r.seq
 
-	if err := r.store.InsertEvent(context.Background(), event); err != nil {
+	if err := r.store.InsertEvent(ctx, event); err != nil {
 		return err
 	}
 

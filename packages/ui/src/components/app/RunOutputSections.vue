@@ -23,7 +23,12 @@ watch(
   (sectionIds) => {
     if (props.defaultExpanded) {
       expandedSectionIds.value = new Set(sectionIds);
+      return;
     }
+
+    expandedSectionIds.value = new Set(
+      [...expandedSectionIds.value].filter((sectionId) => sectionIds.includes(sectionId)),
+    );
   },
   { immediate: true },
 );

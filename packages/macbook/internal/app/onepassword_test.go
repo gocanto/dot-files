@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -251,7 +252,9 @@ func (r *onePasswordSigninRunner) Run(name string, args ...string) ([]byte, erro
 		return []byte(`[]`), nil
 	case "op account list":
 		return []byte("account\n"), nil
-	default:
+	case "op signin":
 		return nil, nil
+	default:
+		return nil, fmt.Errorf("unexpected runner call: %s", call)
 	}
 }

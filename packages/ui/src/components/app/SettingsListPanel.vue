@@ -25,7 +25,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div :class="cn('flex min-h-[var(--panel-header-h)] items-center px-4 py-2', panelHeaderClass)">
+  <div :class="cn('flex min-h-(--panel-header-h) items-center px-4 py-2', panelHeaderClass)">
     <h1 class="text-xl font-bold">Settings</h1>
     <Skeleton v-if="settingsLoading && !settingsResponse" class="ml-auto h-5 w-24 rounded-full" />
     <StatusBadge

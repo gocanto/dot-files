@@ -9,7 +9,7 @@ const props = defineProps<
   DropdownMenuLabelProps & { class?: HTMLAttributes["class"]; inset?: boolean }
 >();
 
-const delegatedProps = reactiveOmit(props, "class");
+const delegatedProps = reactiveOmit(props, "class", "inset");
 
 const forwardedProps = useForwardProps(delegatedProps);
 </script>

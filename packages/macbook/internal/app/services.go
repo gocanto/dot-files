@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/gocanto/mac-os/internal/command"
 	"github.com/gocanto/mac-os/internal/converge/appstore"
@@ -33,10 +34,21 @@ func (a app) ensurePrerequisites(opts options) error {
 }
 
 func (a app) applyHomebrewBundle(opts options) error {
-	brewfilePath := filepath.Join(os.TempDir(), "mac-os-Brewfile")
+	brewfileFile, err := os.CreateTemp("", "mac-os-*.Brewfile")
 
-	if err := os.WriteFile(brewfilePath, []byte(brewfile.Content()), 0o644); err != nil {
+	if err != nil {
+		return fmt.Errorf("create temporary Brewfile: %w", err)
+	}
+
+	brewfilePath := brewfileFile.Name()
+	defer os.Remove(brewfilePath)
+
+	if _, err := brewfileFile.Write([]byte(brewfile.Content())); err != nil {
 		return fmt.Errorf("write generated Brewfile to %s: %w", brewfilePath, err)
+	}
+
+	if err := brewfileFile.Close(); err != nil {
+		return fmt.Errorf("close generated Brewfile %s: %w", brewfilePath, err)
 	}
 
 	cmd := []string{"brew", "bundle", "--verbose", "--file", brewfilePath}
@@ -47,12 +59,20 @@ func (a app) applyHomebrewBundle(opts options) error {
 		return nil
 	}
 
-	logPath := filepath.Join(os.TempDir(), "mac-os-homebrew-bundle.log")
+	logFile, err := os.CreateTemp("", "mac-os-homebrew-bundle-*.log")
+
+	if err != nil {
+		return fmt.Errorf("create Homebrew bundle log: %w", err)
+	}
+
+	logPath := logFile.Name()
+	defer logFile.Close()
+
 	fmt.Fprintf(a.stdout, "logging full output to %s\n", logPath)
 
 	out, runErr := a.runner.Run(cmd[0], cmd[1:]...)
 
-	if writeErr := os.WriteFile(logPath, out, 0o644); writeErr != nil {
+	if _, writeErr := logFile.Write(out); writeErr != nil {
 		fmt.Fprintf(a.stdout, "warning: could not write log file: %v\n", writeErr)
 	}
 
@@ -157,6 +177,14 @@ func (a app) restoreAppConfigs(opts options) error {
 
 	if opts.useLatestArchive && archivePath == "" {
 		archiveRoot := opts.archiveRoot
+
+		if archiveRoot == "~" {
+			archiveRoot = a.home
+		}
+
+		if strings.HasPrefix(archiveRoot, "~/") {
+			archiveRoot = filepath.Join(a.home, strings.TrimPrefix(archiveRoot, "~/"))
+		}
 
 		if archiveRoot == "" {
 			archiveRoot = snapshot.DefaultLocalRoot(a.home)

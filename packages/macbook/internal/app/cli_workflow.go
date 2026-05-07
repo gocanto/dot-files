@@ -77,7 +77,7 @@ func (a app) runWorkflowCLI(args []string) int {
 	return 0
 }
 
-func selectWorkflowPhases(workflow *workflowdomain.Workflow, preview bool) ([]workflowdomain.Phase, error) {
+func selectWorkflowPhases(workflow workflowdomain.Workflow, preview bool) ([]workflowdomain.Phase, error) {
 	if workflow.Confirmation == nil {
 		return workflow.Phases, nil
 	}
@@ -85,7 +85,7 @@ func selectWorkflowPhases(workflow *workflowdomain.Workflow, preview bool) ([]wo
 	wantedID := "run-now"
 
 	if preview {
-		wantedID = "preview-only"
+		wantedID = workflowdomain.ConfirmationOptionPreviewOnly
 	}
 
 	for _, option := range workflow.Confirmation.Options {

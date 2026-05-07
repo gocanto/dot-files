@@ -58,7 +58,14 @@ function architectureLabel(architecture: string) {
 
 function osLabel() {
   const type = os.type();
-  const release = os.release();
+  const release =
+    type === "Darwin"
+      ? execFileSync("/usr/bin/sw_vers", ["-productVersion"], {
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "ignore"],
+          timeout: 1000,
+        }).trim()
+      : os.release();
 
   return type === "Darwin" ? `macOS ${release}` : `${type} ${release}`;
 }
@@ -416,7 +423,7 @@ async function startWorkflowBridge() {
     command.command,
     [...command.args, "serve-http", "--socket", bridgeSocketPath, ...settingsArgs(savedSettings)],
     {
-      cwd: macbookDir,
+      ...(app.isPackaged ? {} : { cwd: macbookDir }),
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
     },
@@ -505,8 +512,14 @@ async function saveSettings(settings: RuntimeSettings): Promise<SettingsResponse
   const previousSettings = savedSettings;
   const nextSettings = validation.settings;
   let rollbackDatabaseMove = () => {};
+  let bridgeStopped = false;
 
   try {
+    if (!externalBridgeSocketPath) {
+      stopWorkflowBridge();
+      bridgeStopped = true;
+    }
+
     rollbackDatabaseMove = moveWorkflowDatabase(
       current.settings?.workflowDbPath,
       nextSettings.workflowDbPath,
@@ -518,15 +531,13 @@ async function saveSettings(settings: RuntimeSettings): Promise<SettingsResponse
       return validation;
     }
 
-    stopWorkflowBridge();
-
     return await (await client()).getSettings();
   } catch (error) {
     rollbackDatabaseMove();
     savedSettings = previousSettings;
     writeSavedSettings(previousSettings);
 
-    if (!externalBridgeSocketPath) {
+    if (bridgeStopped) {
       await startBridgeIfNeeded();
     }
 
@@ -595,7 +606,9 @@ function openTerminalCommand(
       `  do script "${appleScriptString(command)}"`,
       "end tell",
     ].join("\n");
-    const child = spawn("osascript", ["-e", script], { stdio: ["ignore", "ignore", "pipe"] });
+    const child = spawn("/usr/bin/osascript", ["-e", script], {
+      stdio: ["ignore", "ignore", "pipe"],
+    });
     let stderr = "";
 
     child.stderr?.on("data", (chunk: Buffer) => {
