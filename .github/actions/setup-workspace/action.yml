@@ -1,0 +1,53 @@
+name: Setup workspace
+description: Prepare runtimes, restore caches, and install dependencies.
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node
+      uses: actions/setup-node@v6
+      with:
+        node-version: 24
+
+    - name: Setup Go
+      uses: actions/setup-go@v6
+      with:
+        go-version-file: packages/macbook/go.mod
+
+    - name: Enable Corepack
+      shell: bash
+      run: corepack enable
+
+    - name: Restore pnpm store
+      uses: actions/cache@v4
+      with:
+        path: storage/.cache/pnpm-store
+        key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-
+
+    - name: Restore Go caches
+      uses: actions/cache@v4
+      with:
+        path: |
+          storage/.cache/go-build
+          storage/.cache/gopath
+        key: ${{ runner.os }}-go-${{ hashFiles('go.work.sum', 'packages/*/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Restore Turbo caches
+      uses: actions/cache@v4
+      with:
+        path: |
+          storage/.cache/turbo
+          storage/.cache/turbo-logs
+        key: ${{ runner.os }}-turbo-${{ github.workflow }}-${{ github.job }}-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-turbo-${{ github.workflow }}-${{ github.job }}-
+          ${{ runner.os }}-turbo-${{ github.workflow }}-
+          ${{ runner.os }}-turbo-
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile --store-dir storage/.cache/pnpm-store

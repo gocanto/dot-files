@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Pin checkout to triggering commit
+        run: git reset --hard "$GITHUB_SHA"
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Generate release notes
+        id: release-notes
+        shell: bash
+        run: |
+          notes_file="$RUNNER_TEMP/release-notes.md"
+          previous_tag="$(git describe --tags --match 'v*' --abbrev=0 HEAD^ 2>/dev/null || true)"
+
+          if [[ -n "$previous_tag" ]]; then
+            git log "$previous_tag"..HEAD --pretty='- %s (%h)' > "$notes_file"
+          else
+            git log --pretty='- %s (%h)' > "$notes_file"
+          fi
+
+          if [[ ! -s "$notes_file" ]]; then
+            echo "- Release $(git rev-parse --short HEAD)" > "$notes_file"
+          fi
+
+          echo "path=$notes_file" >> "$GITHUB_OUTPUT"
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: pnpm release:mac:unsigned -- --notes-file "${{ steps.release-notes.outputs.path }}" --repo gocanto/dot-files
+
+      - name: Upload release artifacts
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-unsigned-release
+          path: packages/ui/release/*
+          if-no-files-found: error
