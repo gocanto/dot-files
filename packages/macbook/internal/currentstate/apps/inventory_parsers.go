@@ -3,25 +3,14 @@ package apps
 import (
 	"sort"
 	"strings"
+
+	"github.com/gocanto/mac-os/internal/lineparse"
 )
 
 type MASInstall = masInstall
 
 func parseBrewCasks(out []byte) []string {
-	lines := strings.Split(string(out), "\n")
-	casks := make([]string, 0, len(lines))
-	seen := map[string]bool{}
-
-	for _, line := range lines {
-		name := strings.TrimSpace(line)
-
-		if name == "" || seen[name] {
-			continue
-		}
-
-		seen[name] = true
-		casks = append(casks, name)
-	}
+	casks := lineparse.UniqueTrimmed(out)
 
 	sort.Slice(casks, func(i, j int) bool {
 		return strings.ToLower(casks[i]) < strings.ToLower(casks[j])

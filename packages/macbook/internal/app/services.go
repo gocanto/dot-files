@@ -29,6 +29,8 @@ type untrackedReport struct {
 	AppStore []appstore.AppStoreApp
 }
 
+const ohMyZshInstallURL = "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
+
 func (a app) ensurePrerequisites(opts options) error {
 	return doctor.Service{GOOS: a.goos, GOARCH: a.goarch, Home: a.home, Repo: a.repo, Stdout: a.stdout, Runner: a.runner}.EnsurePrerequisites(opts.dryRun)
 }
@@ -132,8 +134,9 @@ func (a app) ensureOhMyZsh(opts options) error {
 		return nil
 	}
 
+	// Oh My Zsh documents the master-branch installer as the official install path.
 	script := `set -e
-RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c "$(curl -fsSL ` + ohMyZshInstallURL + `)"
 `
 	cmd := []string{"sh", "-c", script}
 

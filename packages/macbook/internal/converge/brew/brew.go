@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gocanto/mac-os/internal/command"
+	"github.com/gocanto/mac-os/internal/lineparse"
 )
 
 type Kind string
@@ -96,24 +97,5 @@ func (s Service) Uninstall(kind Kind, name string, dryRun bool) error {
 }
 
 func parseList(out []byte) []string {
-	lines := strings.Split(string(out), "\n")
-	names := make([]string, 0, len(lines))
-	seen := map[string]struct{}{}
-
-	for _, line := range lines {
-		name := strings.TrimSpace(line)
-
-		if name == "" {
-			continue
-		}
-
-		if _, ok := seen[name]; ok {
-			continue
-		}
-
-		seen[name] = struct{}{}
-		names = append(names, name)
-	}
-
-	return names
+	return lineparse.UniqueTrimmed(out)
 }
