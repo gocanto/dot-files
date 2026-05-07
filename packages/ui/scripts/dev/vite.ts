@@ -1,8 +1,8 @@
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { createServer, type ViteDevServer } from "vite";
-import { uiDir } from "./paths.js";
-import { removePortlessAlias, startPortlessRoute } from "./portless.js";
+import { uiDir } from "#scripts/dev/paths.js";
+import { removePortlessAlias, startPortlessRoute } from "#scripts/dev/portless.js";
 
 let viteServer: ViteDevServer | undefined;
 

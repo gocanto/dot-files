@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
-import { walkFiles } from "./lib/walk.js";
-import { failWithMatches } from "./lib/cli.js";
+import { failWithMatches } from "#scripts/lib/cli.js";
+import { walkFiles } from "#scripts/lib/walk.js";
 
-const roots = ["src", "tests"];
+const roots = ["src", "tests", "electron", "scripts", "../../scripts", "../bridge/src"];
 const sourceFile = /\.(?:ts|tsx|js|jsx|mjs|cjs|vue)$/u;
 const relativeImport = /from\s+['"]\.{1,2}\//u;
 const dynamicRelativeImport = /import\(\s*['"]\.{1,2}\//u;

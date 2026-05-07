@@ -1,7 +1,7 @@
-import { walkFiles } from "./lib/walk.js";
-import { failWithMatches } from "./lib/cli.js";
+import { failWithMatches } from "#scripts/lib/cli.js";
+import { walkFiles } from "#scripts/lib/walk.js";
 
-const roots = ["src", "electron"];
+const roots = ["src", "tests", "electron", "scripts", "../../scripts", "../bridge/src"];
 const forbidden = /\.(?:js|jsx|mjs|cjs)$/u;
 const matches: string[] = [];
 

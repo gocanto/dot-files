@@ -10,7 +10,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { macbookDir } from "./paths.js";
+import { macbookDir } from "#electron/paths.js";
 
 let bridgeClient: WorkflowBridgeClient | null = null;
 let bridgeProcess: ChildProcess | null = null;

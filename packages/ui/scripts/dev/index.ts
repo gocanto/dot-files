@@ -1,10 +1,10 @@
 import { mkdir } from "node:fs/promises";
-import { backendSocketPath, backendStartSpec, waitForBackend } from "./backend.js";
-import { compileElectron, electronStartSpec } from "./electron.js";
-import { settingsPath, storageDir } from "./paths.js";
-import { start, stopChildren } from "./processes.js";
-import { stopDevServer, startDevServer } from "./vite.js";
-import { installWatchers } from "./watchers.js";
+import { backendSocketPath, backendStartSpec, waitForBackend } from "#scripts/dev/backend.js";
+import { compileElectron, electronStartSpec } from "#scripts/dev/electron.js";
+import { settingsPath, storageDir } from "#scripts/dev/paths.js";
+import { start, stopChildren } from "#scripts/dev/processes.js";
+import { stopDevServer, startDevServer } from "#scripts/dev/vite.js";
+import { installWatchers } from "#scripts/dev/watchers.js";
 
 let stopping = false;
 let restarting: Promise<void> = Promise.resolve();

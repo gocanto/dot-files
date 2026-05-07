@@ -3,10 +3,10 @@ import { access, rm } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import os from "node:os";
 import { join } from "node:path";
-import { macbookDir } from "./paths.js";
-import type { StartSpec } from "./processes.js";
-import { readSettings, settingsArgs } from "./settings.js";
-import { delay } from "./timing.js";
+import { macbookDir } from "#scripts/dev/paths.js";
+import type { StartSpec } from "#scripts/dev/processes.js";
+import { readSettings, settingsArgs } from "#scripts/dev/settings.js";
+import { delay } from "#scripts/dev/timing.js";
 
 export async function backendSocketPath(): Promise<string> {
   const path = join(os.tmpdir(), `api-dev-${process.pid}-${Date.now()}.sock`);

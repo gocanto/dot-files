@@ -4,6 +4,9 @@ node_modules/
 .turbo
 .idea/
 .playwright-mcp/
+packages/macbook/.gocache/
+packages/macbook/.gopath/
+packages/macbook/.turbo
 
 # Private migration artifacts should stay outside git.
 *.tar.gz

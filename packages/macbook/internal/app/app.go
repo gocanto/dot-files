@@ -1,16 +1,16 @@
 package app
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
 	"runtime"
 
-	"github.com/gocanto/dot-files/internal/app/services"
+	apphttpx "github.com/gocanto/dot-files/internal/app/httpx"
+	"github.com/gocanto/dot-files/internal/app/service"
 	"github.com/gocanto/dot-files/internal/app/setting"
 	"github.com/gocanto/dot-files/internal/command"
-	"github.com/gocanto/dot-files/internal/storage"
+	"github.com/gocanto/dot-files/internal/domain"
 )
 
 type app struct {
@@ -23,24 +23,9 @@ type app struct {
 	stderr   io.Writer
 	stdin    io.Reader
 	runner   command.Runner
-	store    *storage.Store
 }
 
-type options = services.Options
-
-func (a app) workflowStore(ctx context.Context) (*storage.Store, func(), error) {
-	if a.store != nil {
-		return a.store, func() {}, nil
-	}
-
-	store, err := storage.Open(ctx, a.settings.WorkflowDBPath)
-
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return store, func() { _ = store.Close() }, nil
-}
+type options = service.Options
 
 func Run(args []string) int {
 	home, err := os.UserHomeDir()
@@ -78,8 +63,8 @@ func newApp(home, repo string, stdin io.Reader, stdout, stderr io.Writer, runner
 	}
 }
 
-func (a app) service() services.Service {
-	return services.Service{
+func (a app) service() service.Service {
+	return service.Service{
 		Home:     a.home,
 		Repo:     a.repo,
 		GOOS:     a.goos,
@@ -105,7 +90,13 @@ func (a app) run(args []string) int {
 
 		return 0
 	case "serve-http":
-		return a.serveHTTP(args[1:])
+		return apphttpx.Serve(args[1:], apphttpx.ServeConfig{
+			Home:      a.home,
+			Repo:      a.repo,
+			Stderr:    a.stderr,
+			Service:   a.httpService,
+			Workflows: a.httpWorkflows,
+		})
 	case "list-workflows":
 		return a.listWorkflows()
 	case "run-workflow":
@@ -116,4 +107,18 @@ func (a app) run(args []string) int {
 
 		return 2
 	}
+}
+
+func (a app) httpService(settings setting.RuntimeSettings) service.Service {
+	a.settings = settings
+	a.repo = settings.RepoRoot
+
+	return a.service()
+}
+
+func (a app) httpWorkflows(settings setting.RuntimeSettings) []domain.Workflow {
+	a.settings = settings
+	a.repo = settings.RepoRoot
+
+	return a.workflows()
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gocanto/dot-files/internal/app/services"
+	"github.com/gocanto/dot-files/internal/app/service"
 )
 
 func (s Server) listOpVaults(w http.ResponseWriter, _ *http.Request) {
@@ -41,7 +41,7 @@ func (s Server) listOpItems(w http.ResponseWriter, r *http.Request) {
 }
 
 func writeOpError(w http.ResponseWriter, err error) {
-	var unavailable services.ErrOpUnavailable
+	var unavailable service.ErrOpUnavailable
 
 	if errors.As(err, &unavailable) {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{

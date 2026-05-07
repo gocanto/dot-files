@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
-import { electronDir, repoRoot } from "./paths.js";
+import { electronDir, repoRoot } from "#electron/paths.js";
 
 const appWindowWidth = 2000;
 const appWindowHeight = 1280;

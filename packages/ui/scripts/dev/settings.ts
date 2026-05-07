@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { settingsPath } from "./paths.js";
+import { settingsPath } from "#scripts/dev/paths.js";
 
 type SettingsKey =
   | "repoRoot"

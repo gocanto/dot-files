@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { delay } from "./timing.js";
+import { delay } from "#scripts/dev/timing.js";
 
 export type StartSpec = readonly [
   command: string,

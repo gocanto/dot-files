@@ -19,10 +19,10 @@ import {
   setBridgeSettings,
   startBridgeIfNeeded,
   stopWorkflowBridge,
-} from "./bridge.js";
-import { moveWorkflowDatabase, writeSavedSettings } from "./settings-store.js";
-import { accountAvatarUrl, architectureLabel, osLabel } from "./system-info.js";
-import { openTerminalCommand } from "./terminal.js";
+} from "#electron/bridge.js";
+import { moveWorkflowDatabase, writeSavedSettings } from "#electron/settings-store.js";
+import { accountAvatarUrl, architectureLabel, osLabel } from "#electron/system-info.js";
+import { openTerminalCommand } from "#electron/terminal.js";
 
 type IpcDeps = {
   getMainWindow: () => BrowserWindow | null;

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/gocanto/dot-files/internal/command"
-	currentapps "github.com/gocanto/dot-files/internal/currentstate/apps"
+	"github.com/gocanto/dot-files/internal/currentstate/inventory"
 )
 
 type AppStoreApp struct {
@@ -40,7 +40,7 @@ func (s Service) UntrackedAppStore(opts Options) ([]AppStoreApp, error) {
 		return nil, fmt.Errorf("mas list: %w", err)
 	}
 
-	installed := currentapps.ParseMASList(out)
+	installed := inventory.ParseMASList(out)
 	untracked := make([]AppStoreApp, 0)
 
 	for _, app := range installed {

@@ -1,8 +1,8 @@
 import type { ViteDevServer } from "vite";
-import { appName, portlessEnv, portlessPort, uiDir } from "./paths.js";
-import { waitForViteReady } from "./http.js";
-import { output, run } from "./processes.js";
-import { delay } from "./timing.js";
+import { waitForViteReady } from "#scripts/dev/http.js";
+import { appName, portlessEnv, portlessPort, uiDir } from "#scripts/dev/paths.js";
+import { output, run } from "#scripts/dev/processes.js";
+import { delay } from "#scripts/dev/timing.js";
 
 export async function startPortlessRoute(server: ViteDevServer, port: number): Promise<string> {
   await ensurePortlessProxy();

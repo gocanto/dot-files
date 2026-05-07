@@ -1,5 +1,5 @@
-import { uiDir } from "./paths.js";
-import { run, type StartSpec } from "./processes.js";
+import { uiDir } from "#scripts/dev/paths.js";
+import { run, type StartSpec } from "#scripts/dev/processes.js";
 
 export async function compileElectron(): Promise<void> {
   console.log("Compiling Electron main/preload");

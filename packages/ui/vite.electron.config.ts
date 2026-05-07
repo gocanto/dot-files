@@ -6,6 +6,14 @@ const projectDir = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig({
   cacheDir: resolve(projectDir, "../../storage/.cache/vite/ui-electron"),
+  resolve: {
+    alias: [
+      {
+        find: /^#electron\/(.+)\.js$/u,
+        replacement: resolve(projectDir, "electron/$1.ts"),
+      },
+    ],
+  },
   build: {
     emptyOutDir: false,
     lib: {

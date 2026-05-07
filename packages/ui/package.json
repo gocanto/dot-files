@@ -6,6 +6,13 @@
   "author": "Gus Canto",
   "type": "module",
   "main": "dist-electron/main.js",
+  "imports": {
+    "#electron/*.js": {
+      "types": "./electron/*.ts",
+      "default": "./dist-electron/*.js"
+    },
+    "#scripts/*.js": "./scripts/*.ts"
+  },
   "scripts": {
     "check:typescript": "tsx scripts/check-typescript-only.ts",
     "check:imports": "tsx scripts/check-no-relative-imports.ts",

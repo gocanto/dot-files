@@ -2,16 +2,18 @@
   "name": "dot-files",
   "private": true,
   "scripts": {
-    "build": "turbo run build",
-    "test": "turbo run test",
-    "dev": "turbo run dev --filter=ui",
-    "format": "turbo run format",
-    "check": "turbo run build test",
+    "build": "tsx scripts/turbo-with-cache.ts run build",
+    "test": "tsx scripts/turbo-with-cache.ts run test",
+    "dev": "tsx scripts/turbo-with-cache.ts run dev --filter=ui",
+    "format": "tsx scripts/turbo-with-cache.ts run format",
+    "check": "tsx scripts/turbo-with-cache.ts run build test",
     "release:mac:unsigned": "scripts/release-macos-unsigned.sh"
   },
   "devDependencies": {
+    "@types/node": "^24.10.2",
     "oxfmt": "0.47.0",
     "oxlint": "1.62.0",
+    "tsx": "^4.21.0",
     "turbo": "2.9.8"
   },
   "packageManager": "pnpm@10.33.0"

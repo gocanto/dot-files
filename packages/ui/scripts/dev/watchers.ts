@@ -1,7 +1,7 @@
 import { watch } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
-import { macbookDir, repoRoot, settingsPath, storageDir, uiDir } from "./paths.js";
+import { macbookDir, repoRoot, settingsPath, storageDir, uiDir } from "#scripts/dev/paths.js";
 
 export function installWatchers(onChange: (changed: string) => void): void {
   const paths = [

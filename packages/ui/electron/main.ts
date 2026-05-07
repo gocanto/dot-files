@@ -1,8 +1,13 @@
 import { app } from "electron";
-import { setBridgeSettings, startBridgeIfNeeded, stopWorkflowBridge } from "./bridge.js";
-import { registerIpcHandlers } from "./ipc.js";
-import { readSavedSettings } from "./settings-store.js";
-import { createWindow, focusMainWindow, getMainWindow, openDevToolsPanel } from "./windows.js";
+import { setBridgeSettings, startBridgeIfNeeded, stopWorkflowBridge } from "#electron/bridge.js";
+import { registerIpcHandlers } from "#electron/ipc.js";
+import { readSavedSettings } from "#electron/settings-store.js";
+import {
+  createWindow,
+  focusMainWindow,
+  getMainWindow,
+  openDevToolsPanel,
+} from "#electron/windows.js";
 
 const singleInstanceLock = app.requestSingleInstanceLock();
 
