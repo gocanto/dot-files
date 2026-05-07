@@ -104,10 +104,7 @@ function checkStatus(check: SettingsCheck) {
             <h2 class="text-sm font-semibold">Live Apply Prompts</h2>
             <p class="text-xs text-muted-foreground">Required only before live apply actions</p>
           </div>
-          <StatusBadge
-            status="ok"
-            :label="approvalOptions.length ? 'Configured' : 'Ready'"
-          />
+          <StatusBadge status="ok" :label="approvalOptions.length ? 'Configured' : 'Ready'" />
         </div>
 
         <div class="mt-4 grid gap-2">

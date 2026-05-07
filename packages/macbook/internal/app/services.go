@@ -43,6 +43,7 @@ func (a app) applyHomebrewBundle(opts options) error {
 	}
 
 	brewfilePath := brewfileFile.Name()
+
 	defer os.Remove(brewfilePath)
 
 	if _, err := brewfileFile.Write([]byte(brewfile.Content())); err != nil {
@@ -68,6 +69,7 @@ func (a app) applyHomebrewBundle(opts options) error {
 	}
 
 	logPath := logFile.Name()
+
 	defer logFile.Close()
 
 	fmt.Fprintf(a.stdout, "logging full output to %s\n", logPath)

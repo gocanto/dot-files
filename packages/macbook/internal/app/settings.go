@@ -238,6 +238,7 @@ func parentWritableOrCreatable(path string) error {
 		}
 
 		next := filepath.Dir(existing)
+
 		if next == existing {
 			return fmt.Errorf("no existing parent directory for %s", parent)
 		}

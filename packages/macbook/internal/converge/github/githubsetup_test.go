@@ -164,6 +164,7 @@ func TestSetupDryRunInstallsMissingToolsWithoutMutating(t *testing.T) {
 	commandLookPath = func(string) (string, error) {
 		return "", errors.New("missing")
 	}
+
 	t.Cleanup(func() { commandLookPath = previousLookPath })
 
 	var calls []string

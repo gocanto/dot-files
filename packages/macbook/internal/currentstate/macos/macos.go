@@ -23,6 +23,7 @@ func (s Service) Export(root string) error {
 	}
 
 	stderr := s.Stderr
+
 	if stderr == nil {
 		stderr = io.Discard
 	}

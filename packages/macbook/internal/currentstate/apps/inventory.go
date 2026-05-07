@@ -105,6 +105,7 @@ func (s Service) scanInventory(opts Options) (appInventory, []string, error) {
 	}
 
 	casksOut, err := s.Runner.Run("brew", "list", "--cask")
+
 	var casks []string
 
 	if err != nil {
@@ -114,6 +115,7 @@ func (s Service) scanInventory(opts Options) (appInventory, []string, error) {
 	}
 
 	masOut, err := s.Runner.Run("mas", "list")
+
 	var masApps []masInstall
 
 	if err != nil {
