@@ -11,7 +11,7 @@ import { createServer, type ViteDevServer } from "vite";
 
 const uiDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(uiDir, "..", "..");
-const macbookDir = join(repoRoot, "macbook");
+const macbookDir = join(repoRoot, "packages", "macbook");
 const storageDir = join(repoRoot, "storage", "dev");
 const settingsPath = join(storageDir, "ui-settings.json");
 const appName = "dot-files-ui";

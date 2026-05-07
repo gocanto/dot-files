@@ -823,7 +823,7 @@ func TestFactoryInstallIncludesOhMyZshBeforeStow(t *testing.T) {
 
 func TestFindRepoRootFromOuterRepoUsesMacOSDir(t *testing.T) {
 	dir := t.TempDir()
-	macOSDir := filepath.Join(dir, "macbook")
+	macOSDir := filepath.Join(dir, "packages", "macbook")
 
 	if err := os.MkdirAll(filepath.Join(macOSDir, "stow"), 0o700); err != nil {
 		t.Fatal(err)

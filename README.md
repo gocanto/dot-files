@@ -95,7 +95,7 @@ pnpm --filter ui start
 The Go backend command can be inspected directly:
 
 ```sh
-go run ./macbook/cmd help
+go run ./packages/macbook/cmd help
 ```
 
 ### Backend Bridge
@@ -106,7 +106,7 @@ go run ./macbook/cmd help
 
 The shared bridge contract lives in `packages/bridge/proto/workflow.proto`.
 Electron imports `@dot-files/bridge` for the Node gRPC client and the Go
-backend uses generated code in `macbook/internal/bridgepb`.
+backend uses generated code in `packages/macbook/internal/bridgepb`.
 
 Most workflows start with a confirmation screen that explains what will happen,
 whether the workflow changes the Mac, and which phases will run. Workflows that
@@ -120,7 +120,7 @@ can change files or settings offer `Preview only` before `Run now`.
 | `Update This Mac`            | Updates the current host from tracked repo policy and the latest local app settings snapshot. |
 | `Save App Settings Snapshot` | Captures supported app settings for review or later restore.                                  |
 | `Restore App Settings`       | Restores allowlisted app settings from a private archive.                                     |
-| `Update Installed App List`  | Scans installed apps and writes `macbook/apps.generated.yaml` for review.                     |
+| `Update Installed App List`  | Scans installed apps and writes `packages/macbook/apps.generated.yaml` for review.                     |
 | `Apply macOS Settings`       | Applies curated macOS defaults.                                                               |
 | `Check Setup`                | Verifies prerequisites and developer tools.                                                   |
 | `Show Homebrew Packages`     | Prints the generated Homebrew package plan.                                                   |
@@ -137,11 +137,11 @@ Apple's Erase Assistant settings, and stops before install phases run.
 secrets, Stow links, allowlisted app configs from the newest unencrypted local
 snapshot in `$HOME/.local/state/macos-settings-archives`, macOS settings, and
 health checks. It does not import current `$HOME` dotfiles back into
-`macbook/stow`.
+`packages/macbook/stow`.
 
 ## Dotfiles And Stow
 
-Tracked dotfiles live under `macbook/stow`. The setup workflow links safe shell,
+Tracked dotfiles live under `packages/macbook/stow`. The setup workflow links safe shell,
 Git, and Vim configuration into `$HOME` with Stow.
 
 Before linking, the Stow phase scans `$HOME` for existing symlinks that point
@@ -155,10 +155,10 @@ restored locally from 1Password.
 
 ## App Restore Policy
 
-`macbook/apps.yaml` is the source of truth for app install and restore behaviour.
+`packages/macbook/apps.yaml` is the source of truth for app install and restore behaviour.
 The `Update Installed App List` workflow never rewrites that file directly. It
 scans installed GUI apps, Homebrew casks, and Mac App Store apps, then writes a
-review candidate to `macbook/apps.generated.yaml`.
+review candidate to `packages/macbook/apps.generated.yaml`.
 
 ### Install Methods
 
@@ -282,11 +282,11 @@ pnpm --filter ui start
 Run Go tests from the repository root:
 
 ```sh
-go test ./macbook/...
+go test ./packages/macbook/...
 ```
 
 The root `go test ./...` pattern is not used because `go.work` only includes
-the `./macbook` module.
+the `./packages/macbook` module.
 
 Format Go code from the repository root:
 

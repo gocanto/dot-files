@@ -59,7 +59,7 @@
     ],
     "extraResources": [
       {
-        "from": "../../macbook/dist/mac-os",
+        "from": "../macbook/dist/mac-os",
         "to": "mac-os"
       }
     ]

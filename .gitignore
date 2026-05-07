@@ -27,4 +27,4 @@ state.vscdb
 storage.json
 
 # Private Git config is restored from a 1Password concealed field at runtime.
-macbook/stow/git/.config/git/private.gitconfig
+packages/macbook/stow/git/.config/git/private.gitconfig

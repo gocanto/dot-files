@@ -34,7 +34,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..", "..", "..");
-const macbookDir = join(repoRoot, "macbook");
+const macbookDir = join(repoRoot, "packages", "macbook");
 
 let mainWindow: BrowserWindow | null = null;
 let devToolsWindow: BrowserWindow | null = null;

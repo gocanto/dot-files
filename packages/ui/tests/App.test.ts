@@ -1538,7 +1538,7 @@ describe("App", () => {
     expect(templateFileLanguage("/repo/secrets.yml")).toBe("yaml");
     expect(templateFileLanguage("/repo/stow/shell/.zshrc")).toBe("shell");
     expect(templateFileLanguage("/repo/stow/shell/.bash_profile")).toBe("shell");
-    expect(templateFileLanguage("/repo/files/install.sh")).toBe("shell");
+    expect(templateFileLanguage("/repo/storage/archives/files/install.sh")).toBe("shell");
     expect(templateFileLanguage("/repo/editors/vscode/settings.json")).toBe("json");
     expect(templateFileLanguage("/repo/stow/git/.gitconfig")).toBe("plaintext");
     expect(templateFileLanguage("/repo/stow/ghostty/.config/ghostty/config")).toBe("plaintext");

@@ -210,12 +210,12 @@ prepare_workflow_ui() {
 	log "preparing mac-os workflow backend"
 
 	if [[ "$DRY_RUN" -eq 1 ]]; then
-		printf 'would run: go run ./macbook/cmd help\n'
+		printf 'would run: go run ./packages/macbook/cmd help\n'
 		return 0
 	fi
 
 	cd "$root"
-	go run ./macbook/cmd help >/dev/null
+	go run ./packages/macbook/cmd help >/dev/null
 
 	if command -v pnpm >/dev/null 2>&1; then
 		log "Electron UI available: pnpm --filter ui build && pnpm --filter ui start"
