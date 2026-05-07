@@ -2,12 +2,12 @@
   "name": "dot-files",
   "private": true,
   "scripts": {
-    "build": "tsx scripts/turbo-with-cache.ts run build",
-    "test": "tsx scripts/turbo-with-cache.ts run test",
-    "dev": "tsx scripts/turbo-with-cache.ts run dev --filter=ui",
-    "format": "tsx scripts/turbo-with-cache.ts run format",
-    "check": "tsx scripts/turbo-with-cache.ts run build test",
-    "release:mac:unsigned": "scripts/release-macos-unsigned.sh"
+    "build": "pnpm --dir packages/tools run turbo -- run build",
+    "test": "pnpm --dir packages/tools run turbo -- run test",
+    "dev": "pnpm --dir packages/tools run turbo -- run dev --filter=ui",
+    "format": "pnpm --dir packages/tools run turbo -- run format",
+    "check": "pnpm --dir packages/tools run turbo -- run build test",
+    "release:mac:unsigned": "pnpm --dir packages/tools run release:mac:unsigned --"
   },
   "devDependencies": {
     "@types/node": "^24.10.2",

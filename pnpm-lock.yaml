@@ -35,6 +35,8 @@ importers:
 
   packages/macbook: {}
 
+  packages/tools: {}
+
   packages/ui:
     dependencies:
       '@dot-files/bridge':
