@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/gocanto/mac-os/internal/httpx"
 	"github.com/gocanto/mac-os/internal/storage"
 )
 
@@ -101,9 +102,12 @@ func (a app) serveHTTP(args []string) int {
 		}
 	}()
 
-	server := &http.Server{Handler: httpServer{app: a}.buildMux()}
+	server := &http.Server{Handler: httpx.NewServerHandler(httpx.ServerHandlerConfig{
+		Mux:           httpServer{app: a}.buildMux(),
+		SafeQueryKeys: []string{"limit"},
+	})}
 
-	if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if err := httpx.RunServer(*socketPath, listener, server); err != nil {
 		fmt.Fprintf(a.stderr, "serve http: %v\n", err)
 
 		return 1

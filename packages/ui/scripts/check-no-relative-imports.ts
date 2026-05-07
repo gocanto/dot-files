@@ -1,23 +1,17 @@
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
+import { walkFiles } from "./lib/walk.js";
+import { failWithMatches } from "./lib/cli.js";
 
 const roots = ["src", "tests"];
 const sourceFile = /\.(?:ts|tsx|js|jsx|mjs|cjs|vue)$/u;
 const relativeImport = /from\s+['"]\.{1,2}\//u;
 const dynamicRelativeImport = /import\(\s*['"]\.{1,2}\//u;
 const relativeRequire = /require\(\s*['"]\.{1,2}\//u;
-const matches = [];
+const matches: string[] = [];
 
-function walk(dir) {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const path = join(dir, entry.name);
-
-    if (entry.isDirectory()) {
-      walk(path);
-      continue;
-    }
-
-    if (!sourceFile.test(entry.name)) {
+for (const root of roots) {
+  for (const path of walkFiles(root)) {
+    if (!sourceFile.test(path)) {
       continue;
     }
 
@@ -33,11 +27,4 @@ function walk(dir) {
   }
 }
 
-for (const root of roots) {
-  walk(root);
-}
-
-if (matches.length > 0) {
-  console.error(matches.join("\n"));
-  process.exit(1);
-}
+failWithMatches(matches);
