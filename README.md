@@ -4,7 +4,7 @@
 > macOS settings, and private recovery metadata without committing secrets.
 
 This repository is the path back to a working Mac when I rebuild, replace, or
-erase a machine. It keeps the setup I care about in one place so the restore is
+erase a machine. It keeps the setup I care about in one place, so the restore is
 based on deliberate policy instead of memory, scattered notes, or whatever
 happens to still exist on the old laptop.
 
@@ -16,21 +16,21 @@ are deliberately excluded from the repo and from automatic replay.
 
 ## Quick Links
 
-| Need | Start here |
-| --- | --- |
-| Set up a fresh Mac | [`./setup.sh`](#fresh-mac-setup) |
-| Run the terminal dashboard | [Using The TUI](#using-the-tui) |
-| Understand what gets installed | [App Restore Policy](#app-restore-policy) |
-| Restore private settings | [Private Archives](#private-archives) |
-| Work on the tool | [Developer Notes](#developer-notes) |
-| Know what is intentionally skipped | [Safety Rules](#safety-rules) |
+| Need                               | Start here                                      |
+| ---------------------------------- | ----------------------------------------------- |
+| Set up a fresh Mac                 | [`./setup.sh`](#fresh-mac-setup)                |
+| Run the desktop interface          | [Using The Electron UI](#using-the-electron-ui) |
+| Understand what gets installed     | [App Restore Policy](#app-restore-policy)       |
+| Restore private settings           | [Private Archives](#private-archives)           |
+| Work on the tool                   | [Developer Notes](#developer-notes)             |
+| Know what is intentionally skipped | [Safety Rules](#safety-rules)                   |
 
 ## What This Repo Does
 
 - Bootstraps a new macOS machine from the repository root with `./setup.sh`.
 - Installs or enables Xcode Command Line Tools, Homebrew, Git, and Go when
   needed.
-- Opens a terminal dashboard for setup, app restore, app snapshots, macOS
+- Provides an Electron interface for setup, app restore, app snapshots, macOS
   defaults, health checks, and package review.
 - Installs command-line tools, Homebrew casks, and App Store apps from tracked
   policy.
@@ -57,18 +57,18 @@ Start from the repository root.
 
 ### Requirements
 
-| Requirement | Why it matters |
-| --- | --- |
-| macOS | The setup flow applies Mac-specific tools and defaults. |
-| Network access | Homebrew, GitHub, 1Password, and package installs need it. |
-| Administrator access | The bootstrap validates `sudo` and may install system tooling. |
+| Requirement                      | Why it matters                                                                |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| macOS                            | The setup flow applies Mac-specific tools and defaults.                       |
+| Network access                   | Homebrew, GitHub, 1Password, and package installs need it.                    |
+| Administrator access             | The bootstrap validates `sudo` and may install system tooling.                |
 | Xcode Command Line Tools prompts | Apple installer and license prompts must be completed before setup continues. |
-| 1Password access | Private fields and archive metadata are restored from the configured vault. |
+| 1Password access                 | Private fields and archive metadata are restored from the configured vault.   |
 
 The script checks macOS, installs or enables Xcode Command Line Tools, installs
 Homebrew and Git when missing, confirms it is running from the canonical git
-checkout, starts a `sudo` keepalive, installs Go when missing, and then opens
-the Go TUI.
+checkout, starts a `sudo` keepalive, installs Go when missing, and then checks
+the Go workflow backend used by the Electron UI.
 
 If setup is launched from an unzipped download instead of a git checkout, it
 prompts for a destination path, clones the repository there, and re-runs setup
@@ -81,30 +81,31 @@ $HOME/Sites/dot-files
 This matters because Stow links and later repo updates should point to one
 stable checkout, not a temporary download directory.
 
-## Using The TUI
+## Using The Electron UI
 
-After bootstrap, the setup flow runs through a Bubble Tea terminal dashboard.
-You can also open it directly:
-
-```sh
-go run ./mac-os/cmd/mac-os
-```
-
-From inside the `mac-os` directory, this shorter form also works:
+The workflow interface lives in `packages/ui` and talks to a local Go HTTP
+backend over a per-launch Unix socket.
 
 ```sh
-go run ./cmd/mac-os
+pnpm install
+pnpm --filter ui build
+pnpm --filter ui start
 ```
 
-### Controls
+The Go backend command can be inspected directly:
 
-| Key | Action |
-| --- | --- |
-| Arrow keys or `j`/`k` | Move through choices. |
-| `enter` | Open or run a workflow. |
-| `space` | Toggle workflow phases. |
-| `q` or `esc` | Exit before execution. |
-| `ctrl+c` | Cancel a running workflow. |
+```sh
+go run ./packages/macbook/cmd help
+```
+
+### Backend Bridge
+
+| Command                             | Purpose                                                          |
+| ----------------------------------- | ---------------------------------------------------------------- |
+| `api serve-http --socket <path>` | Starts the local HTTP backend used by the Electron main process. |
+
+Electron imports `@dot-files/bridge` for the Node client and the Go backend
+serves the local API from `packages/macbook`.
 
 Most workflows start with a confirmation screen that explains what will happen,
 whether the workflow changes the Mac, and which phases will run. Workflows that
@@ -112,14 +113,16 @@ can change files or settings offer `Preview only` before `Run now`.
 
 ### Workflows
 
-| Workflow | Purpose |
-| --- | --- |
-| `Set Up This Mac` | One-pass restore path for a new machine. |
-| `Save App Settings Snapshot` | Captures supported app settings for review or later restore. |
-| `Restore App Settings` | Restores allowlisted app settings from a private archive. |
-| `Apply macOS Settings` | Applies curated macOS defaults. |
-| `Check Setup` | Verifies prerequisites and developer tools. |
-| `Show Homebrew Packages` | Prints the generated Homebrew package plan. |
+| Workflow                     | Purpose                                                                                       |
+| ---------------------------- | --------------------------------------------------------------------------------------------- |
+| `Set Up This Mac`            | One-pass restore path for a new machine.                                                      |
+| `Update This Mac`            | Updates the current host from tracked repo policy and the latest local app settings snapshot. |
+| `Save App Settings Snapshot` | Captures supported app settings for review or later restore.                                  |
+| `Restore App Settings`       | Restores allowlisted app settings from a private archive.                                     |
+| `Update Installed App List`  | Scans installed apps and writes `packages/macbook/apps.generated.yaml` for review.                     |
+| `Apply macOS Settings`       | Applies curated macOS defaults.                                                               |
+| `Check Setup`                | Verifies prerequisites and developer tools.                                                   |
+| `Show Homebrew Packages`     | Prints the generated Homebrew package plan.                                                   |
 
 `Set Up This Mac` installs prerequisites, Homebrew packages, GitHub access and
 signing keys, App Store apps, private secrets from 1Password, safe dotfiles via
@@ -129,13 +132,19 @@ session exists, the GitHub and private secret phases prompt for `op signin`.
 If you choose `Erase first`, the workflow validates administrator access, opens
 Apple's Erase Assistant settings, and stops before install phases run.
 
+`Update This Mac` is for an existing host. It updates packages, apps, private
+secrets, Stow links, allowlisted app configs from the newest unencrypted local
+snapshot in `$HOME/.local/state/macos-settings-archives`, macOS settings, and
+health checks. It does not import current `$HOME` dotfiles back into
+`packages/macbook/stow`.
+
 ## Dotfiles And Stow
 
-Tracked dotfiles live under `mac-os/stow`. The setup workflow links safe shell,
+Tracked dotfiles live under `packages/macbook/stow`. The setup workflow links safe shell,
 Git, and Vim configuration into `$HOME` with Stow.
 
 Before linking, the Stow phase scans `$HOME` for existing symlinks that point
-into a different stow tree, such as an old run from `~/Downloads/dot-files-main`.
+into a different stowed tree, such as an old run from `~/Downloads/dot-files-main`.
 It refuses to continue until those links are removed. This avoids silent Stow
 skips and keeps the machine linked to the canonical checkout.
 
@@ -145,24 +154,27 @@ restored locally from 1Password.
 
 ## App Restore Policy
 
-`mac-os/apps.yaml` is the source of truth for app install and restore behavior.
+`packages/macbook/apps.yaml` is the source of truth for app install and restore behaviour.
+The `Update Installed App List` workflow never rewrites that file directly. It
+scans installed GUI apps, Homebrew casks, and Mac App Store apps, then writes a
+review candidate to `packages/macbook/apps.generated.yaml`.
 
 ### Install Methods
 
-| Method | Behavior |
-| --- | --- |
-| `brew` | Installed by the generated Homebrew plan. |
-| `mas` | Installed with the Mac App Store CLI. |
-| `manual` | Reported with download or restore notes. |
-| `system` | Expected to ship with macOS. |
+| Method   | Behavior                                  |
+| -------- | ----------------------------------------- |
+| `brew`   | Installed by the generated Homebrew plan. |
+| `mas`    | Installed with the Mac App Store CLI.     |
+| `manual` | Reported with download or restore notes.  |
+| `system` | Expected to ship with macOS.              |
 
 ### Config Modes
 
-| Mode | Behavior |
-| --- | --- |
-| `auto` | Allowlisted paths can be captured and restored automatically. |
-| `reference` | Paths are captured for review but not replayed. |
-| `manual` | Restore depends on app sync, login, export/import, or manual notes. |
+| Mode        | Behavior                                                            |
+| ----------- | ------------------------------------------------------------------- |
+| `auto`      | Allowlisted paths can be captured and restored automatically.       |
+| `reference` | Paths are captured for review but not replayed.                     |
+| `manual`    | Restore depends on app sync, login, export/import, or manual notes. |
 
 Even when a directory is allowlisted, the capture flow skips secrets, sessions,
 browser profiles, keychains, SSH and GPG private keys, database data, Docker VM
@@ -195,18 +207,18 @@ Item:  Mac Migration Archive
 
 ### Expected 1Password Fields
 
-| Field | Contents |
-| --- | --- |
-| `archive_age_identity` | Concealed Age private identity. |
-| `archive_age_recipient` | Age public recipient. |
-| `archive_root` | Directory for encrypted archives. |
-| `gitconfig_plaintext` | Concealed private `~/.config/git/private.gitconfig` contents. |
-| `allowed_signers_plaintext` | Concealed `~/.ssh/allowed_signers` contents. |
-| `github_username` | GitHub username. |
-| `github_email` | Git commit/GitHub email. |
-| `git_author_name` | Git commit author name. |
-| `latest_archive` | Last encrypted archive path, updated by capture. |
-| `restore_notes` | Short manual restore notes. |
+| Field                       | Contents                                                      |
+| --------------------------- | ------------------------------------------------------------- |
+| `archive_age_identity`      | Concealed Age private identity.                               |
+| `archive_age_recipient`     | Age public recipient.                                         |
+| `archive_root`              | Directory for encrypted archives.                             |
+| `gitconfig_plaintext`       | Concealed private `~/.config/git/private.gitconfig` contents. |
+| `allowed_signers_plaintext` | Concealed `~/.ssh/allowed_signers` contents.                  |
+| `github_username`           | GitHub username.                                              |
+| `github_email`              | Git commit/GitHub email.                                      |
+| `git_author_name`           | Git commit author name.                                       |
+| `latest_archive`            | Last encrypted archive path, updated by capture.              |
+| `restore_notes`             | Short manual restore notes.                                   |
 
 Create the Age identity once:
 
@@ -238,25 +250,69 @@ private keys are never committed and are not stored in 1Password by this repo.
 ## macOS Defaults
 
 The setup flow applies curated macOS defaults, but it does not raw-replay every
-exported defaults domain. Full defaults exports can contain private values such
+exported default domain. Full default exports can contain private values such
 as text replacements, addresses, account state, and machine-specific
 identifiers, so broad defaults captures are kept as reference material instead
 of blindly replayed.
 
 ## Developer Notes
 
-Run the TUI directly from the repository root:
+Install the JavaScript workspace tooling:
 
 ```sh
-go run ./mac-os/cmd/mac-os
+pnpm install
 ```
 
-Run tests from the `mac-os` module:
+Run the Turborepo tasks from the repository root:
 
 ```sh
-cd mac-os
-go test ./...
+pnpm turbo run build
+pnpm turbo run test
+pnpm check
 ```
+
+Build and open the Electron UI from the repository root:
+
+```sh
+pnpm --filter ui build
+pnpm --filter ui start
+```
+
+Build an unsigned private macOS DMG and ZIP while Developer ID approval is
+pending:
+
+```sh
+pnpm --dir packages/macbook run build
+pnpm --dir packages/ui run build
+pnpm --dir packages/ui run dist:mac:unsigned
+```
+
+Create a draft GitHub release for private testing:
+
+```sh
+pnpm release:mac:unsigned -- --notes-file /path/to/release-notes.md
+```
+
+Unsigned builds are for private testing only. On first launch, use
+right-click -> Open, or remove quarantine manually:
+
+```sh
+xattr -dr com.apple.quarantine "/Applications/Mac OS Manager.app"
+```
+
+After Developer ID approval, use `pnpm --dir packages/ui run dist:mac:signed`
+with Apple signing/notarization credentials configured for Electron Builder.
+Enable auto-update only after signed and notarized artifacts pass Gatekeeper
+checks.
+
+Run Go tests from the repository root:
+
+```sh
+go test ./packages/macbook/...
+```
+
+The root `go test ./...` pattern is not used because `go.work` only includes
+the `./packages/macbook` module.
 
 Format Go code from the repository root:
 
@@ -281,7 +337,7 @@ Re-run `make format-login` only when the Docker credential expires or is wiped.
 - Keep Age identity files outside the repository.
 - Keep private Git config plaintext ignored by git.
 - Review captured app settings before restoring them to a different machine.
-- Use the TUI preview mode when you want to inspect a workflow before changing
+- Use the preview option when you want to inspect a workflow before changing
   the Mac.
 - Treat this repo as setup automation, not as a substitute for full backups.
 

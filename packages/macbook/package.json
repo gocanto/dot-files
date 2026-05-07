@@ -1,0 +1,10 @@
+{
+  "name": "macbook",
+  "private": true,
+  "scripts": {
+    "build": "GOCACHE=$(pwd)/../../storage/.cache/go-build GOPATH=$(pwd)/../../storage/.cache/gopath go build -o dist/api ./cmd",
+    "test": "GOCACHE=$(pwd)/../../storage/.cache/go-build GOPATH=$(pwd)/../../storage/.cache/gopath go test ./...",
+    "dev": "GOCACHE=$(pwd)/../../storage/.cache/go-build GOPATH=$(pwd)/../../storage/.cache/gopath go run ./cmd help",
+    "format": "make -C ../.. format"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "tools",
+  "private": true,
+  "scripts": {
+    "release:mac:unsigned": "go run ./cmd/release-macos-unsigned",
+    "turbo": "go run ./cmd/turbo-with-cache"
+  }
+}

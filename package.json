@@ -1,0 +1,20 @@
+{
+  "name": "dot-files",
+  "private": true,
+  "scripts": {
+    "build": "pnpm --dir packages/tools run turbo -- run build",
+    "test": "pnpm --dir packages/tools run turbo -- run test",
+    "dev": "pnpm --dir packages/tools run turbo -- run dev --filter=ui",
+    "format": "pnpm --dir packages/tools run turbo -- run format",
+    "check": "pnpm --dir packages/tools run turbo -- run build test",
+    "release:mac:unsigned": "pnpm --dir packages/tools run release:mac:unsigned --"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.2",
+    "oxfmt": "0.47.0",
+    "oxlint": "1.62.0",
+    "tsx": "^4.21.0",
+    "turbo": "2.9.8"
+  },
+  "packageManager": "pnpm@10.33.0"
+}

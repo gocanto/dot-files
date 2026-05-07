@@ -1,5 +1,12 @@
 .DS_Store
 *.log
+node_modules/
+.turbo
+.idea/
+.playwright-mcp/
+packages/macbook/.gocache/
+packages/macbook/.gopath/
+packages/macbook/.turbo
 
 # Private migration artifacts should stay outside git.
 *.tar.gz
@@ -7,6 +14,7 @@
 macos-settings-archives/
 archives/
 storage/.cache
+storage/.pnpm-store
 # Secrets and generated local state.
 *.pem
 *.key
@@ -22,4 +30,4 @@ state.vscdb
 storage.json
 
 # Private Git config is restored from a 1Password concealed field at runtime.
-mac-os/stow/git/.config/git/private.gitconfig
+packages/macbook/stow/git/.config/git/private.gitconfig

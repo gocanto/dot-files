@@ -1,0 +1,95 @@
+{
+  "name": "ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mac OS Manager desktop UI for dot-files workflows.",
+  "author": "Gus Canto",
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "imports": {
+    "#electron/*.js": {
+      "types": "./electron/*.ts",
+      "default": "./dist-electron/*.js"
+    },
+    "#scripts/*.js": "./scripts/*.ts"
+  },
+  "scripts": {
+    "check:typescript": "tsx scripts/check-typescript-only.ts",
+    "check:imports": "tsx scripts/check-no-relative-imports.ts",
+    "dev": "tsx scripts/dev/index.ts",
+    "dev:vite": "portless dot-files-ui vite --host 127.0.0.1",
+    "dev:electron": "pnpm exec tsc -p tsconfig.electron.json && pnpm exec vite build --config vite.electron.config.ts && VITE_DEV_SERVER_URL=https://dot-files-ui.localhost:1355 electron dist-electron/main.js",
+    "build": "pnpm run check:typescript && pnpm run check:imports && vue-tsc --noEmit && vite build && tsc -p tsconfig.electron.json && vite build --config vite.electron.config.ts",
+    "test": "pnpm run check:typescript && pnpm run check:imports && vitest run",
+    "start": "electron dist-electron/main.js",
+    "dist:mac:unsigned": "CSC_IDENTITY_AUTO_DISCOVERY=false pnpm exec electron-builder --mac dmg zip --publish never",
+    "dist:mac:signed": "pnpm exec electron-builder --mac dmg zip --publish never",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "@dot-files/bridge": "workspace:*",
+    "@fontsource-variable/jetbrains-mono": "^5.2.7",
+    "@fontsource/inter": "^5.2.7",
+    "@primer/primitives": "^11.7.1",
+    "@radix-icons/vue": "^1.0.0",
+    "@shikijs/themes": "^4.0.2",
+    "@tailwindcss/vite": "4.2.4",
+    "@vitejs/plugin-vue": "6.0.6",
+    "@vueuse/core": "^14.3.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "ghostty-web": "0.4.0",
+    "lucide-vue-next": "^0.561.0",
+    "monaco-editor": "^0.55.1",
+    "monaco-yaml": "^5.4.1",
+    "reka-ui": "^2.9.6",
+    "shiki": "^4.0.2",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss": "4.2.4",
+    "vue": "3.5.33"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.2",
+    "@types/web-bluetooth": "0.0.21",
+    "@vue/test-utils": "2.4.10",
+    "electron": "41.5.0",
+    "electron-builder": "26.8.1",
+    "happy-dom": "^20.0.11",
+    "portless": "0.12.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vite": "8.0.10",
+    "vitest": "4.1.5",
+    "vue-tsc": "^3.1.8"
+  },
+  "build": {
+    "appId": "io.gocanto.dot-files",
+    "productName": "Mac OS Manager",
+    "artifactName": "${productName}_${version}_${arch}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "dmg": {
+      "sign": false
+    },
+    "extraResources": [
+      {
+        "from": "../macbook/dist/api",
+        "to": "api"
+      }
+    ]
+  }
+}
