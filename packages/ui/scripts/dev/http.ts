@@ -1,28 +1,26 @@
-import { request as httpRequest, type IncomingMessage } from "node:http";
-import { request as httpsRequest } from "node:https";
+import type { AddressInfo } from "node:net";
+import type { ViteDevServer } from "vite";
 
-export function requestOk(url: string): Promise<void> {
-  return new Promise((resolveRequest, rejectRequest) => {
-    const onResponse = (res: IncomingMessage) => {
-      res.resume();
-      res.on("end", () => {
-        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 500) {
-          resolveRequest();
-          return;
-        }
+export function waitForViteReady(server: ViteDevServer): void {
+  const httpServer = server.httpServer;
 
-        rejectRequest(new Error(`unexpected status ${res.statusCode}`));
-      });
-    };
+  if (!httpServer) {
+    throw new Error("Vite dev server did not create an HTTP server");
+  }
 
-    const req = url.startsWith("https:")
-      ? httpsRequest(url, { rejectUnauthorized: false }, onResponse)
-      : httpRequest(url, onResponse);
+  if (!httpServer.listening) {
+    throw new Error("Vite dev server is not listening");
+  }
 
-    req.setTimeout(2_000, () => {
-      req.destroy(new Error(`timed out waiting for ${url}`));
-    });
-    req.on("error", rejectRequest);
-    req.end();
-  });
+  const address = httpServer.address();
+
+  if (!address || typeof address === "string") {
+    throw new Error("Vite dev server did not expose a TCP port");
+  }
+
+  const { port } = address as AddressInfo;
+
+  if (!Number.isInteger(port) || port <= 0) {
+    throw new Error("Vite dev server exposed an invalid TCP port");
+  }
 }

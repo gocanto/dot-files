@@ -303,7 +303,7 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
         secretsConfigPath: "/repo/secrets.yaml",
         generatedAppsPath: "/repo/apps.generated.yaml",
         archiveRoot: "/Users/gus/.local/state/macos-settings-archives",
-        workflowDbPath: "/Users/gus/Library/Application Support/mac-os/workflows.sqlite3",
+        workflowDbPath: "/Users/gus/Library/Application Support/dot-files/workflows.sqlite3",
         opVault: "Private",
         opItem: "Mac Migration Archive",
       },
@@ -318,7 +318,7 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
         {
           key: "workflow_db_path",
           label: "Workflow SQLite database",
-          path: "/Users/gus/Library/Application Support/mac-os/workflows.sqlite3",
+          path: "/Users/gus/Library/Application Support/dot-files/workflows.sqlite3",
           status: "ok",
           message: "ok",
         },
@@ -1573,7 +1573,7 @@ describe("App", () => {
     expect(api.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({
         repoRoot: "/repo-next",
-        workflowDbPath: "/Users/gus/Library/Application Support/mac-os/workflows.sqlite3",
+        workflowDbPath: "/Users/gus/Library/Application Support/dot-files/workflows.sqlite3",
       }),
     );
     expect(wrapper.text()).toContain("Settings saved");

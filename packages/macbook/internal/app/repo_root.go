@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/gocanto/dot-files/internal/app/setting"
 )
 
 func findRepoRoot(start string) string {
@@ -19,7 +21,7 @@ func findRepoRoot(start string) string {
 
 func resolveRepoRoot(start, explicit string) (string, error) {
 	if strings.TrimSpace(explicit) != "" {
-		return validateRepoRoot(explicit)
+		return setting.ValidateRepoRoot(explicit)
 	}
 
 	if root, ok := walkForRepoRoot(start); ok {
@@ -45,13 +47,13 @@ func walkForRepoRoot(start string) (string, bool) {
 	}
 
 	for {
-		if hasRepoMarkers(dir) {
+		if setting.HasRepoMarkers(dir) {
 			return dir, true
 		}
 
 		macOSDir := filepath.Join(dir, "packages", "macbook")
 
-		if hasRepoMarkers(macOSDir) {
+		if setting.HasRepoMarkers(macOSDir) {
 			return macOSDir, true
 		}
 
@@ -63,16 +65,4 @@ func walkForRepoRoot(start string) (string, bool) {
 
 		dir = parent
 	}
-}
-
-func hasRepoMarkers(dir string) bool {
-	if info, err := os.Stat(filepath.Join(dir, "stow")); err != nil || !info.IsDir() {
-		return false
-	}
-
-	if _, err := os.Stat(filepath.Join(dir, "go.mod")); err != nil {
-		return false
-	}
-
-	return true
 }

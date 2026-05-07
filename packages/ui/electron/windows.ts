@@ -1,4 +1,4 @@
-import { BrowserWindow } from "electron";
+import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
 import { electronDir, repoRoot } from "./paths.js";
 
@@ -50,6 +50,8 @@ export function createWindow() {
 
   if (devServer) {
     void mainWindow.loadURL(devServer);
+  } else if (app.isPackaged) {
+    void mainWindow.loadFile(join(electronDir, "..", "dist", "index.html"));
   } else {
     void mainWindow.loadFile(join(repoRoot, "packages", "ui", "dist", "index.html"));
   }

@@ -9,8 +9,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/gocanto/mac-os/internal/httpx"
-	"github.com/gocanto/mac-os/internal/storage"
+	"github.com/gocanto/dot-files/internal/app/setting"
+	"github.com/gocanto/dot-files/internal/httpx"
+	"github.com/gocanto/dot-files/internal/storage"
 )
 
 func (a app) serveHTTP(args []string) int {
@@ -37,7 +38,7 @@ func (a app) serveHTTP(args []string) int {
 		return 2
 	}
 
-	settings := runtimeSettings{
+	settings := setting.RuntimeSettings{
 		RepoRoot:          *repoRoot,
 		AppsConfigPath:    *appsConfigPath,
 		SecretsConfigPath: *secretsConfigPath,
@@ -47,11 +48,11 @@ func (a app) serveHTTP(args []string) int {
 		OPVault:           *opVault,
 		OPItem:            *opItem,
 	}
-	validation := validateRuntimeSettings(a.home, a.repo, settings)
+	validation := setting.ValidateRuntimeSettings(a.home, a.repo, settings)
 
 	if !validation.Valid {
 		for _, check := range validation.Checks {
-			if check.Status == checkError {
+			if check.Status == setting.CheckError {
 				fmt.Fprintf(a.stderr, "invalid settings: %s: %s\n", check.Label, check.Message)
 			}
 		}

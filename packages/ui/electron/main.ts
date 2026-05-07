@@ -24,7 +24,7 @@ app.whenReady().then(() => {
   }
 
   void startBridgeIfNeeded().catch((error: unknown) => {
-    console.error("Failed to start mac-os HTTP bridge", error);
+    console.error("Failed to start api HTTP bridge", error);
   });
 });
 

@@ -9,7 +9,7 @@ import { readSettings, settingsArgs } from "./settings.js";
 import { delay } from "./timing.js";
 
 export async function backendSocketPath(): Promise<string> {
-  const path = join(os.tmpdir(), `mac-os-dev-${process.pid}-${Date.now()}.sock`);
+  const path = join(os.tmpdir(), `api-dev-${process.pid}-${Date.now()}.sock`);
   await rm(path, { force: true });
 
   return path;

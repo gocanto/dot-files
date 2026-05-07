@@ -83,7 +83,7 @@ stable checkout, not a temporary download directory.
 
 ## Using The Electron UI
 
-The workflow interface lives in `packages/ui` and talks to a local Go gRPC
+The workflow interface lives in `packages/ui` and talks to a local Go HTTP
 backend over a per-launch Unix socket.
 
 ```sh
@@ -102,11 +102,10 @@ go run ./packages/macbook/cmd help
 
 | Command                             | Purpose                                                          |
 | ----------------------------------- | ---------------------------------------------------------------- |
-| `mac-os serve-grpc --socket <path>` | Starts the local gRPC backend used by the Electron main process. |
+| `api serve-http --socket <path>` | Starts the local HTTP backend used by the Electron main process. |
 
-The shared bridge contract lives in `packages/bridge/proto/workflow.proto`.
-Electron imports `@dot-files/bridge` for the Node gRPC client and the Go
-backend uses generated code in `packages/macbook/internal/bridgepb`.
+Electron imports `@dot-files/bridge` for the Node client and the Go backend
+serves the local API from `packages/macbook`.
 
 Most workflows start with a confirmation screen that explains what will happen,
 whether the workflow changes the Mac, and which phases will run. Workflows that
@@ -278,6 +277,33 @@ Build and open the Electron UI from the repository root:
 pnpm --filter ui build
 pnpm --filter ui start
 ```
+
+Build an unsigned private macOS DMG and ZIP while Developer ID approval is
+pending:
+
+```sh
+pnpm --dir packages/macbook run build
+pnpm --dir packages/ui run build
+pnpm --dir packages/ui run dist:mac:unsigned
+```
+
+Create a draft GitHub release for private testing:
+
+```sh
+pnpm release:mac:unsigned -- --notes-file /path/to/release-notes.md
+```
+
+Unsigned builds are for private testing only. On first launch, use
+right-click -> Open, or remove quarantine manually:
+
+```sh
+xattr -dr com.apple.quarantine "/Applications/Mac OS Manager.app"
+```
+
+After Developer ID approval, use `pnpm --dir packages/ui run dist:mac:signed`
+with Apple signing/notarization credentials configured for Electron Builder.
+Enable auto-update only after signed and notarized artifacts pass Gatekeeper
+checks.
 
 Run Go tests from the repository root:
 

@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gocanto/mac-os/internal/command"
-	"github.com/gocanto/mac-os/internal/safefs"
-	"github.com/gocanto/mac-os/internal/template/appconfig"
+	"github.com/gocanto/dot-files/internal/command"
+	"github.com/gocanto/dot-files/internal/safefs"
+	"github.com/gocanto/dot-files/internal/template/appconfig"
 )
 
 type Options struct {

@@ -18,9 +18,9 @@ importers:
         specifier: 2.9.8
         version: 2.9.8
 
-  macbook: {}
-
   packages/bridge: {}
+
+  packages/macbook: {}
 
   packages/ui:
     dependencies:
@@ -57,9 +57,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      electron:
-        specifier: 41.5.0
-        version: 41.5.0
       ghostty-web:
         specifier: 0.4.0
         version: 0.4.0
@@ -97,6 +94,9 @@ importers:
       '@vue/test-utils':
         specifier: 2.4.10
         version: 2.4.10(@vue/compiler-dom@3.5.33)(@vue/server-renderer@3.5.33(vue@3.5.33(typescript@5.9.3)))(vue@3.5.33(typescript@5.9.3))
+      electron:
+        specifier: 41.5.0
+        version: 41.5.0
       electron-builder:
         specifier: 26.8.1
         version: 26.8.1(electron-builder-squirrel-windows@26.8.1)

@@ -2,6 +2,8 @@
   "name": "ui",
   "version": "0.1.0",
   "private": true,
+  "description": "Mac OS Manager desktop UI for dot-files workflows.",
+  "author": "Gus Canto",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -13,6 +15,8 @@
     "build": "pnpm run check:typescript && pnpm run check:imports && vue-tsc --noEmit && vite build && tsc -p tsconfig.electron.json && vite build --config vite.electron.config.ts",
     "test": "pnpm run check:typescript && pnpm run check:imports && vitest run",
     "start": "electron dist-electron/main.js",
+    "dist:mac:unsigned": "CSC_IDENTITY_AUTO_DISCOVERY=false pnpm exec electron-builder --mac dmg zip --publish never",
+    "dist:mac:signed": "pnpm exec electron-builder --mac dmg zip --publish never",
     "format": "prettier --write ."
   },
   "dependencies": {
@@ -27,7 +31,6 @@
     "@vueuse/core": "^14.3.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "electron": "41.5.0",
     "ghostty-web": "0.4.0",
     "lucide-vue-next": "^0.561.0",
     "monaco-editor": "^0.55.1",
@@ -42,6 +45,7 @@
     "@types/node": "^24.10.2",
     "@types/web-bluetooth": "0.0.21",
     "@vue/test-utils": "2.4.10",
+    "electron": "41.5.0",
     "electron-builder": "26.8.1",
     "happy-dom": "^20.0.11",
     "portless": "0.12.0",
@@ -52,16 +56,32 @@
     "vue-tsc": "^3.1.8"
   },
   "build": {
-    "appId": "io.gocanto.macos.ui",
+    "appId": "io.gocanto.dot-files",
     "productName": "Mac OS Manager",
+    "artifactName": "${productName}_${version}_${arch}.${ext}",
+    "directories": {
+      "output": "release"
+    },
     "files": [
       "dist/**/*",
       "dist-electron/**/*"
     ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "dmg": {
+      "sign": false
+    },
     "extraResources": [
       {
-        "from": "../macbook/dist/mac-os",
-        "to": "mac-os"
+        "from": "../macbook/dist/api",
+        "to": "api"
       }
     ]
   }

@@ -7,14 +7,16 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/gocanto/mac-os/internal/command"
-	"github.com/gocanto/mac-os/internal/storage"
+	"github.com/gocanto/dot-files/internal/app/services"
+	"github.com/gocanto/dot-files/internal/app/setting"
+	"github.com/gocanto/dot-files/internal/command"
+	"github.com/gocanto/dot-files/internal/storage"
 )
 
 type app struct {
 	home     string
 	repo     string
-	settings runtimeSettings
+	settings setting.RuntimeSettings
 	goos     string
 	goarch   string
 	stdout   io.Writer
@@ -24,20 +26,7 @@ type app struct {
 	store    *storage.Store
 }
 
-type options struct {
-	dryRun            bool
-	encrypt           bool
-	apps              bool
-	allowMasUninstall bool
-	archiveRoot       string
-	archivePath       string
-	useLatestArchive  bool
-	configPath        string
-	generatedPath     string
-	secretsPath       string
-	opVault           string
-	opItem            string
-}
+type options = services.Options
 
 func (a app) workflowStore(ctx context.Context) (*storage.Store, func(), error) {
 	if a.store != nil {
@@ -52,11 +41,6 @@ func (a app) workflowStore(ctx context.Context) (*storage.Store, func(), error) 
 
 	return store, func() { _ = store.Close() }, nil
 }
-
-const (
-	defaultOPVault = "Private"
-	defaultOPItem  = "Mac Migration Archive"
-)
 
 func Run(args []string) int {
 	home, err := os.UserHomeDir()
@@ -84,13 +68,27 @@ func newApp(home, repo string, stdin io.Reader, stdout, stderr io.Writer, runner
 	return app{
 		home:     home,
 		repo:     repo,
-		settings: defaultRuntimeSettings(home, repo),
+		settings: setting.DefaultRuntimeSettings(home, repo),
 		goos:     runtime.GOOS,
 		goarch:   runtime.GOARCH,
 		stdout:   stdout,
 		stderr:   stderr,
 		stdin:    stdin,
 		runner:   runner,
+	}
+}
+
+func (a app) service() services.Service {
+	return services.Service{
+		Home:     a.home,
+		Repo:     a.repo,
+		GOOS:     a.goos,
+		GOARCH:   a.goarch,
+		Stdin:    a.stdin,
+		Stdout:   a.stdout,
+		Stderr:   a.stderr,
+		Runner:   a.runner,
+		Settings: a.settings,
 	}
 }
 

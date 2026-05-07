@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/gocanto/mac-os/internal/command"
-	"github.com/gocanto/mac-os/internal/lineparse"
+	"github.com/gocanto/dot-files/internal/command"
+	"github.com/gocanto/dot-files/internal/lineparse"
 )
 
 type Kind string

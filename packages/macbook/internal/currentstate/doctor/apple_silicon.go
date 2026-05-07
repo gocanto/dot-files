@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/gocanto/mac-os/internal/command"
+	"github.com/gocanto/dot-files/internal/command"
 )
 
 func (s Service) ensureAppleSiliconSupport(dryRun bool) error {

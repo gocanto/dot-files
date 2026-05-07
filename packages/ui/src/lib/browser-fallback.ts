@@ -124,7 +124,7 @@ export function installBrowserFallback() {
     secretsConfigPath: "/repo/secrets.yaml",
     generatedAppsPath: "/repo/apps.generated.yaml",
     archiveRoot: "/Users/local/.local/state/macos-settings-archives",
-    workflowDbPath: "/Users/local/Library/Application Support/mac-os/workflows.sqlite3",
+    workflowDbPath: "/Users/local/Library/Application Support/dot-files/workflows.sqlite3",
     opVault: "Private",
     opItem: "Mac Migration Archive",
   };
@@ -255,7 +255,7 @@ export function installBrowserFallback() {
     signinOpCli: async () => ({ ok: true }),
     installOpDependencies: async () => ({ ok: true }),
     openDevTools: async () => {
-      window.open("", "mac-os-manager-devtools");
+      window.open("", "api-manager-devtools");
     },
     macName: async () => "Local Mac",
     macHostname: async () => "localhost",

@@ -6,13 +6,14 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
-	"github.com/gocanto/mac-os/internal/storage/db"
-	"github.com/gocanto/mac-os/internal/workflowdomain"
+	"github.com/gocanto/dot-files/internal/domain"
+	"github.com/gocanto/dot-files/internal/storage/db"
 	_ "modernc.org/sqlite"
 )
 
@@ -33,8 +34,8 @@ type RunStart struct {
 	WorkflowName            string
 	ConfirmationOptionID    string
 	ConfirmationOptionLabel string
-	Mode                    workflowdomain.RunMode
-	Status                  workflowdomain.RunStatus
+	Mode                    domain.RunMode
+	Status                  domain.RunStatus
 }
 
 type RunSummary struct {
@@ -77,10 +78,10 @@ type Recorder struct {
 	runID string
 	mu    sync.Mutex
 	seq   int64
-	also  func(workflowdomain.Event) error
+	also  func(domain.Event) error
 }
 
-const envDBPath = "MAC_OS_WORKFLOW_DB_PATH"
+const envDBPath = "DOT_FILES_WORKFLOW_DB_PATH"
 
 func Open(ctx context.Context, path string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -109,7 +110,65 @@ func DefaultPath(home string) string {
 		return override
 	}
 
-	return filepath.Join(home, "Library", "Application Support", "mac-os", "workflows.sqlite3")
+	path := filepath.Join(home, "Library", "Application Support", "dot-files", "workflows.sqlite3")
+
+	if err := migrateDefaultPath(home, path); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: migrate workflow database to dot-files namespace: %v\n", err)
+	}
+
+	return path
+}
+
+func migrateDefaultPath(home, newPath string) error {
+	oldPath := filepath.Join(home, "Library", "Application Support", "mac-os", "workflows.sqlite3")
+
+	if _, err := os.Stat(newPath); err == nil {
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("stat new database: %w", err)
+	}
+
+	if _, err := os.Stat(oldPath); errors.Is(err, os.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("stat old database: %w", err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(newPath), 0o700); err != nil {
+		return fmt.Errorf("create new database directory: %w", err)
+	}
+
+	if err := os.Rename(oldPath, newPath); err == nil {
+		return nil
+	} else if copyErr := copyFile(oldPath, newPath); copyErr != nil {
+		return fmt.Errorf("move old database: %w; copy fallback: %w", err, copyErr)
+	}
+
+	return nil
+}
+
+func copyFile(from, to string) error {
+	source, err := os.Open(from)
+
+	if err != nil {
+		return err
+	}
+
+	defer source.Close()
+
+	destination, err := os.OpenFile(to, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+
+	if err != nil {
+		return err
+	}
+
+	defer destination.Close()
+
+	if _, err := io.Copy(destination, source); err != nil {
+		return err
+	}
+
+	return destination.Sync()
 }
 
 func (s *Store) Close() error {
@@ -143,7 +202,7 @@ func (s *Store) CreateRun(ctx context.Context, run RunStart) error {
 	})
 }
 
-func (s *Store) CompleteRun(ctx context.Context, id string, status workflowdomain.RunStatus, message string) error {
+func (s *Store) CompleteRun(ctx context.Context, id string, status domain.RunStatus, message string) error {
 	return s.queries.CompleteRun(ctx, db.CompleteRunParams{
 		ID:           id,
 		Status:       string(status),
@@ -152,7 +211,7 @@ func (s *Store) CompleteRun(ctx context.Context, id string, status workflowdomai
 	})
 }
 
-func (s *Store) InsertEvent(ctx context.Context, event workflowdomain.Event) error {
+func (s *Store) InsertEvent(ctx context.Context, event domain.Event) error {
 	return s.queries.InsertEvent(ctx, db.InsertEventParams{
 		RunID:     event.RunID,
 		Seq:       event.Seq,
@@ -240,11 +299,11 @@ func (s *Store) SaveUserPreferences(ctx context.Context, prefs UserPreferences) 
 	return UserPreferences{Theme: theme, UpdatedAt: updatedAt}, nil
 }
 
-func NewRecorder(store *Store, runID string, also func(workflowdomain.Event) error) *Recorder {
+func NewRecorder(store *Store, runID string, also func(domain.Event) error) *Recorder {
 	return &Recorder{store: store, runID: runID, also: also}
 }
 
-func (r *Recorder) Emit(ctx context.Context, event workflowdomain.Event) error {
+func (r *Recorder) Emit(ctx context.Context, event domain.Event) error {
 	r.mu.Lock()
 
 	defer r.mu.Unlock()

@@ -3,7 +3,7 @@ package app
 import (
 	"io"
 
-	"github.com/gocanto/mac-os/internal/workflowdomain"
+	"github.com/gocanto/dot-files/internal/domain"
 )
 
 type convergeMode string
@@ -13,80 +13,80 @@ const (
 	convergeReconverge convergeMode = "reconverge"
 )
 
-func (a app) convergePhases(opts options, mode convergeMode) []workflowdomain.Phase {
-	phases := []workflowdomain.Phase{
-		{Name: "Check/install prerequisites", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).ensurePrerequisites(opts) }},
-		{Name: "Install Homebrew packages", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).applyHomebrewBundle(opts) }},
-		{Name: "Set up GitHub access and signing", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).setupGitHub(opts) }},
-		{Name: "Install App Store apps", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).applyAppStoreApps(opts) }},
-		{Name: "Show manual app install notes", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).reportManualApps(opts) }},
-		{Name: "Restore private secrets from 1Password", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).restorePrivateSecrets(opts) }},
+func (a app) convergePhases(opts options, mode convergeMode) []domain.Phase {
+	phases := []domain.Phase{
+		{Name: "Check/install prerequisites", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).service().EnsurePrerequisites(opts) }},
+		{Name: "Install Homebrew packages", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).service().ApplyHomebrewBundle(opts) }},
+		{Name: "Set up GitHub access and signing", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).service().SetupGitHub(opts) }},
+		{Name: "Install App Store apps", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).service().ApplyAppStoreApps(opts) }},
+		{Name: "Show manual app install notes", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).service().ReportManualApps(opts) }},
+		{Name: "Restore private secrets from 1Password", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).service().RestorePrivateSecrets(opts) }},
 	}
 
 	if mode == convergeFresh {
-		phases = append(phases, workflowdomain.Phase{
+		phases = append(phases, domain.Phase{
 			Name: "Prepare existing dotfiles", Enabled: true,
-			Run: func(w io.Writer) error { return a.withStdout(w).adoptDotfiles(opts) },
+			Run: func(w io.Writer) error { return a.withStdout(w).service().AdoptDotfiles(opts) },
 		})
 	}
 
 	phases = append(phases,
-		workflowdomain.Phase{Name: "Install oh-my-zsh", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).ensureOhMyZsh(opts) }},
-		workflowdomain.Phase{Name: "Link dotfiles", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).applyStow(opts) }},
+		domain.Phase{Name: "Install oh-my-zsh", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).service().EnsureOhMyZsh(opts) }},
+		domain.Phase{Name: "Link dotfiles", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).service().ApplyStow(opts) }},
 	)
 
 	if mode == convergeReconverge {
-		phases = append(phases, workflowdomain.Phase{
+		phases = append(phases, domain.Phase{
 			Name: "Restore supported app configs from latest snapshot", Enabled: true,
-			Run: func(w io.Writer) error { return a.withStdout(w).restoreAppConfigs(opts) },
+			Run: func(w io.Writer) error { return a.withStdout(w).service().RestoreAppConfigs(opts) },
 		})
 	}
 
 	return append(phases,
-		workflowdomain.Phase{Name: "Apply macOS settings", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).applyMacOSDefaults(opts) }},
-		workflowdomain.Phase{Name: "Run health checks", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).runDoctor(opts) }},
+		domain.Phase{Name: "Apply macOS settings", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).service().ApplyMacOSDefaults(opts) }},
+		domain.Phase{Name: "Run health checks", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).service().RunDoctor(opts) }},
 	)
 }
 
-func (a app) factoryInstallPhases(opts options) []workflowdomain.Phase {
+func (a app) factoryInstallPhases(opts options) []domain.Phase {
 	return a.convergePhases(opts, convergeFresh)
 }
 
-func (a app) hostUpdatePhases(opts options) []workflowdomain.Phase {
+func (a app) hostUpdatePhases(opts options) []domain.Phase {
 	return a.convergePhases(opts, convergeReconverge)
 }
 
-func (a app) workflows() []workflowdomain.Workflow {
+func (a app) workflows() []domain.Workflow {
 	baseOpts := options{
-		configPath:    a.settings.AppsConfigPath,
-		generatedPath: a.settings.GeneratedAppsPath,
-		secretsPath:   a.settings.SecretsConfigPath,
-		archiveRoot:   a.settings.ArchiveRoot,
-		opVault:       a.settings.OPVault,
-		opItem:        a.settings.OPItem,
+		ConfigPath:    a.settings.AppsConfigPath,
+		GeneratedPath: a.settings.GeneratedAppsPath,
+		SecretsPath:   a.settings.SecretsConfigPath,
+		ArchiveRoot:   a.settings.ArchiveRoot,
+		OPVault:       a.settings.OPVault,
+		OPItem:        a.settings.OPItem,
 	}
 	dryRunOpts := baseOpts
-	dryRunOpts.dryRun = true
+	dryRunOpts.DryRun = true
 	factoryOpts := baseOpts
-	factoryOpts.apps = true
+	factoryOpts.Apps = true
 	factoryDryRunOpts := factoryOpts
-	factoryDryRunOpts.dryRun = true
+	factoryDryRunOpts.DryRun = true
 	hostUpdateOpts := factoryOpts
-	hostUpdateOpts.useLatestArchive = true
+	hostUpdateOpts.UseLatestArchive = true
 	hostUpdateDryRunOpts := hostUpdateOpts
-	hostUpdateDryRunOpts.dryRun = true
+	hostUpdateDryRunOpts.DryRun = true
 	appDryRunOpts := baseOpts
-	appDryRunOpts.dryRun = true
-	appDryRunOpts.apps = true
+	appDryRunOpts.DryRun = true
+	appDryRunOpts.Apps = true
 	appLiveOpts := baseOpts
-	appLiveOpts.apps = true
+	appLiveOpts.Apps = true
 	updateAppsDryRunOpts := baseOpts
-	updateAppsDryRunOpts.dryRun = true
+	updateAppsDryRunOpts.DryRun = true
 	updateAppsOpts := baseOpts
 	captureDryRunOpts := factoryDryRunOpts
 	captureOpts := factoryOpts
 
-	return workflowdomain.Normalize([]workflowdomain.Workflow{
+	return domain.Normalize([]domain.Workflow{
 		{
 			Name:         "Review Template",
 			Description:  "Validate the tracked template, then print the source of truth: Homebrew bundle, apps.yaml, macOS defaults, and dotfile bundles. Read-only.",
@@ -173,90 +173,90 @@ func (a app) workflows() []workflowdomain.Workflow {
 	})
 }
 
-func previewTemplatePhases(a app, opts options) []workflowdomain.Phase {
-	return []workflowdomain.Phase{
+func previewTemplatePhases(a app, opts options) []domain.Phase {
+	return []domain.Phase{
 		{Name: "Print tracked Homebrew bundle", Enabled: true, Run: func(w io.Writer) error {
-			return a.withStdout(w).previewTemplateBrew(opts)
+			return a.withStdout(w).service().PreviewTemplateBrew(opts)
 		}},
 		{Name: "List tracked apps", Enabled: true, Run: func(w io.Writer) error {
-			return a.withStdout(w).previewTemplateApps(opts)
+			return a.withStdout(w).service().PreviewTemplateApps(opts)
 		}},
 		{Name: "List tracked macOS settings", Enabled: true, Run: func(w io.Writer) error {
-			return a.withStdout(w).previewTemplateMacOS(opts)
+			return a.withStdout(w).service().PreviewTemplateMacOS(opts)
 		}},
 		{Name: "List tracked dotfile bundles", Enabled: true, Run: func(w io.Writer) error {
-			return a.withStdout(w).previewTemplateDotfiles(opts)
+			return a.withStdout(w).service().PreviewTemplateDotfiles(opts)
 		}},
 	}
 }
 
-func reviewTemplatePhases(a app, opts options) []workflowdomain.Phase {
+func reviewTemplatePhases(a app, opts options) []domain.Phase {
 	return append(validateTemplatePhases(a, opts), previewTemplatePhases(a, opts)...)
 }
 
-func validateTemplatePhases(a app, opts options) []workflowdomain.Phase {
-	return []workflowdomain.Phase{
+func validateTemplatePhases(a app, opts options) []domain.Phase {
+	return []domain.Phase{
 		{Name: "Validate template files", Enabled: true, Run: func(w io.Writer) error {
-			return a.withStdout(w).validateTemplate(opts)
+			return a.withStdout(w).service().ValidateTemplate(opts)
 		}},
 	}
 }
 
 func updateTemplateFromMacDryOpts(base options) options {
 	opts := base
-	opts.dryRun = true
-	opts.apps = true
+	opts.DryRun = true
+	opts.Apps = true
 
 	return opts
 }
 
 func updateTemplateFromMacLiveOpts(base options) options {
 	opts := base
-	opts.apps = true
+	opts.Apps = true
 
 	return opts
 }
 
-func updateTemplateFromMacPhases(a app, opts options) []workflowdomain.Phase {
-	return []workflowdomain.Phase{
+func updateTemplateFromMacPhases(a app, opts options) []domain.Phase {
+	return []domain.Phase{
 		{Name: "Save current Mac snapshot", Enabled: true, Run: func(w io.Writer) error {
-			return a.withStdout(w).captureArchive(opts)
+			return a.withStdout(w).service().CaptureArchive(opts)
 		}},
 		{Name: "Generate installed app review candidate", Enabled: true, Run: func(w io.Writer) error {
-			return a.withStdout(w).updateInstalledAppList(opts)
+			return a.withStdout(w).service().UpdateInstalledAppList(opts)
 		}},
 		{Name: "Generate dotfile review candidates", Enabled: true, Run: func(w io.Writer) error {
-			return a.withStdout(w).writeDotfileCandidates(opts)
+			return a.withStdout(w).service().WriteDotfileCandidates(opts)
 		}},
 	}
 }
 
-func inspectCurrentPhases(a app, opts options) []workflowdomain.Phase {
-	return []workflowdomain.Phase{
+func inspectCurrentPhases(a app, opts options) []domain.Phase {
+	return []domain.Phase{
 		{Name: "Run health checks", Enabled: true, Run: func(w io.Writer) error {
-			return a.withStdout(w).runDoctor(opts)
+			return a.withStdout(w).service().RunDoctor(opts)
 		}},
 		{Name: "List installed Homebrew formulae and casks", Enabled: true, Run: func(w io.Writer) error {
-			return a.withStdout(w).inspectCurrentBrew(opts)
+			return a.withStdout(w).service().InspectCurrentBrew(opts)
 		}},
 		{Name: "Show current macOS defaults values", Enabled: true, Run: func(w io.Writer) error {
-			return a.withStdout(w).inspectCurrentMacOS(opts)
+			return a.withStdout(w).service().InspectCurrentMacOS(opts)
 		}},
 	}
 }
 
-func (a app) convergeConfirmation(freshDry, freshLive, reconvergeDry, reconvergeLive options) *workflowdomain.Confirmation {
-	return &workflowdomain.Confirmation{
+func (a app) convergeConfirmation(freshDry, freshLive, reconvergeDry, reconvergeLive options) *domain.Confirmation {
+	return &domain.Confirmation{
 		Title:   "Converge to Template",
 		Message: "Apply the tracked template to this Mac. Preview shows the plan without changing anything. Fresh setup adopts existing dotfiles into the repo (for clean/erased Macs). Re-converge skips adoption and restores app configs from the latest snapshot.",
-		Options: []workflowdomain.ConfirmationOption{
+		Options: []domain.ConfirmationOption{
 			{Label: "Preview only (fresh)", Description: "show what a fresh setup would do", Continue: true, Phases: a.convergePhases(freshDry, convergeFresh)},
 			{Label: "Preview only (re-converge)", Description: "show what a re-converge would do", Continue: true, Phases: a.convergePhases(reconvergeDry, convergeReconverge)},
-			a.approvalOption(workflowdomain.ConfirmationOption{Label: "Erase first", Description: "open reset settings and stop", Continue: false, Phases: a.convergePhases(freshLive, convergeFresh), Run: func(w io.Writer) error {
-				return a.withStdout(w).openEraseAssistant(false)
+			a.approvalOption(domain.ConfirmationOption{Label: "Erase first", Description: "open reset settings and stop", Continue: false, Phases: a.convergePhases(freshLive, convergeFresh), Run: func(w io.Writer) error {
+				return a.withStdout(w).service().OpenEraseAssistant(false)
 			}}),
-			a.approvalOption(workflowdomain.ConfirmationOption{Label: "Fresh setup", Description: "install everything and adopt existing dotfiles", Continue: true, Phases: a.convergePhases(freshLive, convergeFresh)}),
-			a.approvalOption(workflowdomain.ConfirmationOption{Label: "Re-converge", Description: "update from policy and restore from latest snapshot", Continue: true, Phases: a.convergePhases(reconvergeLive, convergeReconverge)}),
+			a.approvalOption(domain.ConfirmationOption{Label: "Fresh setup", Description: "install everything and adopt existing dotfiles", Continue: true, Phases: a.convergePhases(freshLive, convergeFresh)}),
+			a.approvalOption(domain.ConfirmationOption{Label: "Re-converge", Description: "update from policy and restore from latest snapshot", Continue: true, Phases: a.convergePhases(reconvergeLive, convergeReconverge)}),
 			{Label: "Back", Description: "return to workflow menu", Back: true},
 		},
 	}
@@ -264,56 +264,56 @@ func (a app) convergeConfirmation(freshDry, freshLive, reconvergeDry, reconverge
 
 func removeUntrackedDryOpts(base options) options {
 	opts := base
-	opts.dryRun = true
-	opts.apps = true
+	opts.DryRun = true
+	opts.Apps = true
 
 	return opts
 }
 
 func removeUntrackedLiveOpts(base options) options {
 	opts := base
-	opts.apps = true
+	opts.Apps = true
 
 	return opts
 }
 
-func removeUntrackedPhases(a app, opts options) []workflowdomain.Phase {
+func removeUntrackedPhases(a app, opts options) []domain.Phase {
 	captureOpts := opts
-	captureOpts.apps = true
+	captureOpts.Apps = true
 
-	return []workflowdomain.Phase{
+	return []domain.Phase{
 		{Name: "Scan untracked items", Enabled: true, Run: func(w io.Writer) error {
-			return a.withStdout(w).reportUntracked(opts)
+			return a.withStdout(w).service().ReportUntracked(opts)
 		}},
 		{Name: "Snapshot before remove", Enabled: true, Run: func(w io.Writer) error {
-			return a.withStdout(w).captureArchive(captureOpts)
+			return a.withStdout(w).service().CaptureArchive(captureOpts)
 		}},
 		{Name: "Uninstall untracked Homebrew formulae and casks", Enabled: true, Run: func(w io.Writer) error {
-			return a.withStdout(w).removeUntrackedBrew(opts)
+			return a.withStdout(w).service().RemoveUntrackedBrew(opts)
 		}},
 		{Name: "Uninstall untracked App Store apps (best effort)", Enabled: true, Run: func(w io.Writer) error {
-			return a.withStdout(w).removeUntrackedAppStore(opts)
+			return a.withStdout(w).service().RemoveUntrackedAppStore(opts)
 		}},
 	}
 }
 
-func capturePhases(a app, opts options) []workflowdomain.Phase {
-	return []workflowdomain.Phase{{Name: "Save supported app settings snapshot", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).captureArchive(opts) }}}
+func capturePhases(a app, opts options) []domain.Phase {
+	return []domain.Phase{{Name: "Save supported app settings snapshot", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).service().CaptureArchive(opts) }}}
 }
 
-func restoreAppSettingsPhases(a app, opts options) []workflowdomain.Phase {
-	return []workflowdomain.Phase{{Name: "Restore supported app settings", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).restoreAppConfigs(opts) }}}
+func restoreAppSettingsPhases(a app, opts options) []domain.Phase {
+	return []domain.Phase{{Name: "Restore supported app settings", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).service().RestoreAppConfigs(opts) }}}
 }
 
-func updateInstalledAppListPhases(a app, opts options) []workflowdomain.Phase {
-	return []workflowdomain.Phase{{Name: "Generate installed app list candidate", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).updateInstalledAppList(opts) }}}
+func updateInstalledAppListPhases(a app, opts options) []domain.Phase {
+	return []domain.Phase{{Name: "Generate installed app list candidate", Enabled: true, Run: func(w io.Writer) error { return a.withStdout(w).service().UpdateInstalledAppList(opts) }}}
 }
 
-func workflowConfirmation(title, message string, previewPhases, livePhases []workflowdomain.Phase) *workflowdomain.Confirmation {
-	return &workflowdomain.Confirmation{
+func workflowConfirmation(title, message string, previewPhases, livePhases []domain.Phase) *domain.Confirmation {
+	return &domain.Confirmation{
 		Title:   title,
 		Message: message,
-		Options: []workflowdomain.ConfirmationOption{
+		Options: []domain.ConfirmationOption{
 			{Label: "Preview only", Description: "show what would happen", Continue: true, Phases: previewPhases},
 			{Label: "Run now", Description: "make the described changes", Continue: true, Phases: livePhases},
 			{Label: "Back", Description: "return to workflow menu", Back: true},
@@ -321,18 +321,18 @@ func workflowConfirmation(title, message string, previewPhases, livePhases []wor
 	}
 }
 
-func approvingWorkflowConfirmation(title, message string, previewPhases, livePhases []workflowdomain.Phase, approve func(workflowdomain.ConfirmationOption) workflowdomain.ConfirmationOption) *workflowdomain.Confirmation {
+func approvingWorkflowConfirmation(title, message string, previewPhases, livePhases []domain.Phase, approve func(domain.ConfirmationOption) domain.ConfirmationOption) *domain.Confirmation {
 	confirmation := workflowConfirmation(title, message, previewPhases, livePhases)
 	confirmation.Options[1] = approve(confirmation.Options[1])
 
 	return confirmation
 }
 
-func safeWorkflowConfirmation(title, message string, phases []workflowdomain.Phase) *workflowdomain.Confirmation {
-	return &workflowdomain.Confirmation{
+func safeWorkflowConfirmation(title, message string, phases []domain.Phase) *domain.Confirmation {
+	return &domain.Confirmation{
 		Title:   title,
 		Message: message,
-		Options: []workflowdomain.ConfirmationOption{
+		Options: []domain.ConfirmationOption{
 			{Label: "Run now", Description: "continue", Continue: true, Phases: phases},
 			{Label: "Back", Description: "return to workflow menu", Back: true},
 		},

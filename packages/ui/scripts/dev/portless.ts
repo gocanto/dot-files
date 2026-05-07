@@ -1,9 +1,10 @@
+import type { ViteDevServer } from "vite";
 import { appName, portlessEnv, portlessPort, uiDir } from "./paths.js";
-import { requestOk } from "./http.js";
+import { waitForViteReady } from "./http.js";
 import { output, run } from "./processes.js";
 import { delay } from "./timing.js";
 
-export async function startPortlessRoute(port: number): Promise<string> {
+export async function startPortlessRoute(server: ViteDevServer, port: number): Promise<string> {
   await ensurePortlessProxy();
   await run(
     "pnpm",
@@ -12,7 +13,7 @@ export async function startPortlessRoute(port: number): Promise<string> {
     portlessEnv,
   );
 
-  return waitForPortless(`http://127.0.0.1:${port}`);
+  return waitForPortless(server);
 }
 
 async function ensurePortlessProxy(): Promise<void> {
@@ -69,7 +70,7 @@ export async function removePortlessAlias(): Promise<void> {
   } catch {}
 }
 
-async function waitForPortless(readinessUrl: string, timeoutMs = 30000): Promise<string> {
+async function waitForPortless(server: ViteDevServer, timeoutMs = 30000): Promise<string> {
   console.log("Waiting for portless route");
   const deadline = Date.now() + timeoutMs;
 
@@ -79,7 +80,7 @@ async function waitForPortless(readinessUrl: string, timeoutMs = 30000): Promise
       const trimmed = url.trim();
 
       if (trimmed) {
-        await requestOk(readinessUrl);
+        waitForViteReady(server);
         return trimmed;
       }
     } catch {}

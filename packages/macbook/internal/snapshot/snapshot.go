@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gocanto/mac-os/internal/command"
-	"github.com/gocanto/mac-os/internal/converge/appstore"
-	"github.com/gocanto/mac-os/internal/currentstate/doctor"
-	currentmacos "github.com/gocanto/mac-os/internal/currentstate/macos"
-	"github.com/gocanto/mac-os/internal/safefs"
-	"github.com/gocanto/mac-os/internal/template/appconfig"
-	"github.com/gocanto/mac-os/internal/template/dotfiles"
-	templatemacos "github.com/gocanto/mac-os/internal/template/macos"
+	"github.com/gocanto/dot-files/internal/command"
+	"github.com/gocanto/dot-files/internal/converge/appstore"
+	"github.com/gocanto/dot-files/internal/currentstate/doctor"
+	currentmacos "github.com/gocanto/dot-files/internal/currentstate/macos"
+	"github.com/gocanto/dot-files/internal/safefs"
+	"github.com/gocanto/dot-files/internal/template/appconfig"
+	"github.com/gocanto/dot-files/internal/template/dotfiles"
+	templatemacos "github.com/gocanto/dot-files/internal/template/macos"
 )
 
 type Options struct {

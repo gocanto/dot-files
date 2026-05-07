@@ -1,4 +1,4 @@
-module github.com/gocanto/mac-os
+module github.com/gocanto/dot-files
 
 go 1.26
 

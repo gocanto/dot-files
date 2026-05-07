@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/gocanto/mac-os/internal/lineparse"
+	"github.com/gocanto/dot-files/internal/lineparse"
 )
 
 type MASInstall = masInstall

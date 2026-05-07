@@ -12,7 +12,7 @@ import {
 import { dirname, join } from "node:path";
 
 export function settingsPath() {
-  const devSettingsPath = process.env.MAC_OS_SETTINGS_PATH?.trim();
+  const devSettingsPath = process.env.DOT_FILES_SETTINGS_PATH?.trim();
 
   if (devSettingsPath) {
     return devSettingsPath;

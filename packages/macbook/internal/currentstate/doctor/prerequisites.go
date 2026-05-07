@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/gocanto/mac-os/internal/command"
+	"github.com/gocanto/dot-files/internal/command"
 )
 
 func (s Service) EnsurePrerequisites(dryRun bool) error {
@@ -16,7 +16,7 @@ func (s Service) EnsurePrerequisites(dryRun bool) error {
 	}
 
 	if goos != "darwin" {
-		return fmt.Errorf("mac-os only supports darwin, current OS is %s", goos)
+		return fmt.Errorf("api only supports darwin, current OS is %s", goos)
 	}
 
 	cmd := []string{"xcode-select", "-p"}

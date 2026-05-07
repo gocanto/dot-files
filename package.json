@@ -6,7 +6,8 @@
     "test": "turbo run test",
     "dev": "turbo run dev --filter=ui",
     "format": "turbo run format",
-    "check": "turbo run build test"
+    "check": "turbo run build test",
+    "release:mac:unsigned": "scripts/release-macos-unsigned.sh"
   },
   "devDependencies": {
     "oxfmt": "0.47.0",

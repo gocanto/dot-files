@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/gocanto/mac-os/internal/command"
+	"github.com/gocanto/dot-files/internal/command"
 )
 
 type Options struct {

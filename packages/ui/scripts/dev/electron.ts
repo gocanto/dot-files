@@ -17,8 +17,8 @@ export function electronStartSpec(
     ["node_modules/electron/cli.js", "."],
     uiDir,
     {
-      MAC_OS_BRIDGE_SOCKET: backendSocketPath,
-      MAC_OS_SETTINGS_PATH: settingsPath,
+      API_BRIDGE_SOCKET: backendSocketPath,
+      DOT_FILES_SETTINGS_PATH: settingsPath,
       VITE_DEV_SERVER_URL: devServerUrl,
     },
   ];

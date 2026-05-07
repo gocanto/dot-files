@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gocanto/mac-os/internal/workflowdomain"
+	"github.com/gocanto/dot-files/internal/domain"
 )
 
 func (a app) listWorkflows() int {
@@ -37,12 +37,12 @@ func (a app) runWorkflowCLI(args []string) int {
 	}
 
 	if id == "" {
-		fmt.Fprintln(a.stderr, "usage: mac-os run-workflow <id> [--preview]")
+		fmt.Fprintln(a.stderr, "usage: api run-workflow <id> [--preview]")
 
 		return 2
 	}
 
-	workflow, err := workflowdomain.Find(a.workflows(), id)
+	workflow, err := domain.Find(a.workflows(), id)
 
 	if err != nil {
 		fmt.Fprintf(a.stderr, "%v\n", err)
@@ -77,7 +77,7 @@ func (a app) runWorkflowCLI(args []string) int {
 	return 0
 }
 
-func selectWorkflowPhases(workflow workflowdomain.Workflow, preview bool) ([]workflowdomain.Phase, error) {
+func selectWorkflowPhases(workflow domain.Workflow, preview bool) ([]domain.Phase, error) {
 	if workflow.Confirmation == nil {
 		return workflow.Phases, nil
 	}
@@ -85,7 +85,7 @@ func selectWorkflowPhases(workflow workflowdomain.Workflow, preview bool) ([]wor
 	wantedID := "run-now"
 
 	if preview {
-		wantedID = workflowdomain.ConfirmationOptionPreviewOnly
+		wantedID = domain.ConfirmationOptionPreviewOnly
 	}
 
 	for _, option := range workflow.Confirmation.Options {

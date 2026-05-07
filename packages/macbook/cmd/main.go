@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/gocanto/mac-os/internal/app"
+	"github.com/gocanto/dot-files/internal/app"
 )
 
 func main() {

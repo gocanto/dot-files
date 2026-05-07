@@ -5,7 +5,7 @@ import (
 	"io"
 	"runtime"
 
-	"github.com/gocanto/mac-os/internal/workflowdomain"
+	"github.com/gocanto/dot-files/internal/domain"
 )
 
 func (a app) approveHostPermissions(stdout io.Writer) error {
@@ -33,7 +33,7 @@ func (a app) approveHostPermissions(stdout io.Writer) error {
 	return nil
 }
 
-func (a app) approvalOption(option workflowdomain.ConfirmationOption) workflowdomain.ConfirmationOption {
+func (a app) approvalOption(option domain.ConfirmationOption) domain.ConfirmationOption {
 	option.RequiresApproval = true
 	option.Approve = func(w io.Writer) error {
 		return a.approveHostPermissions(w)

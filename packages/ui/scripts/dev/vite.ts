@@ -23,7 +23,7 @@ export async function startDevServer(): Promise<string> {
 
   const port = devServerPort(viteServer);
 
-  return startPortlessRoute(port);
+  return startPortlessRoute(viteServer, port);
 }
 
 export async function stopDevServer(): Promise<void> {

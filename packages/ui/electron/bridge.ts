@@ -15,7 +15,7 @@ import { macbookDir } from "./paths.js";
 let bridgeClient: WorkflowBridgeClient | null = null;
 let bridgeProcess: ChildProcess | null = null;
 let bridgeSocketPath = "";
-const externalBridgeSocketPath = process.env.MAC_OS_BRIDGE_SOCKET?.trim() ?? "";
+const externalBridgeSocketPath = process.env.API_BRIDGE_SOCKET?.trim() ?? "";
 let bridgeStartup: Promise<void> | null = null;
 let savedSettings: Partial<RuntimeSettings> = {};
 
@@ -32,7 +32,7 @@ export function setBridgeSettings(settings: Partial<RuntimeSettings>) {
 }
 
 function goCommand() {
-  const packaged = join(process.resourcesPath || "", "mac-os");
+  const packaged = join(process.resourcesPath || "", "api");
 
   if (app.isPackaged) {
     return { command: packaged, args: [] };
@@ -56,13 +56,13 @@ async function startWorkflowBridge() {
   }
 
   const command = goCommand();
-  bridgeSocketPath = join(tmpdir(), `mac-os-${process.pid}-${Date.now()}.sock`);
+  bridgeSocketPath = join(tmpdir(), `api-${process.pid}-${Date.now()}.sock`);
 
   const child = spawn(
     command.command,
     [...command.args, "serve-http", "--socket", bridgeSocketPath, ...settingsArgs(savedSettings)],
     {
-      ...(app.isPackaged ? {} : { cwd: macbookDir }),
+      cwd: app.isPackaged ? app.getPath("userData") : macbookDir,
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
     },
@@ -77,7 +77,7 @@ async function startWorkflowBridge() {
 
   child.on("exit", (code, signal) => {
     if (bridgeClient) {
-      console.error(`mac-os HTTP bridge exited with ${code ?? signal ?? "unknown status"}`);
+      console.error(`api HTTP bridge exited with ${code ?? signal ?? "unknown status"}`);
     }
 
     bridgeClient?.close();
@@ -134,7 +134,7 @@ export async function client(): Promise<WorkflowBridgeClient> {
   }
 
   if (!bridgeClient) {
-    throw new Error("mac-os HTTP bridge is not running");
+    throw new Error("api HTTP bridge is not running");
   }
 
   return bridgeClient;

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gocanto/mac-os/internal/command"
-	"github.com/gocanto/mac-os/internal/workflowdomain"
+	"github.com/gocanto/dot-files/internal/command"
+	"github.com/gocanto/dot-files/internal/domain"
 )
 
 type stubRunner struct {
@@ -41,7 +41,7 @@ func TestNoArgsShowsUsage(t *testing.T) {
 		t.Fatalf("exit = %d, want 0", got)
 	}
 
-	if !strings.Contains(stdout.String(), "mac-os serve-http --socket") {
+	if !strings.Contains(stdout.String(), "api serve-http --socket") {
 		t.Fatalf("usage = %s", stdout.String())
 	}
 }
@@ -86,7 +86,7 @@ func TestReviewTemplateCombinesValidationAndPreviewPhases(t *testing.T) {
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
 	workflows := a.workflows()
 
-	var workflow *workflowdomain.Workflow
+	var workflow *domain.Workflow
 
 	for i := range workflows {
 		if workflows[i].Name == "Review Template" {
@@ -137,7 +137,7 @@ func TestPreviewTemplateDotfilesReportsProgressForEachStowEntry(t *testing.T) {
 	var stdout bytes.Buffer
 	a := newApp("/Users/gus", repo, strings.NewReader(""), &stdout, io.Discard, stubRunner{})
 
-	if err := a.previewTemplateDotfiles(options{}); err != nil {
+	if err := a.service().PreviewTemplateDotfiles(options{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -166,7 +166,7 @@ func TestConvergeReconvergeUsesFullPhasesWithoutAdopt(t *testing.T) {
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
 	workflows := a.workflows()
 
-	var workflow *workflowdomain.Workflow
+	var workflow *domain.Workflow
 
 	for i := range workflows {
 		if workflows[i].Name == "Converge to Template" {
@@ -224,7 +224,7 @@ func TestUpdateTemplateFromThisMacUsesReviewCandidatePhases(t *testing.T) {
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
 	workflows := a.workflows()
 
-	var workflow *workflowdomain.Workflow
+	var workflow *domain.Workflow
 
 	for i := range workflows {
 		if workflows[i].Name == "Update Template From This Mac" {
@@ -269,12 +269,12 @@ func TestConvergeConfirmationOptions(t *testing.T) {
 	var stdout bytes.Buffer
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), &stdout, io.Discard, stubRunner{calls: &calls})
 	a.goos = "linux"
-	freshDry := options{dryRun: true, apps: true}
-	freshLive := options{apps: true}
+	freshDry := options{DryRun: true, Apps: true}
+	freshLive := options{Apps: true}
 	reDry := freshDry
-	reDry.useLatestArchive = true
+	reDry.UseLatestArchive = true
 	reLive := freshLive
-	reLive.useLatestArchive = true
+	reLive.UseLatestArchive = true
 	confirmation := a.convergeConfirmation(freshDry, freshLive, reDry, reLive)
 
 	if confirmation == nil || len(confirmation.Options) != 6 {
@@ -318,8 +318,8 @@ func TestConvergeEraseFirstOpensResetSettingsOnDarwin(t *testing.T) {
 	var calls []string
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{calls: &calls})
 	a.goos = "darwin"
-	freshDry := options{dryRun: true, apps: true}
-	freshLive := options{apps: true}
+	freshDry := options{DryRun: true, Apps: true}
+	freshLive := options{Apps: true}
 
 	if err := a.convergeConfirmation(freshDry, freshLive, freshDry, freshLive).Options[2].Run(io.Discard); err != nil {
 		t.Fatal(err)
@@ -343,7 +343,7 @@ func TestConvergePreviewDoesNotOpenResetSettings(t *testing.T) {
 
 	workflows := a.workflows()
 
-	var workflow *workflowdomain.Workflow
+	var workflow *domain.Workflow
 
 	for i := range workflows {
 		if workflows[i].Name == "Converge to Template" {
@@ -400,8 +400,8 @@ func TestApprovingWorkflowConfirmationMarksOnlyLiveOption(t *testing.T) {
 	confirmation := approvingWorkflowConfirmation(
 		"Title",
 		"Message",
-		[]workflowdomain.Phase{{Name: "Preview", Enabled: true}},
-		[]workflowdomain.Phase{{Name: "Live", Enabled: true}},
+		[]domain.Phase{{Name: "Preview", Enabled: true}},
+		[]domain.Phase{{Name: "Live", Enabled: true}},
 		a.approvalOption,
 	)
 
@@ -441,7 +441,7 @@ func TestHelpOnlyShowsElectronCommandUsage(t *testing.T) {
 
 	output := stdout.String()
 
-	for _, want := range []string{"mac-os", "mac-os serve-http --socket", "HTTP backend"} {
+	for _, want := range []string{"api", "api serve-http --socket", "HTTP backend"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("help output = %s, want %q", output, want)
 		}
@@ -458,7 +458,7 @@ func TestUpdateInstalledAppListWorkflowUsesPreviewCandidate(t *testing.T) {
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
 	workflows := a.workflows()
 
-	var workflow *workflowdomain.Workflow
+	var workflow *domain.Workflow
 
 	for i := range workflows {
 		if workflows[i].Name == "Regenerate Installed App List" {
@@ -503,7 +503,7 @@ func TestRestoreAppConfigsUsesLatestLocalSnapshot(t *testing.T) {
 	}
 
 	config := []byte(`
-apps:
+Apps:
   - name: Ghostty
     install_method: brew
     package: ghostty
@@ -528,7 +528,7 @@ apps:
 	var stdout bytes.Buffer
 	a := newApp(home, repo, strings.NewReader(""), &stdout, io.Discard, stubRunner{})
 
-	if err := a.restoreAppConfigs(options{dryRun: true, apps: true, useLatestArchive: true}); err != nil {
+	if err := a.service().RestoreAppConfigs(options{DryRun: true, Apps: true, UseLatestArchive: true}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -548,7 +548,7 @@ func TestRestoreAppConfigsSkipsWhenLatestLocalSnapshotIsMissing(t *testing.T) {
 	var stdout bytes.Buffer
 	a := newApp(t.TempDir(), "/repo", strings.NewReader(""), &stdout, io.Discard, stubRunner{})
 
-	if err := a.restoreAppConfigs(options{dryRun: true, apps: true, useLatestArchive: true}); err != nil {
+	if err := a.service().RestoreAppConfigs(options{DryRun: true, Apps: true, UseLatestArchive: true}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -568,7 +568,7 @@ func TestFindRepoRootWalksUp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	nested := filepath.Join(dir, "cmd", "mac-os")
+	nested := filepath.Join(dir, "cmd", "api")
 
 	if err := os.MkdirAll(nested, 0o700); err != nil {
 		t.Fatal(err)
@@ -619,7 +619,7 @@ func TestApplyStowDetectsStaleSymlinksFromAnotherTree(t *testing.T) {
 	var stdout bytes.Buffer
 	a := newApp(home, repo, strings.NewReader(""), &stdout, io.Discard, stubRunner{})
 
-	err := a.applyStow(options{})
+	err := a.service().ApplyStow(options{})
 
 	if err == nil {
 		t.Fatal("expected stale-link error, got nil")
@@ -670,7 +670,7 @@ func TestApplyStowAllowsLinksIntoCurrentTree(t *testing.T) {
 	var calls []string
 	a := newApp(home, repo, strings.NewReader(""), io.Discard, io.Discard, stubRunner{calls: &calls})
 
-	if err := a.applyStow(options{dryRun: true}); err != nil {
+	if err := a.service().ApplyStow(options{DryRun: true}); err != nil {
 		t.Fatalf("applyStow returned error: %v", err)
 	}
 
@@ -696,7 +696,7 @@ func TestEnsureOhMyZshSkipsWhenInstalled(t *testing.T) {
 	var stdout bytes.Buffer
 	a := newApp(home, "/repo", strings.NewReader(""), &stdout, io.Discard, stubRunner{calls: &calls})
 
-	if err := a.ensureOhMyZsh(options{}); err != nil {
+	if err := a.service().EnsureOhMyZsh(options{}); err != nil {
 		t.Fatalf("ensureOhMyZsh returned error: %v", err)
 	}
 
@@ -722,7 +722,7 @@ func TestEnsureOhMyZshDryRunPrintsCommand(t *testing.T) {
 	var stdout bytes.Buffer
 	a := newApp(home, "/repo", strings.NewReader(""), &stdout, io.Discard, stubRunner{calls: &calls})
 
-	if err := a.ensureOhMyZsh(options{dryRun: true}); err != nil {
+	if err := a.service().EnsureOhMyZsh(options{DryRun: true}); err != nil {
 		t.Fatalf("ensureOhMyZsh returned error: %v", err)
 	}
 
@@ -748,7 +748,7 @@ func TestEnsureOhMyZshInstallsWhenMissing(t *testing.T) {
 	var calls []string
 	a := newApp(home, "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{calls: &calls})
 
-	if err := a.ensureOhMyZsh(options{}); err != nil {
+	if err := a.service().EnsureOhMyZsh(options{}); err != nil {
 		t.Fatalf("ensureOhMyZsh returned error: %v", err)
 	}
 
@@ -777,7 +777,7 @@ func TestEnsureOhMyZshSurfacesInstallError(t *testing.T) {
 
 	a := newApp(home, "/repo", strings.NewReader(""), io.Discard, io.Discard, errRunner{err: os.ErrPermission})
 
-	err := a.ensureOhMyZsh(options{})
+	err := a.service().EnsureOhMyZsh(options{})
 
 	if err == nil {
 		t.Fatal("expected install error")
@@ -794,7 +794,7 @@ func (r errRunner) Run(name string, args ...string) ([]byte, error) {
 
 func TestFactoryInstallIncludesOhMyZshBeforeStow(t *testing.T) {
 	a := newApp("/Users/gus", "/repo", strings.NewReader(""), io.Discard, io.Discard, stubRunner{})
-	phases := a.factoryInstallPhases(options{dryRun: true, apps: true})
+	phases := a.factoryInstallPhases(options{DryRun: true, Apps: true})
 
 	var stowIdx, ohmyzshIdx = -1, -1
 

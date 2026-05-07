@@ -207,7 +207,7 @@ prepare_workflow_ui() {
 	local root
 	root="$(cd "$(dirname "$0")" && pwd)"
 
-	log "preparing mac-os workflow backend"
+	log "preparing api workflow backend"
 
 	if [[ "$DRY_RUN" -eq 1 ]]; then
 		printf 'would run: go run ./packages/macbook/cmd help\n'

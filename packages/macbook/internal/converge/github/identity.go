@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/gocanto/mac-os/internal/command"
+	"github.com/gocanto/dot-files/internal/command"
 )
 
 func (s Service) identity(opts Options) (Identity, error) {
