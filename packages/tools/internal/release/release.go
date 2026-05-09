@@ -142,9 +142,9 @@ func (w workflow) run(ctx context.Context) error {
 
 	defer cleanup()
 
-	fmt.Fprintf(w.stdout, "Creating draft release %s on %s...\n", tag, repo)
+	fmt.Fprintf(w.stdout, "Creating published release %s on %s...\n", tag, repo)
 
-	if err := w.runCommand(ctx, "gh", "release", "create", tag, foundArtifacts.DMG, foundArtifacts.ZIP, checksumsFile, "--repo", repo, "--target", head, "--title", fmt.Sprintf("Mac OS Manager %s (unsigned private testing)", tag), "--notes-file", releaseNotes, "--draft"); err != nil {
+	if err := w.runCommand(ctx, "gh", "release", "create", tag, foundArtifacts.DMG, foundArtifacts.ZIP, checksumsFile, "--repo", repo, "--target", head, "--title", fmt.Sprintf("Mac OS Manager %s", tag), "--notes-file", releaseNotes); err != nil {
 		return err
 	}
 
@@ -164,13 +164,13 @@ func (w workflow) run(ctx context.Context) error {
 		return err
 	}
 
-	draftURL, err := w.output(ctx, "gh", "release", "view", tag, "--repo", repo, "--json", "url", "--jq", ".url")
+	releaseURL, err := w.output(ctx, "gh", "release", "view", tag, "--repo", repo, "--json", "url", "--jq", ".url")
 
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(w.stdout, "Draft release created: %s\n", draftURL)
+	fmt.Fprintf(w.stdout, "Release published: %s\n", releaseURL)
 
 	return nil
 }
@@ -445,7 +445,7 @@ func writeReleaseNotes(notesFile string) (string, func(), error) {
 		_ = os.Remove(tempFile.Name())
 	}
 
-	prefix := "> Private testing build: these macOS artifacts are unsigned while Developer ID approval is pending.\n" +
+	prefix := "> These macOS artifacts are unsigned while Developer ID approval is pending.\n" +
 		"> On first launch, use right-click > Open, or remove quarantine manually:\n" +
 		"> `xattr -dr com.apple.quarantine \"/Applications/Mac OS Manager.app\"`\n\n"
 

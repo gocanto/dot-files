@@ -65,7 +65,7 @@ jobs:
 
           echo "path=$notes_file" >> "$GITHUB_OUTPUT"
 
-      - name: Create draft release
+      - name: Create published release
         if: steps.release-tag.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
