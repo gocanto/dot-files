@@ -74,8 +74,8 @@ func TestReadUIVersion(t *testing.T) {
 
 func TestFindArtifacts(t *testing.T) {
 	releaseDir := t.TempDir()
-	dmg := filepath.Join(releaseDir, "macOS Manager_0.1.0_x64.dmg")
-	zip := filepath.Join(releaseDir, "macOS Manager_0.1.0_x64.zip")
+	dmg := filepath.Join(releaseDir, "macOS Manager_0.1.0_arm64.dmg")
+	zip := filepath.Join(releaseDir, "macOS Manager_0.1.0_arm64.zip")
 
 	if err := os.WriteFile(dmg, []byte("dmg"), 0o644); err != nil {
 		t.Fatal(err)
@@ -98,6 +98,56 @@ func TestFindArtifacts(t *testing.T) {
 
 func TestFindArtifactsRequiresDMGAndZIP(t *testing.T) {
 	_, err := findArtifacts(t.TempDir())
+
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestVersionArtifactsForTag(t *testing.T) {
+	releaseDir := t.TempDir()
+	dmg := filepath.Join(releaseDir, "gus-mac-0.1.0-arm64.dmg")
+	zip := filepath.Join(releaseDir, "gus-mac-0.1.0-arm64.zip")
+
+	if err := os.WriteFile(dmg, []byte("dmg"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(zip, []byte("zip"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := versionArtifactsForTag(artifacts{DMG: dmg, ZIP: zip}, "0.1.0", "v0.1.0-main")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantDMG := filepath.Join(releaseDir, "gus-mac-v0.1.0-main-arm64.dmg")
+	wantZIP := filepath.Join(releaseDir, "gus-mac-v0.1.0-main-arm64.zip")
+
+	if got.DMG != wantDMG || got.ZIP != wantZIP {
+		t.Fatalf("versionArtifactsForTag() = %#v, want dmg=%q zip=%q", got, wantDMG, wantZIP)
+	}
+
+	if _, err := os.Stat(wantDMG); err != nil {
+		t.Fatalf("expected tagged DMG: %v", err)
+	}
+
+	if _, err := os.Stat(wantZIP); err != nil {
+		t.Fatalf("expected tagged ZIP: %v", err)
+	}
+}
+
+func TestVersionArtifactForTagRequiresVersionInName(t *testing.T) {
+	releaseDir := t.TempDir()
+	dmg := filepath.Join(releaseDir, "gus-mac-arm64.dmg")
+
+	if err := os.WriteFile(dmg, []byte("dmg"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := versionArtifactForTag(dmg, "0.1.0", "v0.1.0")
 
 	if err == nil {
 		t.Fatal("expected error")

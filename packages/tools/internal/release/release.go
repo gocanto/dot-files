@@ -133,6 +133,12 @@ func (w workflow) run(ctx context.Context) error {
 		return err
 	}
 
+	foundArtifacts, err = versionArtifactsForTag(foundArtifacts, version, tag)
+
+	if err != nil {
+		return err
+	}
+
 	checksumsFile, err := w.writeChecksums(ctx, releaseDir, foundArtifacts)
 
 	if err != nil {
@@ -437,6 +443,50 @@ func findArtifacts(releaseDir string) (artifacts, error) {
 	}
 
 	return found, nil
+}
+
+func versionArtifactsForTag(found artifacts, version string, tag string) (artifacts, error) {
+	dmg, err := versionArtifactForTag(found.DMG, version, tag)
+
+	if err != nil {
+		return artifacts{}, err
+	}
+
+	zip, err := versionArtifactForTag(found.ZIP, version, tag)
+
+	if err != nil {
+		return artifacts{}, err
+	}
+
+	return artifacts{DMG: dmg, ZIP: zip}, nil
+}
+
+func versionArtifactForTag(path string, version string, tag string) (string, error) {
+	dir := filepath.Dir(path)
+	name := filepath.Base(path)
+	nextName := strings.Replace(name, version, tag, 1)
+
+	if nextName == name {
+		return "", fmt.Errorf("artifact %s does not include package version %s", path, version)
+	}
+
+	nextPath := filepath.Join(dir, nextName)
+
+	if nextPath == path {
+		return path, nil
+	}
+
+	if _, err := os.Stat(nextPath); err == nil {
+		return "", fmt.Errorf("tagged artifact already exists: %s", nextPath)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("inspect tagged artifact: %w", err)
+	}
+
+	if err := os.Rename(path, nextPath); err != nil {
+		return "", fmt.Errorf("rename artifact for release tag: %w", err)
+	}
+
+	return nextPath, nil
 }
 
 func writeReleaseNotes(notesFile string) (string, func(), error) {
