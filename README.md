@@ -277,8 +277,7 @@ gh auth refresh -h github.com -s read:packages
 make format-login
 ```
 
-Build an unsigned private macOS DMG and ZIP while Developer ID approval is
-pending:
+Build an unsigned macOS DMG and ZIP while Developer ID approval is pending:
 
 ```sh
 pnpm --dir packages/macbook run build
@@ -286,14 +285,14 @@ pnpm --dir packages/ui run build
 pnpm --dir packages/ui run dist:mac:unsigned
 ```
 
-Create a draft GitHub release for private testing:
+Create a published GitHub release:
 
 ```sh
 pnpm release:mac:unsigned -- --notes-file /path/to/release-notes.md --repo gocanto/dot-files
 ```
 
-Unsigned builds are for private testing only. On first launch, use
-right-click -> Open, or remove quarantine manually:
+Unsigned builds require a manual first launch. Use right-click -> Open, or
+remove quarantine manually:
 
 ```sh
 xattr -dr com.apple.quarantine "/Applications/Mac OS Manager.app"
