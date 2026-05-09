@@ -28,7 +28,7 @@ export function createWindow() {
     resizable: false,
     maximizable: false,
     fullscreenable: false,
-    title: "macOS Manager",
+    title: "gus-macbook",
     vibrancy: "sidebar",
     visualEffectState: "active",
     backgroundColor: "#00000000",
@@ -86,7 +86,7 @@ export function openDevToolsPanel(parentWindow: BrowserWindow) {
     maxHeight: devToolsWindowHeight,
     resizable: false,
     show: false,
-    title: "macOS Manager DevTools",
+    title: "gus-macbook DevTools",
     icon: appIcon(),
   });
 
