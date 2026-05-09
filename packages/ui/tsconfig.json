@@ -10,6 +10,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@entry/*": ["./src/*"],
       "@app/*": ["./src/components/app/*"],

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { AlertTriangle, Inbox } from "lucide-vue-next";
+import { defineAsyncComponent } from "vue";
 import AppSidebar from "@app/AppSidebar.vue";
 import ConfirmationDialog from "@app/ConfirmationDialog.vue";
 import DetailToolbar from "@app/DetailToolbar.vue";
@@ -11,7 +12,6 @@ import SettingsForm from "@app/SettingsForm.vue";
 import SettingsListPanel from "@app/SettingsListPanel.vue";
 import SettingsSaveDialog from "@app/SettingsSaveDialog.vue";
 import SystemStatusPanel from "@app/SystemStatusPanel.vue";
-import TemplateFilesDetail from "@app/TemplateFilesDetail.vue";
 import WorkflowDetail from "@app/WorkflowDetail.vue";
 import WorkflowDetailSkeleton from "@app/WorkflowDetailSkeleton.vue";
 import WorkflowListPanel from "@app/WorkflowListPanel.vue";
@@ -22,6 +22,10 @@ import { ToastViewport } from "@ui/toast";
 import { TooltipProvider } from "@ui/tooltip";
 import { useAppController } from "@composables/useAppController";
 import { cn } from "@lib/utils";
+
+const TemplateFilesDetail = defineAsyncComponent(() =>
+  import("@app/TemplateFilesDetail.vue").then((module) => module.default),
+);
 
 const {
   theme,

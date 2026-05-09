@@ -83,7 +83,7 @@ func (w workflow) run(ctx context.Context) error {
 	tag := w.config.Tag
 
 	if tag == "" {
-		tag = "v" + version
+		tag = releaseTag(version)
 	}
 
 	head, err := w.output(ctx, "git", "rev-parse", "HEAD")
@@ -149,7 +149,7 @@ func (w workflow) run(ctx context.Context) error {
 
 	fmt.Fprintf(w.stdout, "Creating published release %s on %s...\n", tag, repo)
 
-	if err := w.runCommand(ctx, "gh", "release", "create", tag, foundArtifacts.DMG, foundArtifacts.ZIP, checksumsFile, "--repo", repo, "--target", head, "--title", fmt.Sprintf("macOS Manager %s", tag), "--notes-file", releaseNotes); err != nil {
+	if err := w.runCommand(ctx, "gh", "release", "create", tag, foundArtifacts.DMG, foundArtifacts.ZIP, checksumsFile, "--repo", repo, "--target", head, "--title", releaseTitle(tag), "--notes-file", releaseNotes); err != nil {
 		return err
 	}
 
@@ -406,6 +406,14 @@ func readUIVersion(path string) (string, error) {
 	}
 
 	return manifest.Version, nil
+}
+
+func releaseTag(version string) string {
+	return "dot-files-" + version
+}
+
+func releaseTitle(tag string) string {
+	return tag
 }
 
 func findArtifacts(releaseDir string) (artifacts, error) {

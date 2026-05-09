@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, defineAsyncComponent, ref } from "vue";
 import {
   AlertTriangle,
   AppWindow,
@@ -30,9 +30,12 @@ import { Button } from "@ui/button";
 import { Input } from "@ui/input";
 import { ScrollArea } from "@ui/scroll-area";
 import { Skeleton } from "@ui/skeleton";
-import MonacoFileEditor from "@app/MonacoFileEditor.vue";
 import { cn } from "@lib/utils";
 import type { TemplateFileSummary } from "@api";
+
+const MonacoFileEditor = defineAsyncComponent(() =>
+  import("@app/MonacoFileEditor.vue").then((module) => module.default),
+);
 
 const props = defineProps<{
   theme: "light" | "dark";

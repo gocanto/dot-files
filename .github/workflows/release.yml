@@ -33,16 +33,25 @@ jobs:
         id: release-tag
         shell: bash
         run: |
-          version="$(node -p "require('./packages/ui/package.json').version")"
-          base_tag="v${version}"
-          short_sha="$(git rev-parse --short "$GITHUB_SHA")"
-          tag="$base_tag"
+          git fetch --tags --force
 
-          if git ls-remote --tags --exit-code origin "refs/tags/$base_tag" >/dev/null 2>&1; then
-            tag="${base_tag}-${short_sha}"
+          previous_tag="$(
+            git tag --list 'dot-files-*' |
+              awk -F '[.-]' '/^dot-files-[0-9]+\.[0-9]+\.[0-9]+$/ { print $3, $4, $5, $0 }' |
+              sort -k1,1n -k2,2n -k3,3n |
+              tail -n 1 |
+              awk '{ print $4 }'
+          )"
+          tag="dot-files-0.0.1"
+
+          if [[ -n "$previous_tag" ]]; then
+            version="${previous_tag#dot-files-}"
+            IFS=. read -r major minor patch <<< "$version"
+            tag="dot-files-${major}.${minor}.$((patch + 1))"
           fi
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "previous_tag=$previous_tag" >> "$GITHUB_OUTPUT"
 
           if git ls-remote --tags --exit-code origin "refs/tags/$tag" >/dev/null 2>&1; then
             echo "Release tag $tag already exists; skipping release."
@@ -57,7 +66,7 @@ jobs:
         shell: bash
         run: |
           notes_file="$RUNNER_TEMP/release-notes.md"
-          previous_tag="$(git describe --tags --match 'v*' --abbrev=0 HEAD^ 2>/dev/null || true)"
+          previous_tag="${{ steps.release-tag.outputs.previous_tag }}"
 
           if [[ -n "$previous_tag" ]]; then
             git log "$previous_tag"..HEAD --pretty='- %s (%h)' > "$notes_file"

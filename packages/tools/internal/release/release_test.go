@@ -26,8 +26,8 @@ func TestLoadConfig(t *testing.T) {
 		},
 		{
 			name: "tag flag",
-			args: []string{"--notes-file", "notes.md", "--tag", "v0.1.0-main"},
-			want: Config{NotesFile: "notes.md", Repo: "env/repo", Tag: "v0.1.0-main"},
+			args: []string{"--notes-file", "notes.md", "--tag", "dot-files-0.0.1"},
+			want: Config{NotesFile: "notes.md", Repo: "env/repo", Tag: "dot-files-0.0.1"},
 		},
 	}
 
@@ -69,6 +69,22 @@ func TestReadUIVersion(t *testing.T) {
 
 	if got != "1.2.3" {
 		t.Fatalf("readUIVersion() = %q, want %q", got, "1.2.3")
+	}
+}
+
+func TestReleaseTag(t *testing.T) {
+	got := releaseTag("1.2.3")
+
+	if got != "dot-files-1.2.3" {
+		t.Fatalf("releaseTag() = %q, want %q", got, "dot-files-1.2.3")
+	}
+}
+
+func TestReleaseTitle(t *testing.T) {
+	got := releaseTitle("dot-files-0.0.1")
+
+	if got != "dot-files-0.0.1" {
+		t.Fatalf("releaseTitle() = %q, want %q", got, "dot-files-0.0.1")
 	}
 }
 
