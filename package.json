@@ -7,7 +7,7 @@
     "dev": "pnpm --dir packages/tools run turbo -- run dev --filter=ui",
     "format": "pnpm --dir packages/tools run turbo -- run format",
     "check": "pnpm --dir packages/tools run turbo -- run build test",
-    "release:mac:unsigned": "pnpm --dir packages/tools run release:mac:unsigned --"
+    "release:mac:unsigned": "pnpm --dir packages/tools run release:mac:unsigned"
   },
   "devDependencies": {
     "@types/node": "^24.10.2",
