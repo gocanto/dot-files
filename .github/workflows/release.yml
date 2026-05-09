@@ -34,7 +34,13 @@ jobs:
         shell: bash
         run: |
           version="$(node -p "require('./packages/ui/package.json').version")"
-          tag="v${version}"
+          base_tag="v${version}"
+          short_sha="$(git rev-parse --short "$GITHUB_SHA")"
+          tag="$base_tag"
+
+          if git ls-remote --tags --exit-code origin "refs/tags/$base_tag" >/dev/null 2>&1; then
+            tag="${base_tag}-${short_sha}"
+          fi
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
@@ -69,7 +75,7 @@ jobs:
         if: steps.release-tag.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: pnpm release:mac:unsigned -- --notes-file "${{ steps.release-notes.outputs.path }}" --repo gocanto/dot-files
+        run: pnpm release:mac:unsigned -- --notes-file "${{ steps.release-notes.outputs.path }}" --repo gocanto/dot-files --tag "${{ steps.release-tag.outputs.tag }}"
 
       - name: Upload release artifacts
         if: ${{ success() && steps.release-tag.outputs.exists != 'true' }}

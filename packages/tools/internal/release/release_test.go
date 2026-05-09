@@ -24,6 +24,11 @@ func TestLoadConfig(t *testing.T) {
 			args: []string{"--notes-file=notes.md", "--repo", "flag/repo"},
 			want: Config{NotesFile: "notes.md", Repo: "flag/repo"},
 		},
+		{
+			name: "tag flag",
+			args: []string{"--notes-file", "notes.md", "--tag", "v0.1.0-main"},
+			want: Config{NotesFile: "notes.md", Repo: "env/repo", Tag: "v0.1.0-main"},
+		},
 	}
 
 	for _, tt := range tests {

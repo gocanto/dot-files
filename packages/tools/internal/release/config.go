@@ -10,6 +10,7 @@ import (
 type Config struct {
 	NotesFile string
 	Repo      string
+	Tag       string
 }
 
 func LoadConfig(args []string) (Config, error) {
@@ -18,6 +19,7 @@ func LoadConfig(args []string) (Config, error) {
 	flags := pflag.NewFlagSet("release-macos-unsigned", pflag.ContinueOnError)
 	flags.String("notes-file", "", "release notes file")
 	flags.String("repo", "", "GitHub repository in owner/name format")
+	flags.String("tag", "", "GitHub release tag")
 
 	if err := flags.Parse(args); err != nil {
 		return Config{}, err
@@ -30,6 +32,7 @@ func LoadConfig(args []string) (Config, error) {
 	v := viper.New()
 	v.SetEnvPrefix("release")
 	v.BindEnv("repo", "RELEASE_REPO")
+	v.BindEnv("tag", "RELEASE_TAG")
 
 	if err := v.BindPFlags(flags); err != nil {
 		return Config{}, fmt.Errorf("bind flags: %w", err)
@@ -38,6 +41,7 @@ func LoadConfig(args []string) (Config, error) {
 	return Config{
 		NotesFile: v.GetString("notes-file"),
 		Repo:      v.GetString("repo"),
+		Tag:       v.GetString("tag"),
 	}, nil
 }
 

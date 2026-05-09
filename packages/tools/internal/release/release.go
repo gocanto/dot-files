@@ -80,7 +80,12 @@ func (w workflow) run(ctx context.Context) error {
 		return err
 	}
 
-	tag := "v" + version
+	tag := w.config.Tag
+
+	if tag == "" {
+		tag = "v" + version
+	}
+
 	head, err := w.output(ctx, "git", "rev-parse", "HEAD")
 
 	if err != nil {
