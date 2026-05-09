@@ -55,6 +55,9 @@ and muscle memory. This app turns that into a repeatable workflow:
 For the full tutorial, workflow reference, safety rules, and release notes, read
 [storage/docs/README.md](storage/docs/README.md).
 
+Download the [latest release](https://github.com/gocanto/dot-files/releases/latest)
+or review [all releases](https://github.com/gocanto/dot-files/releases).
+
 From the repository root:
 
 ```sh
