@@ -36,11 +36,8 @@ jobs:
           git fetch --tags --force
 
           previous_tag="$(
-            git tag --list 'dot-files-*' |
-              awk -F '[.-]' '/^dot-files-[0-9]+\.[0-9]+\.[0-9]+$/ { print $3, $4, $5, $0 }' |
-              sort -k1,1n -k2,2n -k3,3n |
-              tail -n 1 |
-              awk '{ print $4 }'
+            git tag --list 'dot-files-*' --sort=-v:refname |
+              sed -nE '/^dot-files-[0-9]+\.[0-9]+\.[0-9]+$/ { p; q; }'
           )"
           tag="dot-files-0.0.1"
 

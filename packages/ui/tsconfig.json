@@ -9,7 +9,6 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "ignoreDeprecations": "6.0",
     "paths": {
       "@entry/*": ["./src/*"],
       "@app/*": ["./src/components/app/*"],
