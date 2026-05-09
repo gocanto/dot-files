@@ -90,7 +90,7 @@
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "extendInfo": {
-        "CFBundleDisplayName": "Gus' MacBook Setup"
+        "CFBundleDisplayName": "gus-mac"
       },
       "target": [
         "dmg",
