@@ -96,7 +96,7 @@ export function registerIpcHandlers(deps: IpcDeps) {
 
   ipcMain.handle("op:signin", async () => {
     return openTerminalCommand(
-      'op signin && echo "\\n[Signed in. You can close this window and return to macOS Manager.]"',
+      'op signin && echo "\\n[Signed in. You can close this window and return to Gus’ MacBook Setup.]"',
     );
   });
 
@@ -105,7 +105,7 @@ export function registerIpcHandlers(deps: IpcDeps) {
       [
         'if ! command -v brew >/dev/null 2>&1; then echo "Homebrew is required. Run ./setup.sh first, then retry."; exit 1; fi',
         "brew install --cask 1password 1password-cli",
-        'echo "\\n[1Password and 1Password CLI install finished. Open 1Password, enable CLI integration if needed, then return to macOS Manager.]"',
+        'echo "\\n[1Password and 1Password CLI install finished. Open 1Password, enable CLI integration if needed, then return to Gus’ MacBook Setup.]"',
       ].join("; "),
     );
   });
