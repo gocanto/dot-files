@@ -290,8 +290,11 @@ pnpm --dir packages/ui run dist:mac:unsigned
 Create a draft GitHub release for private testing:
 
 ```sh
-pnpm release:mac:unsigned -- --notes-file /path/to/release-notes.md
+pnpm release:mac:unsigned -- --notes-file /path/to/release-notes.md --repo gocanto/dot-files
 ```
+
+The notes file is required. The `--repo owner/name` flag is optional when the
+GitHub CLI can infer the repository from the current checkout.
 
 Unsigned builds are for private testing only. On first launch, use
 right-click -> Open, or remove quarantine manually:
