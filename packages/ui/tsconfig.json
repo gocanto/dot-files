@@ -9,7 +9,6 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
       "@entry/*": ["./src/*"],
       "@app/*": ["./src/components/app/*"],

@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  base: "./",
   plugins: [vue(), tailwindcss()],
   cacheDir: resolve(__dirname, "../../storage/.cache/vite/ui"),
   resolve: {

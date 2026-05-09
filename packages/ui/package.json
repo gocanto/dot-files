@@ -2,7 +2,7 @@
   "name": "ui",
   "version": "0.1.1",
   "private": true,
-  "description": "macOS Manager desktop UI for dot-files workflows.",
+  "description": "gus-mac desktop UI for dot-files workflows.",
   "author": "Gus Canto",
   "repository": {
     "type": "git",
@@ -36,42 +36,42 @@
     "@dot-files/bridge": "workspace:*",
     "@fontsource-variable/jetbrains-mono": "^5.2.7",
     "@fontsource/inter": "^5.2.7",
-    "@primer/primitives": "^11.7.1",
+    "@primer/primitives": "^11.8.0",
     "@radix-icons/vue": "^1.0.0",
     "@shikijs/themes": "^4.0.2",
-    "@tailwindcss/vite": "4.2.4",
+    "@tailwindcss/vite": "4.3.0",
     "@vitejs/plugin-vue": "6.0.6",
     "@vueuse/core": "^14.3.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "ghostty-web": "0.4.0",
-    "lucide-vue-next": "^0.561.0",
+    "lucide-vue-next": "^1.0.0",
     "monaco-editor": "^0.55.1",
     "monaco-yaml": "^5.4.1",
-    "reka-ui": "^2.9.6",
+    "reka-ui": "^2.9.7",
     "shiki": "^4.0.2",
     "tailwind-merge": "^3.4.0",
-    "tailwindcss": "4.2.4",
-    "vue": "3.5.33"
+    "tailwindcss": "4.3.0",
+    "vue": "3.5.34"
   },
   "devDependencies": {
-    "@types/node": "^24.10.2",
+    "@types/node": "^25.6.2",
     "@types/web-bluetooth": "0.0.21",
     "@vue/test-utils": "2.4.10",
-    "electron": "41.5.0",
+    "electron": "42.0.1",
     "electron-builder": "26.8.1",
     "happy-dom": "^20.0.11",
-    "portless": "0.12.0",
+    "portless": "0.13.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
-    "vite": "8.0.10",
+    "typescript": "^6.0.3",
+    "vite": "8.0.11",
     "vitest": "4.1.5",
-    "vue-tsc": "^3.1.8"
+    "vue-tsc": "^3.2.8"
   },
   "build": {
     "appId": "io.gocanto.dot-files",
-    "productName": "macOS Manager",
-    "artifactName": "${productName}_${version}_${arch}.${ext}",
+    "productName": "gus-mac",
+    "artifactName": "gus-mac-${version}-${arch}.${ext}",
     "publish": {
       "provider": "github",
       "owner": "gocanto",
@@ -89,6 +89,9 @@
       "icon": "build/icon.icns",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
+      "extendInfo": {
+        "CFBundleDisplayName": "gus-mac"
+      },
       "target": [
         "dmg",
         "zip"
