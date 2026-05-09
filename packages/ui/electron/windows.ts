@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
+import { appIcon } from "#electron/app-icon.js";
 import { electronDir, repoRoot } from "#electron/paths.js";
 
 const appWindowWidth = 2000;
@@ -31,6 +32,7 @@ export function createWindow() {
     vibrancy: "sidebar",
     visualEffectState: "active",
     backgroundColor: "#00000000",
+    icon: appIcon(),
     webPreferences: {
       preload: join(electronDir, "preload.cjs"),
       contextIsolation: true,
@@ -85,6 +87,7 @@ export function openDevToolsPanel(parentWindow: BrowserWindow) {
     resizable: false,
     show: false,
     title: "Mac OS Manager DevTools",
+    icon: appIcon(),
   });
 
   devToolsWindow.on("closed", () => {

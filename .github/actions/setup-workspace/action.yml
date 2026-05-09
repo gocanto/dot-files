@@ -20,7 +20,7 @@ runs:
       run: corepack enable
 
     - name: Restore pnpm store
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: storage/.cache/pnpm-store
         key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
@@ -28,7 +28,7 @@ runs:
           ${{ runner.os }}-pnpm-
 
     - name: Restore Go caches
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           storage/.cache/go-build
@@ -38,7 +38,7 @@ runs:
           ${{ runner.os }}-go-
 
     - name: Restore Turbo caches
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           storage/.cache/turbo
@@ -50,7 +50,7 @@ runs:
           ${{ runner.os }}-turbo-
 
     - name: Restore Electron caches
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           ~/.cache/electron
