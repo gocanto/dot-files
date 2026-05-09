@@ -1,4 +1,5 @@
 import { app } from "electron";
+import { appIcon } from "#electron/app-icon.js";
 import { setBridgeSettings, startBridgeIfNeeded, stopWorkflowBridge } from "#electron/bridge.js";
 import { registerIpcHandlers } from "#electron/ipc.js";
 import { readSavedSettings } from "#electron/settings-store.js";
@@ -19,6 +20,11 @@ if (!singleInstanceLock) {
 
 app.whenReady().then(() => {
   try {
+    const icon = appIcon();
+    if (icon && process.platform === "darwin" && app.dock) {
+      app.dock.setIcon(icon);
+    }
+
     setBridgeSettings(readSavedSettings());
     registerIpcHandlers({ getMainWindow, openDevToolsPanel });
     createWindow();

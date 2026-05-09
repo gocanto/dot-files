@@ -2,7 +2,7 @@
   "name": "ui",
   "version": "0.1.0",
   "private": true,
-  "description": "Mac OS Manager desktop UI for dot-files workflows.",
+  "description": "macOS Manager desktop UI for dot-files workflows.",
   "author": "Gus Canto",
   "repository": {
     "type": "git",
@@ -27,9 +27,10 @@
     "build": "pnpm run check:typescript && pnpm run check:imports && vue-tsc --noEmit && vite build && tsc -p tsconfig.electron.json && vite build --config vite.electron.config.ts",
     "test": "pnpm run check:typescript && pnpm run check:imports && vitest run",
     "start": "electron dist-electron/main.js",
-    "dist:mac:unsigned": "CSC_IDENTITY_AUTO_DISCOVERY=false pnpm exec electron-builder --mac dmg zip --publish never",
-    "dist:mac:signed": "pnpm exec electron-builder --mac dmg zip --publish never",
-    "format": "prettier --write ."
+    "dist:mac:unsigned": "pnpm run icon:generate && CSC_IDENTITY_AUTO_DISCOVERY=false pnpm exec electron-builder --mac dmg zip --publish never -c.mac.identity=null",
+    "dist:mac:signed": "pnpm run icon:generate && pnpm exec electron-builder --mac dmg zip --publish never",
+    "format": "oxfmt --write .",
+    "icon:generate": "bash scripts/generate-app-icon.sh"
   },
   "dependencies": {
     "@dot-files/bridge": "workspace:*",
@@ -69,7 +70,7 @@
   },
   "build": {
     "appId": "io.gocanto.dot-files",
-    "productName": "Mac OS Manager",
+    "productName": "macOS Manager",
     "artifactName": "${productName}_${version}_${arch}.${ext}",
     "publish": {
       "provider": "github",
@@ -85,6 +86,7 @@
     ],
     "mac": {
       "category": "public.app-category.utilities",
+      "icon": "build/icon.icns",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "target": [

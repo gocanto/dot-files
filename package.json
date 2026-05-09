@@ -6,7 +6,10 @@
     "test": "pnpm --dir packages/tools run turbo -- run test",
     "dev": "pnpm --dir packages/tools run turbo -- run dev --filter=ui",
     "format": "pnpm --dir packages/tools run turbo -- run format",
-    "check": "pnpm --dir packages/tools run turbo -- run build test",
+    "format:check": "pnpm exec oxfmt --check packages/ui packages/bridge/src packages/bridge/package.json packages/bridge/tsconfig.json package.json turbo.json",
+    "lint": "pnpm exec oxlint --vue-plugin packages/ui packages/bridge",
+    "tooling:check": "pnpm --dir packages/ui exec tsx scripts/check-tooling-policy.ts ../..",
+    "check": "pnpm run tooling:check && pnpm --dir packages/tools run turbo -- run build test",
     "release:mac:unsigned": "pnpm --dir packages/tools run release:mac:unsigned"
   },
   "devDependencies": {
