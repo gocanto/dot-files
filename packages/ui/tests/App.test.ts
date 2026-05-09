@@ -417,6 +417,21 @@ function findDocumentButton(text: string) {
   );
 }
 
+async function findWrapperButton(wrapper: ReturnType<typeof mount>, text: string) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const button = wrapper.findAll("button").find((item) => item.text().includes(text));
+
+    if (button) {
+      return button;
+    }
+
+    await flushPromises();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  return wrapper.findAll("button").find((item) => item.text().includes(text));
+}
+
 async function clickRunOutputSectionButton(text: string) {
   const buttons = [
     ...document.body.querySelectorAll('[data-testid="run-output-sections"] button'),
@@ -441,6 +456,11 @@ async function flushOutputHighlighting() {
     await flushPromises();
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
+}
+
+async function flushTemplateEditorImports() {
+  await Promise.all([import("@app/TemplateFilesDetail.vue"), import("@app/MonacoFileEditor.vue")]);
+  await flushPromises();
 }
 
 function mountController() {
@@ -928,11 +948,12 @@ describe("App", () => {
     const wrapper = mount(App);
     await flushPromises();
 
-    await wrapper
-      .findAll("button")
-      .find((button) => button.text().includes("Template Files"))
-      ?.trigger("click");
+    await (await findWrapperButton(wrapper, "Template Files"))?.trigger("click");
     await flushPromises();
+    await flushPromises();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await flushPromises();
+    await flushTemplateEditorImports();
 
     expect(api.templateFiles).toHaveBeenCalled();
     expect(api.readTemplateFile).toHaveBeenCalledWith("/repo/apps.generated.yaml");
