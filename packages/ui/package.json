@@ -27,7 +27,7 @@
     "build": "pnpm run check:typescript && pnpm run check:imports && vue-tsc --noEmit && vite build && tsc -p tsconfig.electron.json && vite build --config vite.electron.config.ts",
     "test": "pnpm run check:typescript && pnpm run check:imports && vitest run",
     "start": "electron dist-electron/main.js",
-    "dist:mac:unsigned": "pnpm run icon:generate && CSC_IDENTITY_AUTO_DISCOVERY=false pnpm exec electron-builder --mac dmg zip --publish never -c.mac.identity=null",
+    "dist:mac:unsigned": "pnpm run icon:generate && CSC_IDENTITY_AUTO_DISCOVERY=false pnpm exec electron-builder --mac dmg zip --publish never -c.mac.identity=-",
     "dist:mac:signed": "pnpm run icon:generate && pnpm exec electron-builder --mac dmg zip --publish never",
     "format": "oxfmt --write .",
     "icon:generate": "bash scripts/generate-app-icon.sh"
