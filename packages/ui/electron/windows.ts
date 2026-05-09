@@ -1,10 +1,13 @@
 import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
 import { appIcon } from "#electron/app-icon.js";
+import { attachWindowDiagnostics } from "#electron/diagnostics.js";
 import { electronDir, repoRoot } from "#electron/paths.js";
 
 const appWindowWidth = 2000;
 const appWindowHeight = 1280;
+const appWindowMinWidth = 1120;
+const appWindowMinHeight = 760;
 const devToolsWindowWidth = 400;
 const devToolsWindowHeight = 400;
 
@@ -21,24 +24,29 @@ export function createWindow() {
     return;
   }
 
+  const icon = appIcon();
+
   mainWindow = new BrowserWindow({
     width: appWindowWidth,
     height: appWindowHeight,
+    minWidth: appWindowMinWidth,
+    minHeight: appWindowMinHeight,
     center: true,
-    resizable: false,
-    maximizable: false,
-    fullscreenable: false,
+    resizable: true,
+    maximizable: true,
+    fullscreenable: true,
     title: "Gus' MacBook Setup",
     vibrancy: "sidebar",
     visualEffectState: "active",
     backgroundColor: "#00000000",
-    icon: appIcon(),
+    ...(icon ? { icon } : {}),
     webPreferences: {
       preload: join(electronDir, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+  attachWindowDiagnostics(mainWindow);
 
   mainWindow.on("closed", () => {
     if (devToolsWindow && !devToolsWindow.isDestroyed()) {

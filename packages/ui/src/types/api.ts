@@ -105,6 +105,15 @@ export interface UserPreferences {
   updatedAt?: string;
 }
 
+export interface AppDiagnostic {
+  id: string;
+  level: "info" | "warning" | "error";
+  source: string;
+  message: string;
+  details?: string;
+  createdAt: string;
+}
+
 export interface MacSystemInfo {
   name: string;
   hostname: string;
@@ -154,6 +163,9 @@ export interface MacOSApi {
   signinOpCli(): Promise<OpSigninResult>;
   installOpDependencies(): Promise<OpInstallResult>;
   openDevTools(): Promise<void>;
+  appDiagnostics(): Promise<AppDiagnostic[]>;
+  onAppDiagnostic(onEvent: (event: AppDiagnostic) => void): () => void;
+  reportRendererError(message: string, details?: string): Promise<void>;
   macName(): Promise<string>;
   macHostname(): Promise<string>;
   macSystemInfo?(): Promise<MacSystemInfo>;

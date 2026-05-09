@@ -1,4 +1,5 @@
 import type {
+  AppDiagnostic,
   MacOSApi,
   RunEvent,
   RunLog,
@@ -117,6 +118,15 @@ export function installBrowserFallback() {
   }
 
   const fallbackRuns: RunLog[] = [];
+  const fallbackDiagnostics: AppDiagnostic[] = [
+    {
+      id: "browser-fallback-ready",
+      level: "info",
+      source: "Browser fallback",
+      message: "Running with browser fallback data.",
+      createdAt: new Date().toISOString(),
+    },
+  ];
   let fallbackPreferences: UserPreferences = { theme: "light" };
   let fallbackSettings: RuntimeSettings = {
     repoRoot: "/repo",
@@ -256,6 +266,18 @@ export function installBrowserFallback() {
     installOpDependencies: async () => ({ ok: true }),
     openDevTools: async () => {
       window.open("", "api-manager-devtools");
+    },
+    appDiagnostics: async () => fallbackDiagnostics,
+    onAppDiagnostic: () => () => {},
+    reportRendererError: async (message, details) => {
+      fallbackDiagnostics.unshift({
+        id: crypto.randomUUID(),
+        level: "error",
+        source: "Renderer",
+        message,
+        details,
+        createdAt: new Date().toISOString(),
+      });
     },
     macName: async () => "Local Mac",
     macHostname: async () => "localhost",

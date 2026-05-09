@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   Wand2,
 } from "lucide-vue-next";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import type { SectionId } from "@app/types";
 import type { ToastItem, ToastTone } from "@ui/toast";
 import { loadThemeFromBackend, useTheme } from "@composables/useTheme";
@@ -22,6 +22,7 @@ import {
 import { formatRunOutputSections } from "@lib/runOutput";
 import type {
   ConfirmationOption,
+  AppDiagnostic,
   OpItem,
   OpVault,
   Phase,
@@ -55,10 +56,12 @@ export function useAppController() {
   });
   const workflows = ref<Workflow[]>([]);
   const runs = ref<RunSummary[]>([]);
+  const appDiagnostics = ref<AppDiagnostic[]>([]);
   const selectedWorkflowId = ref("");
   const selectedTemplateFiles = ref(false);
   const selectedRunId = ref("");
   const selectedRunLog = ref<RunLog | null>(null);
+  const selectedAppDiagnosticId = ref("");
   const enabledPhaseIds = ref<Set<string>>(new Set());
   const pendingOption = ref<ConfirmationOption | null>(null);
   const runEvents = ref<RunEvent[]>([]);
@@ -356,6 +359,10 @@ export function useAppController() {
   });
 
   const matchingRuns = computed(() => {
+    if (logTab.value === "app") {
+      return [];
+    }
+
     const query = normalizedSearch.value;
     const filtered = query
       ? runs.value.filter((run) =>
@@ -382,6 +389,26 @@ export function useAppController() {
 
     return filtered;
   });
+
+  const matchingAppDiagnostics = computed(() => {
+    const query = normalizedSearch.value;
+    const filtered = query
+      ? appDiagnostics.value.filter((diagnostic) =>
+          [diagnostic.level, diagnostic.source, diagnostic.message, diagnostic.details ?? ""]
+            .join(" ")
+            .toLowerCase()
+            .includes(query),
+        )
+      : appDiagnostics.value;
+
+    return filtered;
+  });
+
+  const selectedAppDiagnostic = computed(
+    () =>
+      appDiagnostics.value.find((diagnostic) => diagnostic.id === selectedAppDiagnosticId.value) ??
+      null,
+  );
 
   const runStatus = computed(() => {
     const last = [...runEvents.value].reverse().find((event) => event.type.startsWith("run_"));
@@ -434,7 +461,7 @@ export function useAppController() {
     }
 
     if (section.value === "logs") {
-      return Boolean(selectedRunId.value);
+      return Boolean(selectedRunId.value || selectedAppDiagnosticId.value);
     }
 
     if (section.value === "status") {
@@ -446,7 +473,53 @@ export function useAppController() {
 
   onMounted(() => {
     void loadAll();
+    void loadAppDiagnostics();
   });
+
+  const unsubscribeAppDiagnostic =
+    window.macOS.onAppDiagnostic?.((diagnostic) => {
+      upsertAppDiagnostic(diagnostic);
+    }) ?? (() => {});
+
+  onUnmounted(() => {
+    unsubscribeAppDiagnostic();
+  });
+
+  async function loadAppDiagnostics() {
+    try {
+      appDiagnostics.value = await window.macOS.appDiagnostics();
+    } catch (error) {
+      upsertAppDiagnostic({
+        id: crypto.randomUUID(),
+        level: "error",
+        source: "Renderer",
+        message: "Failed to load app diagnostics",
+        details: errorMessage(error),
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  function upsertAppDiagnostic(diagnostic: AppDiagnostic) {
+    appDiagnostics.value = [
+      diagnostic,
+      ...appDiagnostics.value.filter((entry) => entry.id !== diagnostic.id),
+    ].slice(0, 200);
+  }
+
+  function reportAppDiagnostic(message: string, details?: string) {
+    const diagnostic: AppDiagnostic = {
+      id: crypto.randomUUID(),
+      level: "error",
+      source: "Renderer",
+      message,
+      details,
+      createdAt: new Date().toISOString(),
+    };
+
+    upsertAppDiagnostic(diagnostic);
+    void window.macOS.reportRendererError(message, details).catch(() => {});
+  }
 
   async function loadAll() {
     loadError.value = "";
@@ -607,6 +680,7 @@ export function useAppController() {
 
     if (next === "logs") {
       void refreshRuns();
+      void loadAppDiagnostics();
     }
 
     if (next === "settings") {
@@ -759,6 +833,7 @@ export function useAppController() {
     selectedTemplateFiles.value = false;
     selectedRunId.value = "";
     selectedRunLog.value = null;
+    selectedAppDiagnosticId.value = "";
     runEvents.value = [];
     pendingOption.value = null;
   }
@@ -879,10 +954,23 @@ export function useAppController() {
         pushToast("Workflow failed", selectedWorkflow.value.name, "error");
       }
     } catch (error) {
-      pushToast("Workflow failed", errorMessage(error), "error");
+      const message = errorMessage(error);
+
+      pushToast("Workflow failed", message, "error");
+      reportAppDiagnostic("Workflow failed before a run log was persisted", message);
     } finally {
       running.value = false;
-      await refreshRuns();
+      const nextRuns = await refreshRuns();
+      const runId = [...runEvents.value].reverse().find((event) => event.runId)?.runId;
+      const failedRun =
+        nextRuns.find((run) => run.id === runId) ??
+        nextRuns.find((run) => run.status === "failed" && run.id !== selectedRunId.value);
+
+      if (failedRun?.status === "failed") {
+        section.value = "logs";
+        logTab.value = "failed";
+        await openRun(failedRun);
+      }
     }
   }
 
@@ -982,11 +1070,14 @@ export function useAppController() {
 
   async function refreshRuns() {
     runs.value = await window.macOS.runs(25);
+
+    return runs.value;
   }
 
   async function openRun(run: RunSummary) {
     selectedRunId.value = run.id;
     selectedRunLog.value = null;
+    selectedAppDiagnosticId.value = "";
     runLogLoading.value = true;
     const requestedRunId = run.id;
 
@@ -996,11 +1087,20 @@ export function useAppController() {
       if (selectedRunId.value === requestedRunId) {
         selectedRunLog.value = nextRunLog;
       }
+    } catch (error) {
+      reportAppDiagnostic(`Failed to load run log for ${run.workflowName}`, errorMessage(error));
     } finally {
       if (selectedRunId.value === requestedRunId) {
         runLogLoading.value = false;
       }
     }
+  }
+
+  function openAppDiagnostic(diagnostic: AppDiagnostic) {
+    selectedAppDiagnosticId.value = diagnostic.id;
+    selectedRunId.value = "";
+    selectedRunLog.value = null;
+    runLogLoading.value = false;
   }
 
   function emptySettings(): RuntimeSettings {
@@ -1186,9 +1286,11 @@ export function useAppController() {
     macHostname,
     macSystemInfo,
     workflows,
+    appDiagnostics,
     selectedWorkflowId,
     selectedRunId,
     selectedRunLog,
+    selectedAppDiagnosticId,
     pendingOption,
     running,
     workflowsLoading,
@@ -1242,11 +1344,13 @@ export function useAppController() {
     templateFileDirty,
     matchingWorkflows,
     matchingRuns,
+    matchingAppDiagnostics,
     runStatus,
     outputText,
     outputSections,
     workflowProgress,
     selectedRunOutputSections,
+    selectedAppDiagnostic,
     detailPaneOpen,
     loadAll,
     selectSection,
@@ -1271,6 +1375,7 @@ export function useAppController() {
     updateConfirmationOpen,
     runSelected,
     openRun,
+    openAppDiagnostic,
     validateSettings,
     requestSaveSettings,
     updateSettingsSaveConfirmationOpen,

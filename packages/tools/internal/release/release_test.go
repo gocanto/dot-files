@@ -90,8 +90,8 @@ func TestReleaseTitle(t *testing.T) {
 
 func TestFindArtifacts(t *testing.T) {
 	releaseDir := t.TempDir()
-	dmg := filepath.Join(releaseDir, "macOS Manager_0.1.0_arm64.dmg")
-	zip := filepath.Join(releaseDir, "macOS Manager_0.1.0_arm64.zip")
+	dmg := filepath.Join(releaseDir, "gus-mac-0.1.0-arm64.dmg")
+	zip := filepath.Join(releaseDir, "gus-mac-0.1.0-arm64.zip")
 
 	if err := os.WriteFile(dmg, []byte("dmg"), 0o644); err != nil {
 		t.Fatal(err)

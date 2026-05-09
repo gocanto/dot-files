@@ -1,6 +1,6 @@
 import { watch } from "node:fs";
 import { stat } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { macbookDir, repoRoot, settingsPath, storageDir, uiDir } from "#scripts/dev/paths.js";
 
 export function installWatchers(onChange: (changed: string) => void): void {
@@ -44,7 +44,12 @@ function watchIfExists(path: string, onChange: (changed: string) => void): void 
 }
 
 function shouldIgnoreChange(path: string): boolean {
+  const name = basename(path);
+
   return (
-    path.includes("/node_modules/") || path.includes("/dist/") || path.includes("/dist-electron/")
+    name.startsWith(".write-check-") ||
+    path.includes("/node_modules/") ||
+    path.includes("/dist/") ||
+    path.includes("/dist-electron/")
   );
 }

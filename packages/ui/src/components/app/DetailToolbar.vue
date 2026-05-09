@@ -6,16 +6,21 @@ import { panelHeaderClass } from "@app/styles";
 import { formatDate } from "@lib/format";
 import { getWorkflowDetail } from "@lib/workflowDetails";
 import { cn } from "@lib/utils";
-import type { RunLog, Workflow } from "@api";
+import type { AppDiagnostic, RunLog, Workflow } from "@api";
 
 defineProps<{
   section: string;
   hasStepMeta: boolean;
   selectedWorkflow: Workflow | undefined;
   selectedRunLog: RunLog | null;
+  selectedAppDiagnostic: AppDiagnostic | null;
   runLogLoading: boolean;
   runStatus: string;
 }>();
+
+function diagnosticStatus(level: AppDiagnostic["level"]) {
+  return level === "error" ? "failed" : level === "warning" ? "stopped" : "completed";
+}
 </script>
 
 <template>
@@ -64,12 +69,32 @@ defineProps<{
       </div>
     </div>
 
+    <div
+      v-else-if="section === 'logs' && selectedAppDiagnostic"
+      class="flex min-w-0 items-start gap-3 text-sm"
+    >
+      <MachineAvatar :alt="`App diagnostic for ${selectedAppDiagnostic.source}`" />
+      <div class="grid min-w-0 gap-1">
+        <div class="truncate font-semibold">{{ selectedAppDiagnostic.source }}</div>
+        <div class="line-clamp-1 text-xs">{{ selectedAppDiagnostic.message }}</div>
+        <div class="line-clamp-1 text-xs">
+          <span class="font-medium">Recorded:</span>
+          {{ formatDate(selectedAppDiagnostic.createdAt) }}
+        </div>
+      </div>
+    </div>
+
     <div class="ml-auto flex items-center gap-2">
       <StatusBadge v-if="hasStepMeta && selectedWorkflow" :status="runStatus" />
       <Skeleton v-else-if="section === 'logs' && runLogLoading" class="h-5 w-20 rounded-full" />
       <StatusBadge
         v-else-if="section === 'logs' && selectedRunLog"
         :status="selectedRunLog.run.status"
+      />
+      <StatusBadge
+        v-else-if="section === 'logs' && selectedAppDiagnostic"
+        :status="diagnosticStatus(selectedAppDiagnostic.level)"
+        :label="selectedAppDiagnostic.level"
       />
     </div>
   </div>

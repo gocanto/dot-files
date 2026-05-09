@@ -16,7 +16,7 @@ OXLINT := pnpm exec oxlint
 
 dev:
 	@echo "Dev server will be available at: $(PORTLESS_DEFAULT_DEV_SERVER_URL)"
-	@pnpm --dir $(UI_DIR) exec tsx scripts/dev.ts
+	@pnpm --dir $(UI_DIR) run dev
 
 format: format-start
 	@echo "go-fmt format in $(ROOT_PATH)"; \

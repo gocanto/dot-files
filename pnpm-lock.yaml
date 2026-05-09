@@ -42,6 +42,7 @@ importers:
       '@dot-files/bridge':
         specifier: workspace:*
         version: link:../bridge
+    devDependencies:
       '@fontsource-variable/jetbrains-mono':
         specifier: ^5.2.7
         version: 5.2.8
@@ -60,9 +61,18 @@ importers:
       '@tailwindcss/vite':
         specifier: 4.3.0
         version: 4.3.0(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.4))
+      '@types/node':
+        specifier: ^25.6.2
+        version: 25.6.2
+      '@types/web-bluetooth':
+        specifier: 0.0.21
+        version: 0.0.21
       '@vitejs/plugin-vue':
         specifier: 6.0.6
         version: 6.0.6(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.4))(vue@3.5.34(typescript@6.0.3))
+      '@vue/test-utils':
+        specifier: 2.4.10
+        version: 2.4.10(@vue/compiler-dom@3.5.34)(@vue/server-renderer@3.5.34(vue@3.5.34(typescript@6.0.3)))(vue@3.5.34(typescript@6.0.3))
       '@vueuse/core':
         specifier: ^14.3.0
         version: 14.3.0(vue@3.5.34(typescript@6.0.3))
@@ -72,9 +82,18 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      electron:
+        specifier: 42.0.1
+        version: 42.0.1
+      electron-builder:
+        specifier: 26.8.1
+        version: 26.8.1(electron-builder-squirrel-windows@26.8.1)
       ghostty-web:
         specifier: 0.4.0
         version: 0.4.0
+      happy-dom:
+        specifier: ^20.0.11
+        version: 20.9.0
       lucide-vue-next:
         specifier: ^1.0.0
         version: 1.0.0(vue@3.5.34(typescript@6.0.3))
@@ -84,6 +103,9 @@ importers:
       monaco-yaml:
         specifier: ^5.4.1
         version: 5.4.1(monaco-editor@0.55.1)
+      portless:
+        specifier: 0.13.0
+        version: 0.13.0
       reka-ui:
         specifier: ^2.9.7
         version: 2.9.7(vue@3.5.34(typescript@6.0.3))
@@ -96,31 +118,6 @@ importers:
       tailwindcss:
         specifier: 4.3.0
         version: 4.3.0
-      vue:
-        specifier: 3.5.34
-        version: 3.5.34(typescript@6.0.3)
-    devDependencies:
-      '@types/node':
-        specifier: ^25.6.2
-        version: 25.6.2
-      '@types/web-bluetooth':
-        specifier: 0.0.21
-        version: 0.0.21
-      '@vue/test-utils':
-        specifier: 2.4.10
-        version: 2.4.10(@vue/compiler-dom@3.5.34)(@vue/server-renderer@3.5.34(vue@3.5.34(typescript@6.0.3)))(vue@3.5.34(typescript@6.0.3))
-      electron:
-        specifier: 42.0.1
-        version: 42.0.1
-      electron-builder:
-        specifier: 26.8.1
-        version: 26.8.1(electron-builder-squirrel-windows@26.8.1)
-      happy-dom:
-        specifier: ^20.0.11
-        version: 20.9.0
-      portless:
-        specifier: 0.13.0
-        version: 0.13.0
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
@@ -133,6 +130,9 @@ importers:
       vitest:
         specifier: 4.1.5
         version: 4.1.5(@types/node@25.6.2)(happy-dom@20.9.0)(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.4))
+      vue:
+        specifier: 3.5.34
+        version: 3.5.34(typescript@6.0.3)
       vue-tsc:
         specifier: ^3.2.8
         version: 3.2.8(typescript@6.0.3)
@@ -1087,14 +1087,8 @@ packages:
   '@volar/typescript@2.4.28':
     resolution: {integrity: sha512-Ja6yvWrbis2QtN4ClAKreeUZPVYMARDYZl9LMEv1iQ1QdepB6wn0jTRxA9MftYmYa4DQ4k/DaSZpFPUfxl8giw==}
 
-  '@vue/compiler-core@3.5.33':
-    resolution: {integrity: sha512-3PZLQwFw4Za3TC8t0FvTy3wI16Kt+pmwcgNZca4Pj9iWL2E72a/gZlpBtAJvEdDMdCxdG/qq0C7PN0bsJuv0Rw==}
-
   '@vue/compiler-core@3.5.34':
     resolution: {integrity: sha512-s9cLyK5mLcvZ4Agva5QgRsQyLKvts9WbU9DB6NqiZkkGEdwmcEiylj5Jbwkp680drF/NNCV8OlAJSe+yMLxaJw==}
-
-  '@vue/compiler-dom@3.5.33':
-    resolution: {integrity: sha512-PXq0yrfCLzzL07rbXO4awtXY1Z06LG2eu6Adg3RJFa/j3Cii217XxxLXG22N330gw7GmALCY0Z8RgXEviwgpjA==}
 
   '@vue/compiler-dom@3.5.34':
     resolution: {integrity: sha512-EbF/T++k0e2MMZlJsBhzK8Sgwt0HcIPOhzn1CTB/lv6sQcyk+OWf8YeiLxZp3ro7MbbLcAfAJ6sEvjFWuNgUCw==}
@@ -1121,9 +1115,6 @@ packages:
     resolution: {integrity: sha512-nHxmJoTrKsmrkbILRhkC9gY1G3moZbJTqCzDd7DOOzG5KH9oeJ0Unqrff5f9v0pW//jES05ZkJcNtfE8JjOIew==}
     peerDependencies:
       vue: 3.5.34
-
-  '@vue/shared@3.5.33':
-    resolution: {integrity: sha512-5vR2QIlmaLG77Ygd4pMP6+SGQ5yox9VhtnbDWTy9DzMzdmeLxZ1QqxrywEZ9sa1AVubfIJyaCG3ytyWU81ufcQ==}
 
   '@vue/shared@3.5.34':
     resolution: {integrity: sha512-24uqU4OIiX29ryC3MeWid/Xf2fa2EFRUVLb77nRhk+UrTVrh/XiGtFAFmJBAtBRbjwNdsPRP+jj/OL27Eg1NDA==}
@@ -3502,14 +3493,6 @@ snapshots:
       path-browserify: 1.0.1
       vscode-uri: 3.1.0
 
-  '@vue/compiler-core@3.5.33':
-    dependencies:
-      '@babel/parser': 7.29.3
-      '@vue/shared': 3.5.33
-      entities: 7.0.1
-      estree-walker: 2.0.2
-      source-map-js: 1.2.1
-
   '@vue/compiler-core@3.5.34':
     dependencies:
       '@babel/parser': 7.29.3
@@ -3517,11 +3500,6 @@ snapshots:
       entities: 7.0.1
       estree-walker: 2.0.2
       source-map-js: 1.2.1
-
-  '@vue/compiler-dom@3.5.33':
-    dependencies:
-      '@vue/compiler-core': 3.5.33
-      '@vue/shared': 3.5.33
 
   '@vue/compiler-dom@3.5.34':
     dependencies:
@@ -3548,8 +3526,8 @@ snapshots:
   '@vue/language-core@3.2.8':
     dependencies:
       '@volar/language-core': 2.4.28
-      '@vue/compiler-dom': 3.5.33
-      '@vue/shared': 3.5.33
+      '@vue/compiler-dom': 3.5.34
+      '@vue/shared': 3.5.34
       alien-signals: 3.1.2
       muggle-string: 0.4.1
       path-browserify: 1.0.1
@@ -3576,8 +3554,6 @@ snapshots:
       '@vue/compiler-ssr': 3.5.34
       '@vue/shared': 3.5.34
       vue: 3.5.34(typescript@6.0.3)
-
-  '@vue/shared@3.5.33': {}
 
   '@vue/shared@3.5.34': {}
 
