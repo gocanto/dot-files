@@ -13,6 +13,7 @@ runs:
       uses: actions/setup-go@v6
       with:
         go-version-file: packages/macbook/go.mod
+        cache: false
 
     - name: Enable Corepack
       shell: bash
@@ -47,6 +48,18 @@ runs:
           ${{ runner.os }}-turbo-${{ github.workflow }}-${{ github.job }}-
           ${{ runner.os }}-turbo-${{ github.workflow }}-
           ${{ runner.os }}-turbo-
+
+    - name: Restore Electron caches
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/electron
+          ~/.cache/electron-builder
+          ~/Library/Caches/electron
+          ~/Library/Caches/electron-builder
+        key: ${{ runner.os }}-electron-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-electron-
 
     - name: Install dependencies
       shell: bash

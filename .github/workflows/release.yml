@@ -29,8 +29,25 @@ jobs:
       - name: Setup workspace
         uses: ./.github/actions/setup-workspace
 
+      - name: Check release tag
+        id: release-tag
+        shell: bash
+        run: |
+          version="$(node -p "require('./packages/ui/package.json').version")"
+          tag="v${version}"
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+          if git ls-remote --tags --exit-code origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "Release tag $tag already exists; skipping release."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Generate release notes
         id: release-notes
+        if: steps.release-tag.outputs.exists != 'true'
         shell: bash
         run: |
           notes_file="$RUNNER_TEMP/release-notes.md"
@@ -49,12 +66,13 @@ jobs:
           echo "path=$notes_file" >> "$GITHUB_OUTPUT"
 
       - name: Create draft release
+        if: steps.release-tag.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: pnpm release:mac:unsigned -- --notes-file "${{ steps.release-notes.outputs.path }}" --repo gocanto/dot-files
 
       - name: Upload release artifacts
-        if: ${{ success() }}
+        if: ${{ success() && steps.release-tag.outputs.exists != 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: macos-unsigned-release
