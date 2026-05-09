@@ -69,8 +69,8 @@ func TestReadUIVersion(t *testing.T) {
 
 func TestFindArtifacts(t *testing.T) {
 	releaseDir := t.TempDir()
-	dmg := filepath.Join(releaseDir, "Mac OS Manager_0.1.0_x64.dmg")
-	zip := filepath.Join(releaseDir, "Mac OS Manager_0.1.0_x64.zip")
+	dmg := filepath.Join(releaseDir, "macOS Manager_0.1.0_x64.dmg")
+	zip := filepath.Join(releaseDir, "macOS Manager_0.1.0_x64.zip")
 
 	if err := os.WriteFile(dmg, []byte("dmg"), 0o644); err != nil {
 		t.Fatal(err)

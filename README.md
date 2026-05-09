@@ -1,6 +1,6 @@
-# Mac OS Manager
+# macOS Manager
 
-Mac OS Manager is a native macOS app for restoring and converging my Mac from
+macOS Manager is a native macOS app for restoring and converging my Mac from
 tracked policy. It applies developer tools, applications, Stow-managed dotfiles,
 macOS defaults, selective snapshots, and private recovery metadata without
 committing secrets to git.

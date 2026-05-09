@@ -144,7 +144,7 @@ func (w workflow) run(ctx context.Context) error {
 
 	fmt.Fprintf(w.stdout, "Creating published release %s on %s...\n", tag, repo)
 
-	if err := w.runCommand(ctx, "gh", "release", "create", tag, foundArtifacts.DMG, foundArtifacts.ZIP, checksumsFile, "--repo", repo, "--target", head, "--title", fmt.Sprintf("Mac OS Manager %s", tag), "--notes-file", releaseNotes); err != nil {
+	if err := w.runCommand(ctx, "gh", "release", "create", tag, foundArtifacts.DMG, foundArtifacts.ZIP, checksumsFile, "--repo", repo, "--target", head, "--title", fmt.Sprintf("macOS Manager %s", tag), "--notes-file", releaseNotes); err != nil {
 		return err
 	}
 
@@ -447,7 +447,7 @@ func writeReleaseNotes(notesFile string) (string, func(), error) {
 
 	prefix := "> These macOS artifacts are unsigned while Developer ID approval is pending.\n" +
 		"> On first launch, use right-click > Open, or remove quarantine manually:\n" +
-		"> `xattr -dr com.apple.quarantine \"/Applications/Mac OS Manager.app\"`\n\n"
+		"> `xattr -dr com.apple.quarantine \"/Applications/macOS Manager.app\"`\n\n"
 
 	if _, err := tempFile.WriteString(prefix); err != nil {
 		tempFile.Close()

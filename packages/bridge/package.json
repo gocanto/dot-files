@@ -18,7 +18,8 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && pnpm exec oxfmt --write dist"
+    "build": "pnpm run format && tsc -p tsconfig.json",
+    "format": "oxfmt --write src"
   },
   "devDependencies": {
     "@types/node": "^24.10.2",

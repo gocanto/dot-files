@@ -2,7 +2,7 @@
   "name": "ui",
   "version": "0.1.0",
   "private": true,
-  "description": "Mac OS Manager desktop UI for dot-files workflows.",
+  "description": "macOS Manager desktop UI for dot-files workflows.",
   "author": "Gus Canto",
   "repository": {
     "type": "git",
@@ -70,7 +70,7 @@
   },
   "build": {
     "appId": "io.gocanto.dot-files",
-    "productName": "Mac OS Manager",
+    "productName": "macOS Manager",
     "artifactName": "${productName}_${version}_${arch}.${ext}",
     "publish": {
       "provider": "github",

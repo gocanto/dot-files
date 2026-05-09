@@ -28,7 +28,7 @@ export function createWindow() {
     resizable: false,
     maximizable: false,
     fullscreenable: false,
-    title: "Mac OS Manager",
+    title: "macOS Manager",
     vibrancy: "sidebar",
     visualEffectState: "active",
     backgroundColor: "#00000000",
@@ -86,7 +86,7 @@ export function openDevToolsPanel(parentWindow: BrowserWindow) {
     maxHeight: devToolsWindowHeight,
     resizable: false,
     show: false,
-    title: "Mac OS Manager DevTools",
+    title: "macOS Manager DevTools",
     icon: appIcon(),
   });
 
