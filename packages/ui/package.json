@@ -90,8 +90,7 @@
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "extendInfo": {
-        "CFBundleDisplayName": "Gus' MacBook Setup",
-        "CFBundleName": "Gus' MacBook Setup"
+        "CFBundleDisplayName": "Gus' MacBook Setup"
       },
       "target": [
         "dmg",
