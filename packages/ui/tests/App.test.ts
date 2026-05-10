@@ -361,6 +361,9 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
     signinOpCli: vi.fn().mockResolvedValue({ ok: true }),
     installOpDependencies: vi.fn().mockResolvedValue({ ok: true }),
     openDevTools: vi.fn().mockResolvedValue(undefined),
+    appDiagnostics: vi.fn().mockResolvedValue([]),
+    onAppDiagnostic: vi.fn().mockReturnValue(() => {}),
+    reportRendererError: vi.fn().mockResolvedValue(undefined),
     macName: vi.fn().mockResolvedValue("Local Mac"),
     macHostname: vi.fn().mockResolvedValue("localhost"),
     macSystemInfo: vi.fn().mockResolvedValue({

@@ -14,13 +14,15 @@ import {
 } from "@app/styles";
 import { timeAgo } from "@lib/format";
 import { cn } from "@lib/utils";
-import type { RunSummary } from "@api";
+import type { AppDiagnostic, RunSummary } from "@api";
 
 defineProps<{
   logTab: string;
   searchQuery: string;
   runs: RunSummary[];
+  appDiagnostics: AppDiagnostic[];
   selectedRunId: string;
+  selectedAppDiagnosticId: string;
   runsLoading: boolean;
 }>();
 
@@ -28,7 +30,12 @@ const emit = defineEmits<{
   (event: "update:logTab", value: string): void;
   (event: "update:searchQuery", value: string): void;
   (event: "open-run", run: RunSummary): void;
+  (event: "open-app-diagnostic", diagnostic: AppDiagnostic): void;
 }>();
+
+function diagnosticStatus(level: AppDiagnostic["level"]) {
+  return level === "error" ? "failed" : level === "warning" ? "stopped" : "completed";
+}
 </script>
 
 <template>
@@ -43,6 +50,7 @@ const emit = defineEmits<{
         <TabsTrigger value="all">All</TabsTrigger>
         <TabsTrigger value="failed">Failed</TabsTrigger>
         <TabsTrigger value="active">Active</TabsTrigger>
+        <TabsTrigger value="app">App</TabsTrigger>
       </TabsList>
     </div>
     <Separator />
@@ -77,6 +85,43 @@ const emit = defineEmits<{
           </div>
         </div>
       </div>
+      <div v-else-if="logTab === 'app'" class="flex flex-col gap-2 p-4 pt-0">
+        <button
+          v-for="diagnostic in appDiagnostics"
+          :key="diagnostic.id"
+          :class="
+            cn(
+              'flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-all hover:bg-accent',
+              listItemClass,
+              selectedAppDiagnosticId === diagnostic.id && selectedListItemClass,
+            )
+          "
+          @click="emit('open-app-diagnostic', diagnostic)"
+        >
+          <div class="flex w-full flex-col gap-1">
+            <div class="flex min-w-0 items-center gap-2">
+              <div class="truncate font-semibold">{{ diagnostic.source }}</div>
+              <StatusBadge
+                class="ml-auto"
+                :status="diagnosticStatus(diagnostic.level)"
+                :label="diagnostic.level"
+              />
+            </div>
+            <div class="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+              <span class="truncate">{{ diagnostic.message }}</span>
+              <span class="shrink-0">{{ timeAgo(diagnostic.createdAt) }}</span>
+            </div>
+          </div>
+        </button>
+
+        <div
+          v-if="appDiagnostics.length === 0"
+          class="rounded-lg border border-dashed border-section-border bg-section p-8 text-center text-sm text-muted-foreground"
+        >
+          No app diagnostics recorded.
+        </div>
+      </div>
+
       <div v-else class="flex flex-col gap-2 p-4 pt-0">
         <button
           v-for="run in runs"

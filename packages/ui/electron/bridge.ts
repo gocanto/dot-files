@@ -10,6 +10,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { recordDiagnostic } from "#electron/diagnostics.js";
 import { macbookDir } from "#electron/paths.js";
 
 let bridgeClient: WorkflowBridgeClient | null = null;
@@ -77,7 +78,15 @@ async function startWorkflowBridge() {
 
   child.on("exit", (code, signal) => {
     if (bridgeClient) {
-      console.error(`api HTTP bridge exited with ${code ?? signal ?? "unknown status"}`);
+      const status = code ?? signal ?? "unknown status";
+
+      recordDiagnostic({
+        level: "error",
+        source: "Backend bridge",
+        message: `api HTTP bridge exited with ${status}`,
+        details: stderr.trim() || undefined,
+      });
+      console.error(`api HTTP bridge exited with ${status}`);
     }
 
     bridgeClient?.close();
@@ -94,6 +103,12 @@ async function startWorkflowBridge() {
   } catch (error) {
     httpClient.close();
     child.kill();
+    recordDiagnostic({
+      level: "error",
+      source: "Backend bridge",
+      message: "Failed to start api HTTP bridge",
+      details: stderr || (error instanceof Error ? error.stack : String(error)),
+    });
     throw new Error(stderr || (error instanceof Error ? error.message : String(error)));
   }
 }

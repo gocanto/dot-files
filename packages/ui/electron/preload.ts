@@ -49,6 +49,15 @@ interface OpItem {
   title: string;
 }
 
+interface AppDiagnostic {
+  id: string;
+  level: "info" | "warning" | "error";
+  source: string;
+  message: string;
+  details?: string;
+  createdAt: string;
+}
+
 type OpVaultsResult =
   | { ok: true; vaults: OpVault[] }
   | { ok: false; code: string; message: string };
@@ -86,6 +95,16 @@ contextBridge.exposeInMainWorld("macOS", {
   installOpDependencies: (): Promise<OpInstallResult> =>
     ipcRenderer.invoke("op:install-dependencies"),
   openDevTools: () => ipcRenderer.invoke("system:openDevTools"),
+  appDiagnostics: (): Promise<AppDiagnostic[]> => ipcRenderer.invoke("diagnostics:list"),
+  reportRendererError: (message: string, details?: string) =>
+    ipcRenderer.invoke("diagnostics:renderer-error", { message, details }),
+  onAppDiagnostic: (onEvent: (event: AppDiagnostic) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, event: AppDiagnostic) => onEvent(event);
+
+    ipcRenderer.on("diagnostics:event", listener);
+
+    return () => ipcRenderer.removeListener("diagnostics:event", listener);
+  },
   runWorkflow: (request: RunRequest, onEvent: (event: RunEvent) => void) => {
     const channel = `workflow:event:${crypto.randomUUID()}`;
     const listener = (_: Electron.IpcRendererEvent, event: RunEvent) => onEvent(event);

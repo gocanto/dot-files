@@ -7,4 +7,27 @@ import "./style.css";
 installBrowserFallback();
 initTheme();
 
+function reportRendererError(message: string, details?: string) {
+  window.macOS?.reportRendererError?.(message, details).catch(() => {
+    // Swallow to avoid recursive unhandledrejection loops.
+  });
+}
+
+window.addEventListener("error", (event) => {
+  reportRendererError(
+    event.message || "Unhandled renderer error",
+    [event.filename, event.lineno ? `line ${event.lineno}` : "", event.error?.stack]
+      .filter(Boolean)
+      .join("\n"),
+  );
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  const reason = event.reason;
+  const message = reason instanceof Error ? reason.message : String(reason);
+  const details = reason instanceof Error ? reason.stack : undefined;
+
+  reportRendererError(message || "Unhandled renderer rejection", details);
+});
+
 createApp(App).mount("#app");

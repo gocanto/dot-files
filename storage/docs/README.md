@@ -1,4 +1,4 @@
-# macOS Manager
+# gus-mac
 
 > A repeatable way to restore and converge a Mac from tracked policy: developer
 > tools, applications, Stow-managed dotfiles, macOS defaults, selective
@@ -301,7 +301,7 @@ Unsigned builds require a manual first launch. Use right-click -> Open, or
 remove quarantine manually:
 
 ```sh
-xattr -dr com.apple.quarantine "/Applications/macOS Manager.app"
+xattr -dr com.apple.quarantine "/Applications/gus-mac.app"
 ```
 
 After Developer ID approval, use `pnpm --dir packages/ui run dist:mac:signed`

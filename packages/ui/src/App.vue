@@ -38,6 +38,7 @@ const {
   selectedWorkflowId,
   selectedRunId,
   selectedRunLog,
+  selectedAppDiagnosticId,
   pendingOption,
   running,
   workflowsLoading,
@@ -92,11 +93,13 @@ const {
   templateFileDirty,
   matchingWorkflows,
   matchingRuns,
+  matchingAppDiagnostics,
   runStatus,
   outputText,
   outputSections,
   workflowProgress,
   selectedRunOutputSections,
+  selectedAppDiagnostic,
   detailPaneOpen,
   loadAll,
   selectSection,
@@ -120,6 +123,7 @@ const {
   updateConfirmationOpen,
   runSelected,
   openRun,
+  openAppDiagnostic,
   validateSettings,
   requestSaveSettings,
   updateSettingsSaveConfirmationOpen,
@@ -209,9 +213,12 @@ const {
                   v-model:log-tab="logTab"
                   v-model:search-query="searchQuery"
                   :runs="matchingRuns"
+                  :app-diagnostics="matchingAppDiagnostics"
                   :selected-run-id="selectedRunId"
+                  :selected-app-diagnostic-id="selectedAppDiagnosticId"
                   :runs-loading="runsLoading"
                   @open-run="openRun"
+                  @open-app-diagnostic="openAppDiagnostic"
                 />
 
                 <SettingsListPanel
@@ -254,6 +261,7 @@ const {
                   :has-step-meta="Boolean(stepMeta)"
                   :selected-workflow="selectedWorkflow"
                   :selected-run-log="selectedRunLog"
+                  :selected-app-diagnostic="selectedAppDiagnostic"
                   :run-log-loading="runLogLoading"
                   :run-status="runStatus"
                 />
@@ -306,6 +314,7 @@ const {
                   v-else-if="section === 'logs'"
                   :run-log-loading="runLogLoading"
                   :selected-run-log="selectedRunLog"
+                  :selected-app-diagnostic="selectedAppDiagnostic"
                   :selected-run-output-sections="selectedRunOutputSections"
                 />
 

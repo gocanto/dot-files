@@ -510,7 +510,7 @@ func writeReleaseNotes(notesFile string) (string, func(), error) {
 
 	prefix := "> These macOS artifacts are unsigned while Developer ID approval is pending.\n" +
 		"> On first launch, use right-click > Open, or remove quarantine manually:\n" +
-		"> `xattr -dr com.apple.quarantine \"/Applications/macOS Manager.app\"`\n\n"
+		"> `xattr -dr com.apple.quarantine \"/Applications/gus-mac.app\"`\n\n"
 
 	if _, err := tempFile.WriteString(prefix); err != nil {
 		tempFile.Close()
