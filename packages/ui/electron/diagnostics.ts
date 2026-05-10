@@ -1,5 +1,6 @@
-import { BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import { randomUUID } from "node:crypto";
+import { stopWorkflowBridge } from "#electron/bridge.js";
 
 export type AppDiagnosticLevel = "info" | "warning" | "error";
 
@@ -99,22 +100,28 @@ export function attachWindowDiagnostics(window: BrowserWindow) {
   });
 }
 
-process.on("uncaughtException", (error) => {
+function shutdownAfterFatal(error: Error) {
   recordDiagnostic({
     level: "error",
     source: "Main process",
     message: error.message,
     details: error.stack,
   });
+
+  try {
+    stopWorkflowBridge();
+  } catch (cleanupError) {
+    console.error("Cleanup failed during fatal shutdown", cleanupError);
+  }
+
+  app.exit(1);
+}
+
+process.on("uncaughtException", (error) => {
+  shutdownAfterFatal(error);
 });
 
 process.on("unhandledRejection", (reason) => {
   const error = reason instanceof Error ? reason : new Error(String(reason));
-
-  recordDiagnostic({
-    level: "error",
-    source: "Main process",
-    message: error.message,
-    details: error.stack,
-  });
+  shutdownAfterFatal(error);
 });

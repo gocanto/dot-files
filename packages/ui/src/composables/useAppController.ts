@@ -471,15 +471,15 @@ export function useAppController() {
     return section.value === "settings";
   });
 
+  let unsubscribeAppDiagnostic: () => void = () => {};
+
   onMounted(() => {
     void loadAll();
     void loadAppDiagnostics();
-  });
-
-  const unsubscribeAppDiagnostic =
-    window.macOS.onAppDiagnostic?.((diagnostic) => {
+    unsubscribeAppDiagnostic = window.macOS.onAppDiagnostic((diagnostic) => {
       upsertAppDiagnostic(diagnostic);
-    }) ?? (() => {});
+    });
+  });
 
   onUnmounted(() => {
     unsubscribeAppDiagnostic();

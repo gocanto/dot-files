@@ -12,7 +12,7 @@ const child = spawn("pnpm", args, {
     ...process.env,
     CSC_IDENTITY_AUTO_DISCOVERY:
       mode === "unsigned" ? "false" : process.env.CSC_IDENTITY_AUTO_DISCOVERY,
-    NODE_OPTIONS: "--no-deprecation",
+    NODE_OPTIONS: [process.env.NODE_OPTIONS, "--no-deprecation"].filter(Boolean).join(" "),
   },
   stdio: ["ignore", "pipe", "pipe"],
 });
