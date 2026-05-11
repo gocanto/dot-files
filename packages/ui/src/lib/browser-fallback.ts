@@ -134,7 +134,7 @@ export function installBrowserFallback() {
     secretsConfigPath: "/repo/secrets.yaml",
     generatedAppsPath: "/repo/apps.generated.yaml",
     archiveRoot: "/Users/local/.local/state/macos-settings-archives",
-    workflowDbPath: "/Users/local/Library/Application Support/dot-files/workflows.sqlite3",
+    workflowDbPath: "/Users/local/Library/Application Support/gus-mac/workflows.sqlite3",
     opVault: "Private",
     opItem: "Mac Migration Archive",
   };

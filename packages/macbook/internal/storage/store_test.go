@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -75,74 +74,22 @@ func TestStorePersistsRunsAndEventsInOrder(t *testing.T) {
 	}
 }
 
-func TestDefaultPathMigratesOldNamespaceDatabase(t *testing.T) {
+func TestDefaultPathReturnsGusMacNamespace(t *testing.T) {
 	t.Setenv(envDBPath, "")
 
 	home := t.TempDir()
-	oldPath := filepath.Join(home, "Library", "Application Support", "mac-os", "workflows.sqlite3")
+	got := DefaultPath(home)
+	want := filepath.Join(home, "Library", "Application Support", "gus-mac", "workflows.sqlite3")
 
-	if err := os.MkdirAll(filepath.Dir(oldPath), 0o700); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := os.WriteFile(oldPath, []byte("old-db"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	newPath := DefaultPath(home)
-	wantPath := filepath.Join(home, "Library", "Application Support", "dot-files", "workflows.sqlite3")
-
-	if newPath != wantPath {
-		t.Fatalf("path = %q, want %q", newPath, wantPath)
-	}
-
-	got, err := os.ReadFile(newPath)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if string(got) != "old-db" {
-		t.Fatalf("new database content = %q", got)
-	}
-
-	if _, err := os.Stat(oldPath); !os.IsNotExist(err) {
-		t.Fatalf("old database still exists or stat failed: %v", err)
+	if got != want {
+		t.Fatalf("path = %q, want %q", got, want)
 	}
 }
 
-func TestDefaultPathDoesNotOverwriteNewNamespaceDatabase(t *testing.T) {
-	t.Setenv(envDBPath, "")
+func TestDefaultPathHonorsEnvOverride(t *testing.T) {
+	t.Setenv(envDBPath, "/tmp/custom.sqlite3")
 
-	home := t.TempDir()
-	oldPath := filepath.Join(home, "Library", "Application Support", "mac-os", "workflows.sqlite3")
-	newPath := filepath.Join(home, "Library", "Application Support", "dot-files", "workflows.sqlite3")
-
-	for _, path := range []string{oldPath, newPath} {
-		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	if err := os.WriteFile(oldPath, []byte("old-db"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := os.WriteFile(newPath, []byte("new-db"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	if got := DefaultPath(home); got != newPath {
-		t.Fatalf("path = %q, want %q", got, newPath)
-	}
-
-	got, err := os.ReadFile(newPath)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if string(got) != "new-db" {
-		t.Fatalf("new database was overwritten with %q", got)
+	if got := DefaultPath(t.TempDir()); got != "/tmp/custom.sqlite3" {
+		t.Fatalf("path = %q, want %q", got, "/tmp/custom.sqlite3")
 	}
 }

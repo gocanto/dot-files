@@ -21,7 +21,8 @@ export interface SettingsGroup {
   id: string;
   label: string;
   icon: Component;
-  count: number;
+  valid: number;
+  total: number;
 }
 
 export interface SelectOption {

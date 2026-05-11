@@ -18,6 +18,13 @@ export default defineConfig({
       "@api": resolve(__dirname, "./src/types/api.ts"),
     },
   },
+  test: {
+    environment: "happy-dom",
+    globals: true,
+    alias: {
+      "#electron-src/": resolve(__dirname, "./electron") + "/",
+    },
+  },
   server: {
     host: "127.0.0.1",
     allowedHosts: ["dot-files-ui.localhost"],
@@ -26,9 +33,5 @@ export default defineConfig({
       host: "dot-files-ui.localhost",
       clientPort: 1355,
     },
-  },
-  test: {
-    environment: "happy-dom",
-    globals: true,
   },
 });

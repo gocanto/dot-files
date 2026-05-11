@@ -27,7 +27,7 @@ const selectedListItemClass = "border-primary/50 bg-accent text-accent-foregroun
       :key="workflow.id"
       :class="
         cn(
-          'flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-all hover:bg-accent',
+          'flex cursor-pointer flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-all hover:bg-accent',
           listItemClass,
           selectedId === workflow.id && selectedListItemClass,
         )

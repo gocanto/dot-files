@@ -348,7 +348,7 @@ function continueDirtyAction() {
             <button
               v-for="file in filteredFiles"
               :key="file.path"
-              class="flex items-start gap-3 rounded-lg border border-section-border bg-section-muted p-3 text-left text-sm transition-colors hover:bg-accent"
+              class="flex cursor-pointer items-start gap-3 rounded-lg border border-section-border bg-section-muted p-3 text-left text-sm transition-colors hover:bg-accent"
               :class="
                 selectedPath === file.path &&
                 'border-primary bg-primary/10 text-primary shadow-sm ring-2 ring-primary/30'
@@ -401,7 +401,7 @@ function continueDirtyAction() {
           <p class="mt-1 text-sm text-muted-foreground">{{ error }}</p>
         </section>
 
-        <div class="grid h-full min-h-0 p-4">
+        <div class="row-start-3 grid h-full min-h-0 p-4">
           <template v-if="contentLoading">
             <div class="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3">
               <Skeleton class="h-4 w-44" />

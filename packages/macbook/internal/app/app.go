@@ -44,6 +44,8 @@ func Run(args []string) int {
 		return 1
 	}
 
+	command.EnsureSystemPath()
+
 	a := newApp(home, findRepoRoot(repo), os.Stdin, os.Stdout, os.Stderr, command.RealRunner{})
 
 	return a.run(args)

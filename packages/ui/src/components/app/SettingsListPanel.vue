@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { Badge } from "@ui/badge";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
@@ -10,8 +11,10 @@ import type { SettingsGroup } from "@app/types";
 import { cn } from "@lib/utils";
 import type { SettingsResponse, Workflow } from "@api";
 
-defineProps<{
+const props = defineProps<{
   settingsLoading: boolean;
+  settingsValidating: boolean;
+  settingsSaving: boolean;
   settingsResponse: SettingsResponse | null;
   settingsGroups: SettingsGroup[];
   workflowsLoading: boolean;
@@ -19,8 +22,11 @@ defineProps<{
   selectedWorkflowId: string;
 }>();
 
+const countsLoading = computed(() => props.settingsValidating || props.settingsSaving);
+
 const emit = defineEmits<{
   (event: "select-workflow", workflow: Workflow): void;
+  (event: "select-group", id: string): void;
 }>();
 </script>
 
@@ -54,26 +60,39 @@ const emit = defineEmits<{
         </div>
       </template>
       <template v-else>
-        <div
+        <button
           v-for="group in settingsGroups"
           :key="group.id"
-          class="flex items-center gap-3 rounded-lg border border-section-border bg-section p-3 text-sm shadow-sm"
+          type="button"
+          :data-testid="`settings-group-${group.id}`"
+          class="flex w-full items-center gap-3 rounded-lg border border-section-border bg-section p-3 text-left text-sm shadow-sm transition-colors hover:bg-section-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          @click="emit('select-group', group.id)"
         >
           <component :is="group.icon" class="size-4 text-muted-foreground" />
           <div class="min-w-0 flex-1">
             <div class="font-medium">{{ group.label }}</div>
-            <div class="truncate text-xs text-muted-foreground">
+            <Skeleton
+              v-if="countsLoading"
+              :data-testid="`settings-group-${group.id}-subtitle-skeleton`"
+              class="mt-1 h-3 w-32"
+            />
+            <div v-else class="truncate text-xs text-muted-foreground">
               {{
-                group.count === 0
-                  ? "No validation errors"
-                  : `${group.count} issue${group.count === 1 ? "" : "s"}`
+                group.valid === group.total
+                  ? "All checks passing"
+                  : `${group.total - group.valid} issue${group.total - group.valid === 1 ? "" : "s"}`
               }}
             </div>
           </div>
-          <Badge :variant="group.count === 0 ? 'secondary' : 'destructive'">{{
-            group.count
+          <Skeleton
+            v-if="countsLoading"
+            :data-testid="`settings-group-${group.id}-badge-skeleton`"
+            class="h-5 w-10 rounded-full"
+          />
+          <Badge v-else :variant="group.valid === group.total ? 'secondary' : 'destructive'">{{
+            `${group.valid}/${group.total}`
           }}</Badge>
-        </div>
+        </button>
       </template>
     </div>
     <Separator />

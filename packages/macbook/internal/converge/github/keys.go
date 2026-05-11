@@ -111,12 +111,10 @@ func (s Service) findGPGKey(email string) string {
 
 func (s Service) writePrivateGitconfig(dryRun bool, identity Identity, gpgKey string) error {
 	path := filepath.Join(s.Repo, "stow", "git", ".config", "git", "private.gitconfig")
-	gpgProgram := "/opt/homebrew/bin/gpg"
+	gpgProgram, err := commandLookPath("gpg")
 
-	if !fileExists(gpgProgram) {
-		if out, err := s.Runner.Run("sh", "-c", "command -v gpg"); err == nil && strings.TrimSpace(string(out)) != "" {
-			gpgProgram = strings.TrimSpace(string(out))
-		}
+	if err != nil {
+		gpgProgram = "gpg"
 	}
 
 	data := fmt.Sprintf(`[user]
@@ -140,12 +138,6 @@ func (s Service) writePrivateGitconfig(dryRun bool, identity Identity, gpgKey st
 	fmt.Fprintf(s.Stdout, "updated private Git config: %s\n", path)
 
 	return nil
-}
-
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-
-	return err == nil
 }
 
 func (s Service) uploadSSHKey(pubPath string) error {

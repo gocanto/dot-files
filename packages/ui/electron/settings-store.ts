@@ -21,13 +21,17 @@ export function settingsPath() {
   return join(app.getPath("userData"), "settings.json");
 }
 
+export function defaultWorkflowDbPath() {
+  return join(app.getPath("userData"), "workflows.sqlite3");
+}
+
 export function readSavedSettings(): Partial<RuntimeSettings> {
   try {
-    const data = JSON.parse(readFileSync(settingsPath(), "utf8")) as Partial<RuntimeSettings>;
+    const raw = JSON.parse(readFileSync(settingsPath(), "utf8")) as Partial<RuntimeSettings>;
 
-    return cleanSettings(data);
+    return cleanSettings(raw);
   } catch {
-    return {};
+    return cleanSettings({});
   }
 }
 
@@ -43,7 +47,9 @@ export function cleanSettings(settings: Partial<RuntimeSettings>): Partial<Runti
     secretsConfigPath: settings.secretsConfigPath ?? "",
     generatedAppsPath: settings.generatedAppsPath ?? "",
     archiveRoot: settings.archiveRoot ?? "",
-    workflowDbPath: settings.workflowDbPath ?? "",
+    workflowDbPath: settings.workflowDbPath?.trim()
+      ? settings.workflowDbPath
+      : defaultWorkflowDbPath(),
     opVault: settings.opVault ?? "",
     opItem: settings.opItem ?? "",
   };

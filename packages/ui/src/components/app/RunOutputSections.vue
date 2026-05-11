@@ -63,7 +63,7 @@ function toggleSection(sectionId: string) {
     >
       <button
         type="button"
-        class="flex w-full items-center justify-between gap-3 bg-white/[0.06] px-3 py-2 text-left transition-colors hover:bg-white/[0.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-terminal"
+        class="flex w-full cursor-pointer items-center justify-between gap-3 bg-white/[0.06] px-3 py-2 text-left transition-colors hover:bg-white/[0.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-terminal"
         :class="isExpanded(section.id) ? 'border-b border-white/10' : ''"
         :aria-expanded="isExpanded(section.id)"
         :aria-controls="`run-output-section-${section.id}`"

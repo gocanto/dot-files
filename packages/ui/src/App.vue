@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { AlertTriangle, Inbox } from "lucide-vue-next";
-import { defineAsyncComponent } from "vue";
+import { defineAsyncComponent, ref } from "vue";
 import AppSidebar from "@app/AppSidebar.vue";
 import ConfirmationDialog from "@app/ConfirmationDialog.vue";
 import DetailToolbar from "@app/DetailToolbar.vue";
@@ -43,6 +43,8 @@ const {
   running,
   workflowsLoading,
   runsLoading,
+  appDiagnosticsLoading,
+  filterPending,
   initialLoading,
   runLogLoading,
   loadError,
@@ -64,6 +66,7 @@ const {
   opItemsLoadedFor,
   opSigninLoading,
   opInstallLoading,
+  opManageActive,
   toasts,
   templateFiles,
   templateFilesLoaded,
@@ -110,6 +113,7 @@ const {
   saveTemplateFile,
   cancelTemplateFileEdit,
   loadOpVaults,
+  manageOp,
   onOpVaultChange,
   onOpItemChange,
   signinOpCli,
@@ -135,6 +139,12 @@ const {
   chooseFile,
   chooseSaveFile,
 } = useAppController();
+
+const settingsScrollTarget = ref<{ id: string; nonce: number } | null>(null);
+
+function selectSettingsGroup(id: string) {
+  settingsScrollTarget.value = { id, nonce: Date.now() };
+}
 </script>
 
 <template>
@@ -217,6 +227,8 @@ const {
                   :selected-run-id="selectedRunId"
                   :selected-app-diagnostic-id="selectedAppDiagnosticId"
                   :runs-loading="runsLoading"
+                  :app-diagnostics-loading="appDiagnosticsLoading"
+                  :filter-pending="filterPending"
                   @open-run="openRun"
                   @open-app-diagnostic="openAppDiagnostic"
                 />
@@ -224,12 +236,15 @@ const {
                 <SettingsListPanel
                   v-else-if="section === 'settings'"
                   :settings-loading="settingsLoading"
+                  :settings-validating="settingsValidating"
+                  :settings-saving="settingsSaving"
                   :settings-response="settingsResponse"
                   :settings-groups="settingsGroups"
                   :workflows-loading="workflowsLoading"
                   :settings-workflows="settingsWorkflows"
                   :selected-workflow-id="selectedWorkflowId"
                   @select-workflow="selectWorkflow"
+                  @select-group="selectSettingsGroup"
                 />
 
                 <SystemStatusPanel
@@ -264,6 +279,7 @@ const {
                   :selected-app-diagnostic="selectedAppDiagnostic"
                   :run-log-loading="runLogLoading"
                   :run-status="runStatus"
+                  @close-detail="closeDetailPane"
                 />
 
                 <Separator />
@@ -340,7 +356,9 @@ const {
                   :op-item-select-disabled="opItemSelectDisabled"
                   :op-signin-loading="opSigninLoading"
                   :op-install-loading="opInstallLoading"
+                  :op-manage-active="opManageActive"
                   :op-saved-fields="opSavedFields"
+                  :scroll-target="settingsScrollTarget"
                   @update-setting="updateSetting"
                   @choose-directory="chooseDirectory"
                   @choose-file="chooseFile"
@@ -353,6 +371,7 @@ const {
                   @signin-op-cli="signinOpCli"
                   @install-op-dependencies="installOpDependencies"
                   @load-op-vaults="loadOpVaults"
+                  @manage-op="manageOp"
                 />
 
                 <EmptyDetail v-else :section="section" />

@@ -130,7 +130,7 @@ const emit = defineEmits<{
           <button
             v-for="phase in displayPhases"
             :key="phase.id"
-            class="flex w-full items-center gap-3 border-b border-section-border px-3 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-accent"
+            class="flex w-full cursor-pointer items-center gap-3 border-b border-section-border px-3 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-accent"
             @click="emit('toggle-phase', phase)"
           >
             <CheckCircle2 v-if="phase.enabled" class="size-4 shrink-0 text-primary" />

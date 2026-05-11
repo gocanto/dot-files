@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { Search } from "lucide-vue-next";
 import StatusBadge from "@components/StatusBadge.vue";
 import { Input } from "@ui/input";
@@ -16,7 +17,7 @@ import { timeAgo } from "@lib/format";
 import { cn } from "@lib/utils";
 import type { AppDiagnostic, RunSummary } from "@api";
 
-defineProps<{
+const props = defineProps<{
   logTab: string;
   searchQuery: string;
   runs: RunSummary[];
@@ -24,7 +25,16 @@ defineProps<{
   selectedRunId: string;
   selectedAppDiagnosticId: string;
   runsLoading: boolean;
+  appDiagnosticsLoading: boolean;
+  filterPending: boolean;
 }>();
+
+const showRunsSkeleton = computed(
+  () => props.logTab !== "app" && (props.runsLoading || props.filterPending),
+);
+const showAppDiagnosticsSkeleton = computed(
+  () => props.logTab === "app" && (props.appDiagnosticsLoading || props.filterPending),
+);
 
 const emit = defineEmits<{
   (event: "update:logTab", value: string): void;
@@ -69,7 +79,7 @@ function diagnosticStatus(level: AppDiagnostic["level"]) {
       </form>
     </div>
     <ScrollArea class="min-h-0 flex-1">
-      <div v-if="runsLoading" data-testid="runs-list-skeleton" class="flex flex-col gap-2 p-4 pt-0">
+      <div v-if="showRunsSkeleton" data-testid="runs-list-skeleton" class="flex flex-col gap-2 p-4">
         <div
           v-for="index in 4"
           :key="index"
@@ -85,7 +95,27 @@ function diagnosticStatus(level: AppDiagnostic["level"]) {
           </div>
         </div>
       </div>
-      <div v-else-if="logTab === 'app'" class="flex flex-col gap-2 p-4 pt-0">
+      <div
+        v-else-if="showAppDiagnosticsSkeleton"
+        data-testid="app-diagnostics-list-skeleton"
+        class="flex flex-col gap-2 p-4"
+      >
+        <div
+          v-for="index in 4"
+          :key="index"
+          class="rounded-lg border border-section-border bg-section p-3 shadow-sm"
+        >
+          <div class="flex items-center gap-2">
+            <Skeleton class="h-4 w-32" />
+            <Skeleton class="ml-auto h-5 w-16 rounded-full" />
+          </div>
+          <div class="mt-2 flex items-center justify-between gap-3">
+            <Skeleton class="h-3 w-48" />
+            <Skeleton class="h-3 w-16" />
+          </div>
+        </div>
+      </div>
+      <div v-else-if="logTab === 'app'" class="flex flex-col gap-2 p-4">
         <button
           v-for="diagnostic in appDiagnostics"
           :key="diagnostic.id"
@@ -122,7 +152,7 @@ function diagnosticStatus(level: AppDiagnostic["level"]) {
         </div>
       </div>
 
-      <div v-else class="flex flex-col gap-2 p-4 pt-0">
+      <div v-else class="flex flex-col gap-2 p-4">
         <button
           v-for="run in runs"
           :key="run.id"
