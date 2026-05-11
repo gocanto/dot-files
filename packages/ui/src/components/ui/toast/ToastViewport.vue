@@ -71,7 +71,7 @@ function iconClass(tone: ToastTone = "info") {
         </div>
         <button
           type="button"
-          class="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          class="cursor-pointer rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
           @click="emit('dismiss', toast.id)"
         >
           <X class="size-3.5" />

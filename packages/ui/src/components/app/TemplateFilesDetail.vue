@@ -348,7 +348,7 @@ function continueDirtyAction() {
             <button
               v-for="file in filteredFiles"
               :key="file.path"
-              class="flex items-start gap-3 rounded-lg border border-section-border bg-section-muted p-3 text-left text-sm transition-colors hover:bg-accent"
+              class="flex cursor-pointer items-start gap-3 rounded-lg border border-section-border bg-section-muted p-3 text-left text-sm transition-colors hover:bg-accent"
               :class="
                 selectedPath === file.path &&
                 'border-primary bg-primary/10 text-primary shadow-sm ring-2 ring-primary/30'
