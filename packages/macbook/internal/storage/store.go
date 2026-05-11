@@ -6,7 +6,6 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -110,65 +109,7 @@ func DefaultPath(home string) string {
 		return override
 	}
 
-	path := filepath.Join(home, "Library", "Application Support", "dot-files", "workflows.sqlite3")
-
-	if err := migrateDefaultPath(home, path); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: migrate workflow database to dot-files namespace: %v\n", err)
-	}
-
-	return path
-}
-
-func migrateDefaultPath(home, newPath string) error {
-	oldPath := filepath.Join(home, "Library", "Application Support", "mac-os", "workflows.sqlite3")
-
-	if _, err := os.Stat(newPath); err == nil {
-		return nil
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("stat new database: %w", err)
-	}
-
-	if _, err := os.Stat(oldPath); errors.Is(err, os.ErrNotExist) {
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("stat old database: %w", err)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(newPath), 0o700); err != nil {
-		return fmt.Errorf("create new database directory: %w", err)
-	}
-
-	if err := os.Rename(oldPath, newPath); err == nil {
-		return nil
-	} else if copyErr := copyFile(oldPath, newPath); copyErr != nil {
-		return fmt.Errorf("move old database: %w; copy fallback: %w", err, copyErr)
-	}
-
-	return nil
-}
-
-func copyFile(from, to string) error {
-	source, err := os.Open(from)
-
-	if err != nil {
-		return err
-	}
-
-	defer source.Close()
-
-	destination, err := os.OpenFile(to, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-
-	if err != nil {
-		return err
-	}
-
-	defer destination.Close()
-
-	if _, err := io.Copy(destination, source); err != nil {
-		return err
-	}
-
-	return destination.Sync()
+	return filepath.Join(home, "Library", "Application Support", "gus-mac", "workflows.sqlite3")
 }
 
 func (s *Store) Close() error {

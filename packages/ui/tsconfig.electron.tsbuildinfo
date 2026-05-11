@@ -1,0 +1,1 @@
+{"root":["./electron/app-icon.ts","./electron/bridge.ts","./electron/diagnostics.ts","./electron/ipc.ts","./electron/main.ts","./electron/paths.ts","./electron/preload.ts","./electron/settings-store.ts","./electron/system-info.ts","./electron/terminal.ts","./electron/windows.ts"],"version":"6.0.3"}

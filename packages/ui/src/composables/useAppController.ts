@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   Wand2,
 } from "lucide-vue-next";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import type { SectionId } from "@app/types";
 import type { ToastItem, ToastTone } from "@ui/toast";
 import { loadThemeFromBackend, useTheme } from "@composables/useTheme";
@@ -68,11 +68,15 @@ export function useAppController() {
   const running = ref(false);
   const workflowsLoading = ref(true);
   const runsLoading = ref(true);
+  const appDiagnosticsLoading = ref(true);
+  const filterPending = ref(false);
   const initialLoading = ref(true);
   const runLogLoading = ref(false);
   const loadError = ref("");
   const searchQuery = ref("");
   const logTab = ref("all");
+  const debouncedSearch = ref("");
+  const debouncedLogTab = ref("all");
   const settingsResponse = ref<SettingsResponse | null>(null);
   const settingsForm = ref<RuntimeSettings>(emptySettings());
   const settingsSaving = ref(false);
@@ -91,6 +95,7 @@ export function useAppController() {
   const opItemsLoadedFor = ref<string>("");
   const opSigninLoading = ref(false);
   const opInstallLoading = ref(false);
+  const opManageActive = ref(false);
   const toasts = ref<ToastItem[]>([]);
   const templateFiles = ref<TemplateFileSummary[]>([]);
   const templateFilesLoaded = ref(false);
@@ -270,47 +275,47 @@ export function useAppController() {
     },
   ]);
 
-  const settingsGroups = computed(() => [
-    {
-      id: "repository",
-      label: "Repository",
-      icon: FolderOpen,
-      count: settingsChecks.value
-        .filter((check) => ["repo_root", "stow"].includes(check.key))
-        .filter((check) => check.status !== "ok").length,
-    },
-    {
-      id: "manifests",
-      label: "Manifests",
-      icon: FileText,
-      count: settingsChecks.value
-        .filter((check) =>
-          [
-            "apps_config_path",
-            "secrets_config_path",
-            "generated_apps_path",
-            "private_gitconfig_path",
-          ].includes(check.key),
-        )
-        .filter((check) => check.status !== "ok").length,
-    },
-    {
-      id: "storage",
-      label: "Storage",
-      icon: Database,
-      count: settingsChecks.value
-        .filter((check) => check.key === "workflow_db_path")
-        .filter((check) => check.status !== "ok").length,
-    },
-    {
-      id: "operations",
-      label: "Operations",
-      icon: KeyRound,
-      count: settingsChecks.value
-        .filter((check) => check.key === "archive_root")
-        .filter((check) => check.status !== "ok").length,
-    },
-  ]);
+  const settingsGroups = computed(() => {
+    const tally = (keys: string[]) => {
+      const checks = settingsChecks.value.filter((check) => keys.includes(check.key));
+      return {
+        total: checks.length,
+        valid: checks.filter((check) => check.status === "ok").length,
+      };
+    };
+
+    return [
+      {
+        id: "repository",
+        label: "Repository",
+        icon: FolderOpen,
+        ...tally(["repo_root", "stow"]),
+      },
+      {
+        id: "manifests",
+        label: "Manifests",
+        icon: FileText,
+        ...tally([
+          "apps_config_path",
+          "secrets_config_path",
+          "generated_apps_path",
+          "private_gitconfig_path",
+        ]),
+      },
+      {
+        id: "storage",
+        label: "Storage",
+        icon: Database,
+        ...tally(["workflow_db_path"]),
+      },
+      {
+        id: "operations",
+        label: "Operations",
+        icon: KeyRound,
+        ...tally(["archive_root"]),
+      },
+    ];
+  });
 
   const displayPhases = computed(() => {
     if (!selectedWorkflow.value) {
@@ -340,6 +345,24 @@ export function useAppController() {
   const templateFileDirty = computed(() => templateFileDraft.value !== templateFileContent.value);
 
   const normalizedSearch = computed(() => searchQuery.value.trim().toLowerCase());
+  const normalizedDebouncedSearch = computed(() => debouncedSearch.value.trim().toLowerCase());
+
+  let logFilterTimer: ReturnType<typeof setTimeout> | null = null;
+  watch([searchQuery, logTab], ([nextSearch, nextTab]) => {
+    if (nextSearch === debouncedSearch.value && nextTab === debouncedLogTab.value) {
+      return;
+    }
+    filterPending.value = true;
+    if (logFilterTimer) {
+      clearTimeout(logFilterTimer);
+    }
+    logFilterTimer = setTimeout(() => {
+      debouncedSearch.value = nextSearch;
+      debouncedLogTab.value = nextTab;
+      filterPending.value = false;
+      logFilterTimer = null;
+    }, 180);
+  });
 
   const sectionWorkflows = computed(() => {
     if (section.value === "logs" || section.value === "settings" || section.value === "status") {
@@ -359,11 +382,11 @@ export function useAppController() {
   });
 
   const matchingRuns = computed(() => {
-    if (logTab.value === "app") {
+    if (debouncedLogTab.value === "app") {
       return [];
     }
 
-    const query = normalizedSearch.value;
+    const query = normalizedDebouncedSearch.value;
     const filtered = query
       ? runs.value.filter((run) =>
           [
@@ -379,11 +402,11 @@ export function useAppController() {
         )
       : runs.value;
 
-    if (logTab.value === "failed") {
+    if (debouncedLogTab.value === "failed") {
       return filtered.filter((run) => run.status === "failed");
     }
 
-    if (logTab.value === "active") {
+    if (debouncedLogTab.value === "active") {
       return filtered.filter((run) => ["running", "pending"].includes(run.status));
     }
 
@@ -391,7 +414,7 @@ export function useAppController() {
   });
 
   const matchingAppDiagnostics = computed(() => {
-    const query = normalizedSearch.value;
+    const query = normalizedDebouncedSearch.value;
     const filtered = query
       ? appDiagnostics.value.filter((diagnostic) =>
           [diagnostic.level, diagnostic.source, diagnostic.message, diagnostic.details ?? ""]
@@ -483,9 +506,14 @@ export function useAppController() {
 
   onUnmounted(() => {
     unsubscribeAppDiagnostic();
+    if (logFilterTimer) {
+      clearTimeout(logFilterTimer);
+      logFilterTimer = null;
+    }
   });
 
   async function loadAppDiagnostics() {
+    appDiagnosticsLoading.value = true;
     try {
       appDiagnostics.value = await window.macOS.appDiagnostics();
     } catch (error) {
@@ -497,6 +525,8 @@ export function useAppController() {
         details: errorMessage(error),
         createdAt: new Date().toISOString(),
       });
+    } finally {
+      appDiagnosticsLoading.value = false;
     }
   }
 
@@ -678,6 +708,8 @@ export function useAppController() {
     selectedTemplateFiles.value = false;
     templateEditorReturnState.value = null;
 
+    resetOpManageState();
+
     if (next === "logs") {
       void refreshRuns();
       void loadAppDiagnostics();
@@ -685,12 +717,25 @@ export function useAppController() {
 
     if (next === "settings") {
       void loadSettings();
-      void loadOpVaults();
     }
 
     if (next === "status") {
       void loadSettings();
     }
+  }
+
+  function resetOpManageState() {
+    opManageActive.value = false;
+    opVaults.value = [];
+    opItems.value = [];
+    opVaultsError.value = "";
+    opItemsError.value = "";
+    opItemsLoadedFor.value = "";
+  }
+
+  async function manageOp() {
+    opManageActive.value = true;
+    await loadOpVaults();
   }
 
   async function loadOpVaults() {
@@ -1069,9 +1114,13 @@ export function useAppController() {
   }
 
   async function refreshRuns() {
-    runs.value = await window.macOS.runs(25);
-
-    return runs.value;
+    runsLoading.value = true;
+    try {
+      runs.value = await window.macOS.runs(25);
+      return runs.value;
+    } finally {
+      runsLoading.value = false;
+    }
   }
 
   async function openRun(run: RunSummary) {
@@ -1136,7 +1185,19 @@ export function useAppController() {
     settingsValidating.value = true;
 
     try {
-      settingsResponse.value = await window.macOS.validateSettings({ ...settingsForm.value });
+      const response = await window.macOS.validateSettings({ ...settingsForm.value });
+      settingsResponse.value = response;
+
+      if (response.valid) {
+        settingsMessage.value = "Settings look good.";
+        pushToast("Settings validated", "All checks passed.", "success");
+      } else {
+        settingsError.value = "Some checks failed. Review the highlighted rows.";
+        pushToast("Settings need review", settingsError.value, "error");
+      }
+    } catch (error) {
+      settingsError.value = error instanceof Error ? error.message : String(error);
+      pushToast("Validation failed", settingsError.value, "error");
     } finally {
       settingsValidating.value = false;
     }
@@ -1295,6 +1356,8 @@ export function useAppController() {
     running,
     workflowsLoading,
     runsLoading,
+    appDiagnosticsLoading,
+    filterPending,
     initialLoading,
     runLogLoading,
     loadError,
@@ -1316,6 +1379,7 @@ export function useAppController() {
     opItemsLoadedFor,
     opSigninLoading,
     opInstallLoading,
+    opManageActive,
     toasts,
     templateFiles,
     templateFilesLoaded,
@@ -1362,6 +1426,7 @@ export function useAppController() {
     cancelTemplateFileEdit,
     updateTemplateFileDraft,
     loadOpVaults,
+    manageOp,
     onOpVaultChange,
     onOpItemChange,
     signinOpCli,

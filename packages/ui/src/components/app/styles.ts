@@ -1,7 +1,7 @@
 export const panelFrameClass = "bg-panel";
 export const panelHeaderClass = "bg-section";
 export const searchBarClass =
-  "border-b border-section-border bg-section-muted/95 px-4 pt-4 pb-2 backdrop-blur supports-[backdrop-filter]:bg-section-muted/80";
+  "border-b border-section-border bg-section-muted/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-section-muted/80";
 export const listItemClass =
   "bg-section border-section-border shadow-sm hover:border-primary/40 hover:bg-accent";
 export const selectedListItemClass = "border-primary/50 bg-accent text-accent-foreground shadow-sm";

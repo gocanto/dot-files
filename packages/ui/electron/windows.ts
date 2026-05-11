@@ -8,8 +8,10 @@ const appWindowWidth = 2000;
 const appWindowHeight = 1280;
 const appWindowMinWidth = 1120;
 const appWindowMinHeight = 760;
-const devToolsWindowWidth = 400;
-const devToolsWindowHeight = 400;
+const devToolsWindowWidth = 1100;
+const devToolsWindowHeight = 800;
+const devToolsWindowMinWidth = 600;
+const devToolsWindowMinHeight = 400;
 
 let mainWindow: BrowserWindow | null = null;
 let devToolsWindow: BrowserWindow | null = null;
@@ -88,11 +90,9 @@ export function openDevToolsPanel(parentWindow: BrowserWindow) {
   devToolsWindow = new BrowserWindow({
     width: devToolsWindowWidth,
     height: devToolsWindowHeight,
-    minWidth: devToolsWindowWidth,
-    minHeight: devToolsWindowHeight,
-    maxWidth: devToolsWindowWidth,
-    maxHeight: devToolsWindowHeight,
-    resizable: false,
+    minWidth: devToolsWindowMinWidth,
+    minHeight: devToolsWindowMinHeight,
+    resizable: true,
     show: false,
     title: "Gus' MacBook Setup DevTools",
     icon: appIcon(),

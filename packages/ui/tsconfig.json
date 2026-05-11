@@ -16,10 +16,11 @@
       "@ui/*": ["./src/components/ui/*"],
       "@composables/*": ["./src/composables/*"],
       "@lib/*": ["./src/lib/*"],
-      "@api": ["./src/types/api.ts"]
+      "@api": ["./src/types/api.ts"],
+      "#electron-src/*": ["./electron/*"]
     },
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "vitest/globals", "web-bluetooth"],
+    "types": ["node", "vite/client", "vitest/globals", "web-bluetooth"],
     "skipLibCheck": true
   },
   "include": ["src/**/*.ts", "src/**/*.vue", "tests/**/*.ts"]

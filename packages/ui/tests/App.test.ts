@@ -303,7 +303,7 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
         secretsConfigPath: "/repo/secrets.yaml",
         generatedAppsPath: "/repo/apps.generated.yaml",
         archiveRoot: "/Users/gus/.local/state/macos-settings-archives",
-        workflowDbPath: "/Users/gus/Library/Application Support/dot-files/workflows.sqlite3",
+        workflowDbPath: "/Users/gus/Library/Application Support/gus-mac/workflows.sqlite3",
         opVault: "Private",
         opItem: "Mac Migration Archive",
       },
@@ -318,7 +318,7 @@ function installApi(overrides: Partial<MacOSApi> = {}) {
         {
           key: "workflow_db_path",
           label: "Workflow SQLite database",
-          path: "/Users/gus/Library/Application Support/dot-files/workflows.sqlite3",
+          path: "/Users/gus/Library/Application Support/gus-mac/workflows.sqlite3",
           status: "ok",
           message: "ok",
         },
@@ -1568,7 +1568,7 @@ describe("App", () => {
     expect(templateFileLanguage("/repo/stow/ghostty/.config/ghostty/config")).toBe("plaintext");
   });
 
-  it("renders settings and saves changed repo configuration", async () => {
+  it("renders settings and saves changed workflow database configuration", async () => {
     const api = installApi();
 
     const wrapper = mount(App);
@@ -1581,7 +1581,7 @@ describe("App", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("Workflow SQLite database");
-    await wrapper.find('[data-testid="settings-repo-root"]').setValue("/repo-next");
+    await wrapper.find('[data-testid="settings-workflow-db"]').setValue("/db-next.sqlite3");
     await wrapper
       .findAll("button")
       .find((button) => button.text().includes("Save settings"))
@@ -1596,8 +1596,8 @@ describe("App", () => {
 
     expect(api.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({
-        repoRoot: "/repo-next",
-        workflowDbPath: "/Users/gus/Library/Application Support/dot-files/workflows.sqlite3",
+        repoRoot: "/repo",
+        workflowDbPath: "/db-next.sqlite3",
       }),
     );
     expect(wrapper.text()).toContain("Settings saved");
@@ -1615,7 +1615,7 @@ describe("App", () => {
       ?.trigger("click");
     await flushPromises();
 
-    await wrapper.find('[data-testid="settings-repo-root"]').setValue("/repo-next");
+    await wrapper.find('[data-testid="settings-workflow-db"]').setValue("/db-next.sqlite3");
     await wrapper
       .findAll("button")
       .find((button) => button.text().includes("Save settings"))
@@ -1628,9 +1628,9 @@ describe("App", () => {
     await flushPromises();
 
     expect(api.saveSettings).not.toHaveBeenCalled();
-    expect(wrapper.find<HTMLInputElement>('[data-testid="settings-repo-root"]').element.value).toBe(
-      "/repo-next",
-    );
+    expect(
+      wrapper.find<HTMLInputElement>('[data-testid="settings-workflow-db"]').element.value,
+    ).toBe("/db-next.sqlite3");
   });
 
   it("shows skeletons while settings load on entering Settings", async () => {
@@ -1695,11 +1695,11 @@ describe("App", () => {
         settings,
         checks: [
           {
-            key: "repo_root",
-            label: "Repository root",
-            path: settings.repoRoot,
+            key: "workflow_db",
+            label: "Workflow database",
+            path: settings.workflowDbPath,
             status: "error",
-            message: "missing repo markers",
+            message: "missing workflow database",
           },
         ],
       })),
@@ -1713,7 +1713,7 @@ describe("App", () => {
       .find((button) => button.text().includes("Settings"))
       ?.trigger("click");
     await flushPromises();
-    await wrapper.find('[data-testid="settings-repo-root"]').setValue("/broken");
+    await wrapper.find('[data-testid="settings-workflow-db"]').setValue("/broken");
     await wrapper
       .findAll("button")
       .find((button) => button.text().includes("Save settings"))
@@ -1723,10 +1723,121 @@ describe("App", () => {
     findDialogButton("Save settings")?.click();
     await flushPromises();
 
-    expect(api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ repoRoot: "/broken" }));
-    expect(wrapper.find<HTMLInputElement>('[data-testid="settings-repo-root"]').element.value).toBe(
-      "/broken",
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ workflowDbPath: "/broken" }),
     );
-    expect(wrapper.text()).toContain("missing repo markers");
+    expect(
+      wrapper.find<HTMLInputElement>('[data-testid="settings-workflow-db"]').element.value,
+    ).toBe("/broken");
+    expect(wrapper.text()).toContain("missing workflow database");
+  });
+
+  it("shows skeleton placeholders for group counters while validation is in flight", async () => {
+    let resolveValidate: ((value: SettingsResponse) => void) | undefined;
+    installApi({
+      validateSettings: vi.fn(
+        () =>
+          new Promise<SettingsResponse>((resolve) => {
+            resolveValidate = resolve;
+          }),
+      ),
+    });
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Settings"))
+      ?.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="settings-group-repository"]').text()).toContain("1/1");
+
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().trim() === "Validate")
+      ?.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="settings-group-repository-badge-skeleton"]').exists()).toBe(
+      true,
+    );
+    expect(
+      wrapper.find('[data-testid="settings-group-repository-subtitle-skeleton"]').exists(),
+    ).toBe(true);
+    expect(wrapper.find('[data-testid="settings-group-repository"]').text()).not.toContain("1/1");
+
+    resolveValidate?.({
+      valid: true,
+      settings: {
+        repoRoot: "/repo",
+        appsConfigPath: "/repo/apps.yaml",
+        secretsConfigPath: "/repo/secrets.yaml",
+        generatedAppsPath: "/repo/apps.generated.yaml",
+        archiveRoot: "/archive",
+        workflowDbPath: "/db.sqlite3",
+        opVault: "Private",
+        opItem: "Mac Migration Archive",
+      },
+      checks: [
+        {
+          key: "repo_root",
+          label: "Repository root",
+          path: "/repo",
+          status: "ok",
+          message: "ok",
+        },
+      ],
+    });
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="settings-group-repository-badge-skeleton"]').exists()).toBe(
+      false,
+    );
+    expect(wrapper.find('[data-testid="settings-group-repository"]').text()).toContain("1/1");
+  });
+
+  it("scrolls the matching settings section into view when a middle-column group is clicked", async () => {
+    installApi();
+
+    const scrollIntoView = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollIntoView;
+
+    try {
+      const wrapper = mount(App, { attachTo: document.body });
+      await flushPromises();
+
+      await wrapper
+        .findAll("button")
+        .find((button) => button.text().includes("Settings"))
+        ?.trigger("click");
+      await flushPromises();
+
+      const repoGroup = wrapper.find('[data-testid="settings-group-repository"]');
+      expect(repoGroup.exists()).toBe(true);
+      expect(repoGroup.text()).toContain("1/1");
+      expect(repoGroup.text()).toContain("All checks passing");
+
+      await repoGroup.trigger("click");
+      await flushPromises();
+
+      const repoCard = document.getElementById("settings-section-repository");
+      expect(repoCard).not.toBeNull();
+      expect(scrollIntoView).toHaveBeenCalled();
+      expect(scrollIntoView.mock.instances[0]).toBe(repoCard);
+
+      await wrapper.find('[data-testid="settings-group-storage"]').trigger("click");
+      await flushPromises();
+
+      expect(scrollIntoView).toHaveBeenCalledTimes(2);
+      const storageCard = document.getElementById("settings-section-storage");
+      expect(scrollIntoView.mock.instances[1]).toBe(storageCard);
+
+      wrapper.unmount();
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
   });
 });
